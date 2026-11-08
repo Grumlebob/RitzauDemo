@@ -201,7 +201,7 @@ Mandatory runtime acceptance: Books public listing/detail; Blazor prerender and 
 
 For each PR, record head SHA, complete local gate, exact-head CI, integrated main SHA, exact-main publication outcome and remaining blockers. Do not present source fixture tests as the full gate. Do not dispatch a deployment from a documentation-only SHA lacking its own release; select the recorded published SHA explicitly.
 
-The original preparation created this packet, the main plan, reusable preflight and source inventory generator/JSON. Subsequent execution imported the seed and created the native product checkout; no runner/bootstrap/deployment followed. Retain all four support files with the revised plan. Sanitize and synchronize the revised documentation into RitzauDemo through its first normal PR; the parent workspace copy is the fresh-chat authority until then.
+The original preparation created this packet, the main plan, reusable preflight and source inventory generator/JSON. Subsequent execution imported the seed, created the native product checkout, and prepared the local product admission/identity branch; no runner/bootstrap/deployment followed. Retain all four support files with the revised plan. The sanitized current plan and packet plus the historical inventory, generator and preflight are synchronized in the local product branch; the parent workspace copy remains the fresh-chat authority until its first normal PR.
 
 ## 8. Native bootstrap is broader than runner registration
 
