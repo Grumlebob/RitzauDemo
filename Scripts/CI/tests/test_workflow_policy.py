@@ -17,6 +17,75 @@ SPEC.loader.exec_module(policy)
 
 
 class WorkflowPolicyTests(unittest.TestCase):
+    def test_native_heavy_ci_paths_use_runner_build_admission(self) -> None:
+        root = Path(__file__).resolve().parents[3]
+        workflow = policy.yaml.safe_load((root / ".github" / "workflows" / "ci.yml").read_text(encoding="utf-8"))
+        expected = {
+            "validate": [
+                "Setup Python", "Deployment template render validation", "Deployment YAML lint",
+                "Audit .NET packages for vulnerabilities", "Audit .NET packages for deprecations",
+                "Restore", "Verify .NET formatting", "Docker preflight for integration tests",
+                "Build and test both frontend profiles", "Prove Testcontainers lifecycle cleanup",
+                "Install frontend dependencies", "Audit frontend dependencies", "Build Tailwind CSS",
+                "Install pinned npm for React frontend", "Install React frontend dependencies",
+                "Audit React frontend dependencies", "Check React OpenAPI contract", "Lint React frontend",
+                "Test React frontend", "Build React frontend", "React public Chromium browser regression",
+                "Build and smoke both frontend image profiles",
+                "Remove this run's smoke resources after interruption", "Remove this run's local Docker image",
+            ],
+            "publish-main": [
+                "Restore .NET projects for this publisher run", "Restore .NET tools",
+                "Build migration bundle for this exact publisher run", "Build browser smoke test binaries",
+                "Build Docker image", "Docker smoke and browser smoke",
+                "Remove this run's smoke resources after interruption", "Tag Docker image for release",
+                "Push Docker image", "Publish additional frontend",
+                "Remove additional frontend resources after interruption", "Remove this run's build tag",
+            ],
+        }
+        for job_id in ("validate", "publish-main"):
+            with self.subTest(job=job_id):
+                job = workflow["jobs"][job_id]
+                self.assertEqual("native", job["env"]["CI_ADMISSION_POOL"])
+                self.assertIn("${{ vars.CI_ADMISSION_BOOTSTRAP_RUNNER_LABEL }}", str(job["runs-on"]))
+                steps = {step.get("name"): step for step in job["steps"]}
+                for name in expected[job_id]:
+                    run = steps[name]["run"]
+                    self.assertIn("with-runner-build-admission.sh", run, name)
+                    self.assertIn('--pool "$CI_ADMISSION_POOL"', run, name)
+
+                runner_check = steps["Verify CI runner"]
+                self.assertEqual(
+                    "${{ vars.CI_ADMISSION_BOOTSTRAP_RUNNER_LABEL }}",
+                    runner_check["env"]["CI_ADMISSION_BOOTSTRAP_RUNNER_LABEL"],
+                )
+                self.assertEqual("${{ vars.CI_RUNNER_LABEL }}", runner_check["env"]["CI_CANONICAL_RUNNER_LABEL"])
+                self.assertIn("CI_RUNNER_LABEL must remain quarantined", runner_check["run"])
+
+        result_gate = workflow["jobs"]["ci-result-gate"]
+        self.assertIn("${{ vars.CI_ADMISSION_BOOTSTRAP_RUNNER_LABEL }}", str(result_gate["runs-on"]))
+        dependabot_notice = workflow["jobs"]["notify-dependabot-automerge"]
+        self.assertIn("${{ vars.CI_RUNNER_LABEL }}", str(dependabot_notice["runs-on"]))
+
+        for workflow_path in (root / ".github" / "workflows").glob("*"):
+            if workflow_path.name != "ci.yml" and workflow_path.is_file():
+                self.assertNotIn("CI_ADMISSION_BOOTSTRAP_RUNNER_LABEL", workflow_path.read_text(encoding="utf-8"))
+
+        admission_test = next(step for step in workflow["jobs"]["validate"]["steps"]
+                              if step.get("name") == "Test runner build admission")
+        self.assertIn("test-with-runner-build-admission.sh", admission_test["run"])
+        self.assertNotIn('bash "$GITHUB_WORKSPACE/Deployment/Common/Scripts/with-runner-build-admission.sh"',
+                         admission_test["run"])
+
+        reservation = next(step for step in workflow["jobs"]["publish-main"]["steps"]
+                           if step.get("name") == "Check registry deletion reservation before publication")
+        self.assertIn("with-deploy-lock.sh", reservation["run"])
+        self.assertNotIn("with-runner-build-admission.sh", reservation["run"])
+
+        helper = (root / "Deployment" / "Common" / "Scripts" / "with-runner-build-admission.sh").read_text(encoding="utf-8")
+        self.assertIn('localsinglenode|localsinglenode-*) admit=true', helper)
+        self.assertIn('localcluster|localcluster-*) admit=false', helper)
+        self.assertIn('with-node-browser-lock.sh', helper)
+
     def _audit(self, workflows: dict[str, str], store_source: str | None = None):
         with tempfile.TemporaryDirectory(prefix="workflow-policy-") as temporary:
             root = Path(temporary)

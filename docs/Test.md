@@ -20,7 +20,9 @@ Publication, deployment and registry retention share a non-cancelling `queue: ma
 
 CI stores full TRX and React unit-test reports, plus available browser screenshots and traces, on the self-hosted runner. Packaged smoke TRX files use the same terminal job directory. Routine reports do not use GitHub artifact storage. Each terminal job summary reports test totals, the runner name, a retrieval command, and observed report-store size. Run that command on the same runner after checking out the reported commit. Reports expire after 3 days for successful jobs and 7 days for failed jobs; pins and active-reader locks protect selected reports. The LocalSingleNode maintenance workflow reports store usage and prunes expired reports under the shared deployment lock.
 
-CI jobs run on the runner labelled by the `CI_RUNNER_LABEL` repository variable. Each job first checks that label's format and that the runner's hostname matches `CI_RUNNER_HOST`. The stable `build-test-push` result gate rejects skipped or failed validation, and skipped or failed publication on `main`.
+During the guarded first-runner rollout, `validate`, `publish-main`, and the result gate run on `CI_ADMISSION_BOOTSTRAP_RUNNER_LABEL`; each verifies the native host. Keep `CI_RUNNER_LABEL` on a distinct, unregistered quarantine label until stale branches and queued jobs are reconciled. The stable `build-test-push` result gate rejects skipped or failed validation, and skipped or failed publication on `main`.
+
+Resource-heavy validation and publication steps use `with-runner-build-admission.sh` and the existing shared node browser lock. During the guarded first-runner rollout, `validate`, `publish-main`, and the result gate use `CI_ADMISSION_BOOTSTRAP_RUNNER_LABEL`; keep `CI_RUNNER_LABEL` on an unregistered quarantine label until stale branches and queued jobs are reconciled. The workflow verifies the host and requires the two labels to differ. Keep one wrapper around each heavy step or full shell block, including owned cleanup. Do not nest the lock inside an admitted block; its contention test runs outside admission.
 
 ## Local Gate
 

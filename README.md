@@ -1,6 +1,6 @@
-# GrumPlates
+# RitzauDemo
 
-GrumPlates is a .NET 10 application template with two frontend profiles: `BlazorAuto`, the default Interactive Auto Blazor app, and an optional React SPA with public catalog pages and accounts. Both use the same ASP.NET Core backend. PostgreSQL stores app data and Data Protection keys; Redis supports distributed caching.
+RitzauDemo is a .NET 10 demo application with `BlazorAuto` as its default Interactive Auto Blazor profile and an optional React profile. Both use the same ASP.NET Core backend and showcase a Books catalog, account features, PostgreSQL-backed data, and Redis caching.
 
 Run the local Docker stack:
 

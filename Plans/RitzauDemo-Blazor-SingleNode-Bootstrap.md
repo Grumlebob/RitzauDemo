@@ -1,6 +1,21 @@
 # RitzauDemo: Blazor-only clone and safe single-node bootstrap
 
-Status: execution in progress. Tracked goal 01a1bab6-b022-7f22-b9cc-af83862b268c. Started 2026-11-08.
+Status: revised and approved for resumption on 2026-11-08. The seed import and native clone are complete. The user approved a narrowly scoped CarbonCalculator native-CI admission change, resolving the previous scope conflict. GrumPlates and CarbonCalculator admission branches now pass their full local gates; exact-head CI and integration remain pending. A stale CarbonCalculator dispatch is still queued with no jobs, so preserve it and defer new native CI until reconciliation. Keep RitzauDemo Actions disabled through the controlled rollout below. No native bootstrap or RitzauDemo deployment has occurred.
+
+## Fresh-chat starting point and approved amendment
+
+The user explicitly approved the coexistence approach on 2026-11-08 and requested this updated handoff. This workspace plan and its adjacent support packet supersede the older copies committed in the RitzauDemo seed. Do not repeat the initial import, generate another seed, force-push, recreate the existing clones, or treat CarbonCalculator admission as an excluded change.
+
+- Objective: keep existing sites serving on the shared native node and add the independently deployed RitzauDemo site. Runtime applications run concurrently; one resource-heavy native build/test block runs at a time. Queueing a build must not stop a site.
+- Approved repository scope: RitzauDemo product work, GrumPlates admission integration, and CarbonCalculator **native CI admission only**, including directly required helper, workflow, tests, audit and documentation changes. CarbonCalculator application code, runtime deployment, runner registrations, route selection, desktop/native fallback, secrets and schedules retain their existing behavior.
+- Product, template and CarbonCalculator primary checkouts are sibling repositories in the shared workspace. Inspect current instructions, claims, worktrees, open PRs and live jobs before editing. Use a dedicated branch/worktree per repository; do not use another task's checkout or build capacity.
+- Verified seed/main: `5931a4a872de39db8a85ac886bcdf40097bc99db`. Full original local gate passed on this exact commit. Template baseline: `ee9af0b985f86c9568cbf077aeb20336841446de`. Researched CarbonCalculator main: `0d255392b99eb635030f9c90a03de8a6d37d227c`. Fetch and inspect current state; these are historical reference SHAs, not authority to overwrite newer work.
+- The native product checkout was previously verified clean on `main` at the seed SHA with the correct origin and `app_name=ritzaudemo`. Host identity, login, backup and collision evidence remain in private installation notes. Follow private machine guidance before SSH or WSL work. Keep private paths and machine facts out of public commits.
+- RitzauDemo repository Actions are disabled; no product runner is registered. GitHub-hosted Dependabot automation nevertheless created four PRs at the last inspection. Recheck them; leave dependency upgrades out of bootstrap and ensure old workflow versions cannot reach the new native runner during rollout.
+- Initial revalidation is complete for this resumed session. Preserve the checked baselines and host evidence; continue the three-repository admission coverage in Phase 2A and support packet section 3. The original CarbonCalculator scope blocker is resolved by approval, not by completed implementation.
+- The previous goal was marked `blocked`; this resumed session created a new active goal with the approved scope. Preserve unfinished phases and the mandatory native operator handoff.
+
+The latest read-only idle snapshot showed existing applications serving with low memory pressure. Exact host measurements remain private. This supports a measured rollout; it does not prove peak build capacity or justify unlimited workloads. Old allocated swap alone is not evidence of current thrashing; record swap-in/out rates and memory pressure during acceptance.
 
 ## Execution packet and preparation completed now
 
@@ -9,35 +24,35 @@ Read [Support/RitzauDemo-ExecutionPacket.md](Support/RitzauDemo-ExecutionPacket.
 - [x] Generate [the source dependency inventory](Support/RitzauDemo-SourceInventory.json): exact SHA, normalized hashes, 85 React consumers, 21 removed-target consumers, 15 release-label consumers, 9 setup/admission files and 3 migration files.
 - [x] Verify the inventory against unchanged source with [the read-only generator](Support/RitzauDemo-SourceInventory.py).
 - [x] Run 69 offline setup, collision/ownership, settings and frontend-profile fixture checks successfully. [The reusable preflight](Support/RitzauDemo-Preflight.sh) includes correct WSL .NET PATH setup, candidate schema validation and existing lock-helper regression tests.
-- [x] Recheck native workload, listeners, networks, candidate app paths and runner presence without changing resources. An additional out-of-scope CI producer requires a live admission-safety review before any new heavy work.
+- [x] Recheck native workload/listeners/networks and candidate app paths without changing resources. An existing CarbonCalculator runner service is present; live heavy-work eligibility remains a specific safety check, not authorization to change it.
 - [x] Resolve setup ordering: minimal product identity/resource defaults belong in the first main import, before normal PR work. A feature-branch bootstrap cannot pass the existing clean-main gate.
 - [x] Identify hidden dependencies: Node version parsing from the React Dockerfile stage in both CI and smoke; lifecycle tests selecting React; an existing Common Ansible wrapper; password-resource lookup string; fixed initial migration ID.
 
-Keep all four support files with this tracked product plan. These checks do not prove the full application gate, live collision gate, memory admission, bootstrap effects or deployment acceptance.
+Keep all four support files with this plan when copying it into RitzauDemo. These checks do not prove the full application gate, live collision gate, memory admission, bootstrap effects or deployment acceptance.
 
 ## Purpose and confirmed decisions
 
 Create an independent product repository at https://github.com/Grumlebob/RitzauDemo from GrumPlates. Keep the Books example and its sample assets initially. Remove React, retain Blazor Interactive Auto, retain accounts with registration disabled, support only LocalSingleNode, and fully rename the surviving solution, projects, namespaces, and product identity to RitzauDemo.
 
-Repository ownership and canonical URLs must remain under Grumlebob. Do not transfer repositories or introduce an organization migration. CI and deployment for the initial RitzauDemo setup remain on `<deployment-node>`, using a separate repository runner registration and host-wide admission for heavy work. Share machine capacity across projects without claiming that GitHub offers a personal-account runner pool. Keep all existing applications, databases, runners, credentials, DNS, and backups intact. The product will eventually have its own public hostname; selection is deferred. Establish LAN deployment first.
+Repository ownership and canonical URLs must remain under Grumlebob. Do not transfer repositories or introduce an organization migration. CI and deployment for the initial RitzauDemo setup remain on the shared native node, using a separate repository runner registration and host-wide admission for heavy work. Share machine capacity across projects without claiming that GitHub offers a personal-account runner pool. Keep all existing applications, databases, runners, credentials, DNS, and backups intact. The product will eventually have its own public hostname; selection is deferred. Establish LAN deployment first.
 
 Preserve template Git history. Keep an explicit `upstream` remote for optional manual template imports; do not configure automatic upstream merges. Do not replace any existing demo site.
 
-Execution is active under the tracked goal. The user has included RitzauDemo deployment on `<deployment-node>` in scope. Complete repository setup, CI, application setup, LAN deployment and independent acceptance. Preserve the mandatory operator bootstrap handoff below.
+Execution began at the user's explicit request on 2026-11-08. Carry the plan through repository setup, CI, application setup, deployment and independent acceptance; do not treat deployment as optional. Preserve the specific operator bootstrap requirement below. Stop implementation if an out-of-scope producer prevents safe admission; do not solve that blocker by changing another project.
 
-## Hard scope boundary — GrumPlates and RitzauDemo only
+## Hard scope boundary — product work plus three-repository CI admission
 
-- The only repositories eligible for implementation changes in this plan are `Grumlebob/GrumPlates` and `Grumlebob/RitzauDemo`. Other projects mentioned during runner discussion are context, not a migration or modification list.
-- RitzauDemo receives all product customization and deployment: React removal, single-node-only simplification, rename, identity, settings, runner registration, its own application/PostgreSQL/Redis resources on `<deployment-node>`, CI/CD configuration, backups, deployment and independent acceptance. Phases 1 and 3–8 refer to RitzauDemo unless explicitly stated otherwise.
+- Eligible repositories are `Grumlebob/RitzauDemo` for product work, plus `Grumlebob/GrumPlates` and `Grumlebob/CarbonCalculator` solely for the admission integration defined here. The CarbonCalculator exception is explicitly user-approved; it is not permission for unrelated work.
+- RitzauDemo receives all product customization and deployment: React removal, single-node-only simplification, rename, identity, settings, runner registration, its own application/PostgreSQL/Redis resources on the shared native node, CI/CD configuration, backups, deployment and independent acceptance. Phases 1 and 3–8 refer to RitzauDemo unless explicitly stated otherwise.
 - GrumPlates remains a reusable template with both frontend profiles and its existing deployment targets. Limit any GrumPlates changes to the reviewed CI build-admission integration needed for its runner to coexist safely with RitzauDemo. Do not remove React or cluster/cloud support from GrumPlates, change its deployment routing or identity, or dispatch a GrumPlates deployment.
-- Do not modify CarbonCalculator, ImprovedDb, Portfolio, JobHunt, KinoJoin, their repositories, runners, secrets, environments, deployments, clusters, or schedules. ImprovedDb retains its own cluster. Do not register those projects on `<deployment-node>` or relocate any project here.
-- Shared-host inspection may read existing `<deployment-node>` workload, listeners, ownership and health solely to protect neighbors. Discovering another producer does not authorize changing it. If safe build admission requires an out-of-scope change, stop that implementation phase and report the exact dependency instead of expanding scope.
-- On `<deployment-node>`, add only RitzauDemo-owned application resources and the narrowly reviewed admission integration for GrumPlates/RitzauDemo. Preserve existing app data, runners, routes, tunnels, credentials, backup policy, Docker configuration and services. Do not restart or reconfigure shared services as a side effect without reviewing the actual effect and obtaining separate authorization for any disruption.
+- CarbonCalculator changes are limited to making its native CI/manual heavy work participate in the shared host lock and preserving its existing tests, reports, release provenance and routing. Do not change its product logic, runtime resources, CI topology, registrations, secrets, environments or schedules. ImprovedDb, Portfolio, JobHunt and KinoJoin remain excluded in full; preserve their existing topology.
+- Shared-host inspection may read existing workloads, listeners, ownership and health solely to protect neighbors. Discovering another producer does not authorize changing it. If safe build admission requires an out-of-scope change, stop that implementation phase and report the exact dependency instead of expanding scope.
+- On the shared native node, add RitzauDemo-owned application resources and the narrowly reviewed admission integration for GrumPlates/RitzauDemo/CarbonCalculator. Preserve existing app data, runners, routes, tunnels, credentials, backup policy, Docker configuration and services. Do not restart or reconfigure shared services as a side effect without reviewing the actual effect and obtaining separate authorization for any disruption.
 - No organization, URL transfer, shared runner pool rollout, multi-project cleanup, runner fleet redesign, or unrelated cluster operation belongs in this plan.
 
 ## Plan location and private installation facts
 
-This sanitized execution copy lives in RitzauDemo `Plans/`. Do not modify or publish GrumPlates merely to deliver the plan. The only permitted GrumPlates code change is the narrowly scoped CI admission integration described above, through its own reviewed PR. Keep actual machine, address, login, neighbor inventory, tunnel, and key details in ignored/private installation notes.
+This file currently lives in the parent workspace's `Plans/`, outside the template checkout. Do not modify or publish GrumPlates merely to deliver this plan. The only planned template code change is the narrowly scoped CI admission integration described above, through its own reviewed PR. When creating RitzauDemo, copy a sanitized version into its own tracked `Plans/` and retain progress there.
 
 The host alias above is a local planning input. Before publishing this plan, replace private machine identifiers with `<deployment-node>` and keep actual host, address, login, observed neighbor inventory, installation-specific overrides, tunnel state, and key paths in ignored/private installation notes. Generic non-secret product resource defaults may live in the product inventory, as in the canonical primary setup route; see the execution packet. The public repository must not inherit machine-specific details from this workspace. Product/repository names and generic placeholder examples are safe to track.
 
@@ -48,13 +63,13 @@ The host alias above is a local planning input. Before publishing this plan, rep
 - [x] Verify template primary checkout is clean on `main`, with no additional registered worktrees.
 - [x] Verify local template HEAD matches GitHub `main`: `ee9af0b985f86c9568cbf077aeb20336841446de`.
 - [x] Read fork, standalone-product, frontend-profile, single-node-only, local-gate, release, controller-SSH, readiness, and setup guides.
-- [x] Verify authorized controller access and GitHub repository administration through supported authentication. Never print tokens.
-- [x] Verify the template uses a repository-scoped deployment runner. Its registration cannot run RitzauDemo workflows.
+- [x] Verify passwordless SSH and native GitHub repository administration access on the selected host. Never print tokens.
+- [x] Verify the existing GrumPlates deployment runner is online. Its repository registration cannot run RitzauDemo workflows.
 - [x] Inspect the runner installer: it supports a separate service and directory per application and refuses foreign registrations.
-- [x] Inspect read-only capacity, health, storage and neighbor inventory. Keep observed values and application details in ignored/private installation notes; this is not deployment acceptance.
+- [x] Inspect a read-only capacity snapshot on the target node. Host metrics, disk and existing Books, React Books and CarbonCalculator health were recorded privately; the idle snapshot is not peak-capacity evidence.
 - [x] Find critical coupling: CI builds both frontend profiles; required audit, smoke, capacity, and Ansible scripts still live under LocalCluster; shared tests reference removed targets.
 
-These are planning observations, not deployment acceptance. A clean product clone now exists at the verified source SHA; its minimal identity seed is being prepared. No product push, runner installation, node bootstrap, deployment, or cleanup has occurred. No full application gate has run. The preparation pass ran the 69 offline fixture checks above; those do not constitute build or deployment acceptance.
+These are planning observations, not deployment acceptance. The target import and separate native clone are complete. Full `docs/Test.md` local gate passed on seed SHA `5931a4a872de39db8a85ac886bcdf40097bc99db`; the four profile suites passed with zero failures (197/149 for BlazorAuto and 189/135 for React; only 15 documented opt-in E2E skips in each non-account suite). The earlier 69-fixture preflight also passed. No runner installation, node bootstrap, deployment, or app cleanup has occurred. The canonical native collision parser remains pending; candidate resources are not reserved.
 
 ## Read these canonical files before their implementation phase
 
@@ -70,7 +85,7 @@ The existing React-only guide describes the opposite frontend removal. It is not
 
 ## Execution rules and evidence
 
-- Work in the new product checkout and specifically owned native checkout. Use a separate GrumPlates task branch only for its explicitly scoped CI admission integration. Never rename the template checkout or point its origin at RitzauDemo.
+- Work in the existing product checkout and specifically owned native checkout. Use separate GrumPlates and CarbonCalculator task branches/worktrees only for their scoped admission integrations. Never rename the template checkout or point another repository's origin at RitzauDemo.
 - Re-read applicable instructions when entering each checkout. Read the private machine guide before SSH, WSL, tool, or runner changes.
 - Use one phase per PR after initial repository seeding. Run the current complete local gate before pushing non-Markdown changes. Require `build-test-push` on the exact PR head, then verify the integrated `origin/main` commit and applicable main CI.
 - Update audits and test expectations alongside behavior changes. A missing script, skipped suite, suppressed assertion, or green wrapper around failed work is not a passing gate.
@@ -86,42 +101,42 @@ The user explicitly rejects repository URL changes. Keep every repository owned 
 
 GitHub repository runners are registered to one repository. There is no native personal-account-wide shared runner registration. This registration limit does not require a separate physical machine for each repository. Multiple repository registrations can use the same host, provided resource-heavy work is coordinated.
 
-Use the existing supported per-repository installer for RitzauDemo and implement effective host-wide build admission in Phase 2A. On `<deployment-node>`, admit only one heavy CI/manual build at a time until measured capacity supports more. Other runner services may remain online while their jobs wait for admission. Waiting listeners and jobs still consume some memory, so measure baseline and queued-job overhead as well as build peaks. Do not start heavyweight setup, dependency installation, Docker builds or test containers before admission.
+Use the existing supported per-repository installer for RitzauDemo and implement effective host-wide build admission in Phase 2A. On the shared native node, admit only one heavy CI/manual build at a time until measured capacity supports more. Other runner services may remain online while their jobs wait for admission. Waiting listeners and jobs still consume some memory, so measure baseline and queued-job overhead as well as build peaks. Do not start heavyweight setup, dependency installation, Docker builds or test containers before admission.
 
-Do not add registrations for other projects or build a general runner pool. This plan adds only RitzauDemo's registration on `<deployment-node>` and, if needed, a compatible build-admission change in GrumPlates. Existing projects keep their current CI and deployment hosts. The actual template checkout here is `GrumPlates`, not the historical `BlazorAutoApp` path supplied during discussion.
+Do not add registrations for other projects or build a general runner pool. This plan adds only RitzauDemo's registration and compatible admission calls in the existing GrumPlates and CarbonCalculator workflows. Existing projects keep their CI/deployment hosts and routing. The template checkout is `GrumPlates`, not the historical `BlazorAutoApp` path.
 
-A central dispatcher, organization migration, dynamic runner scheduler, or multi-host rollout is outside scope. If the two-repository arrangement cannot be made safe without touching another project, report that blocker and leave the new heavy CI disabled. Do not solve it by changing another repository, pausing its runner, moving its jobs, or altering its cluster.
+A central dispatcher, organization migration, dynamic runner scheduler, or multi-host rollout is outside scope. Coordinate the three known native producers through one shared lock. A newly discovered producer outside these three remains a scope boundary; inspect it read-only and report a concrete dependency if it prevents safety. Do not pause its runner, move its jobs or alter its cluster.
 
-Phase 2 below covers only GrumPlates/RitzauDemo coexistence. No fleet-wide runner change is authorized, and this session remains planning-only.
+Phase 2 covers GrumPlates/RitzauDemo/CarbonCalculator native build coexistence. No fleet-wide runner change is authorized. CarbonCalculator native build eligibility is now an implementation requirement, not the former out-of-scope blocker.
 
 Source: [GitHub runner scopes](https://docs.github.com/en/actions/concepts/runners/self-hosted-runners).
 
 ## Phase 0 — Refresh facts and establish isolated work areas
 
-1. [x] Confirm the target was empty through the GitHub API before clone. If it has content later, fetch and inspect it; do not overwrite or force-push it.
-2. [x] Recheck template cleanliness and GitHub main SHA: clean `main` at `ee9af0b985f86c9568cbf077aeb20336841446de`, matching GitHub `main`.
-3. [x] Confirm isolated product directory was absent before clone; no other task or private inputs were overwritten.
-4. [x] Create a private installation record outside tracked files. It records the selected node, app ownership, Docker storage/workspace filesystems and candidate settings.
-5. [x] Recheck existing app health, fresh backup restoration, runner activity, Docker workload, free disk, memory pressure and host identity. All existing app backups restored in isolated verification containers.
-6. [x] Inventory occupied TCP listeners, Docker published ports/subnets, Caddy sites, app/backup roots, runner services and installed application records without exposing credentials.
-7. [ ] Select distinct candidate app/database/Redis/LAN listener ports, subnet, app/backup roots, and later public origin port. Do not use the Books defaults on this shared host. Validate candidates through the existing collision/readiness parser.
+1. [x] Confirm the target is empty. No target branch existed before import.
+2. [x] Recheck template cleanliness and GitHub main SHA. The exact baseline is `ee9af0b985f86c9568cbf077aeb20336841446de`; source checkout remained unchanged.
+3. [x] Confirm the target product workspace was new and contained no other task or private inputs. No pre-existing folder was removed.
+4. [x] Create a private installation record outside tracked files for host, neighbor, backup, capacity and candidate evidence.
+5. [x] Recheck existing app health, backup restore verification, runner activity, Docker workload, disk, memory and host identity. Existing applications remained healthy.
+6. [x] Inventory occupied TCP listeners, Docker published ports/subnets, Caddy sites, app and backup roots, runner services and installed app records without exposing credentials.
+7. [ ] Select distinct product candidates and validate them through the canonical collision/readiness parser. Candidate defaults are recorded privately and did not overlap the read-only snapshot, but the canonical parser has not run. Values are not reserved.
 
-Exit: known source SHA, empty target or reconciled target contents, isolated destination, and privately recorded collision-free candidates. No deployment is authorized by passing readiness.
+Exit: known source SHA, empty target, isolated destination, and privately recorded collision-free candidates. The canonical collision check remains outstanding; no deployment is authorized by passing readiness.
 
 ## Phase 1 — Seed the independent repository with minimal bootstrap identity
 
 Follow execution packet section 2 exactly. The target is empty and has no runner, so bootstrap identity belongs in its first import, with full local validation. Subsequent code/configuration changes use normal PRs and exact-head CI.
 
-1. [ ] Recheck target emptiness; disable target Actions before the first push. Never alter template Actions settings.
-2. [x] Clone template SHA `ee9af0b985f86c9568cbf077aeb20336841446de` with history. Rename `origin` to `upstream`, add `origin=https://github.com/Grumlebob/RitzauDemo.git`, and set the `gh` default to RitzauDemo.
-3. [x] Verify both remotes, baseline SHA and `gh` default. No template branches/tags were pushed; source checkout remains unchanged.
-4. [x] On local `main`, set `app_name=ritzaudemo`, distinct product defaults, `app_image=ghcr.io/grumlebob/ritzaudemo`, `migration_bundle_name=ritzaudemo-migrate`, and `migration_runtime=linux-x64`. Existing `frontend-profile.txt` is `BlazorAuto`. Account registration/seeding and deployed observability remain disabled.
-5. [x] Keep internal GrumPlates project names, both frontends and all deployment targets intact. Copy the sanitized plan and all four support files. No cleanup or rename is part of the seed.
-6. [x] Set `App:Name` to `ritzaudemo` in app settings, the local `.env.example`, and the deployed `app_name`. Compose renders `APP_NAME` as `App__Name`; caching, Data Protection and account identity use this same value. No unused identity variable was added.
-7. [x] Generate an independent ignored local `.env` with a new database password and distinct development ports. No source credentials or data were copied.
-8. [ ] Run the full unchanged `docs/Test.md` local gate against the committed bootstrap seed. Both profiles/all targets still apply. Record seed SHA and results.
-9. [ ] Push main once with template history plus the validated minimal seed, while Actions are disabled. This is the initial-import exception only, needed to bootstrap the runner. If remote main now exists or protection blocks import, stop and reconcile; never force or weaken policy.
-10. [ ] Clone target main separately on the native node. Require clean branch main at origin/main, `app_name=ritzaudemo`, correct origin and host identity. Do not bootstrap a feature branch or untouched Books identity.
+1. [x] Verify the target was empty and disable target Actions before import. Template Actions were not changed.
+2. [x] Clone the selected template SHA with history into the isolated product directory. Rename `origin` to `upstream`, add the product `origin`, and set the `gh` default to RitzauDemo.
+3. [x] Verify both remotes, baseline SHA and `gh` default. No template branches/tags were pushed and the source checkout remains unchanged.
+4. [x] Create the minimal bootstrap seed on local `main`: product defaults, `app_image=ghcr.io/grumlebob/ritzaudemo`, `migration_bundle_name=ritzaudemo-migrate`, `migration_runtime=linux-x64` and `frontend-profile.txt=BlazorAuto`. Account registration/seeding and deployed observability remain disabled.
+5. [x] Keep internal GrumPlates project names, both frontends and all deployment targets intact. Copy the sanitized plan and support packet. No cleanup or rename was part of the seed.
+6. [x] Use one stable `App:Name` identity across settings and deployment; caching, Data Protection and account identity resolve to `ritzaudemo`. Remaining branding changes stay for the first normal PR.
+7. [x] Generate an independent ignored local `.env`; no source credentials/data were copied. Development ports are distinct.
+8. [x] Run the full unchanged `docs/Test.md` gate on exact seed SHA `5931a4a872de39db8a85ac886bcdf40097bc99db`. All commands passed. Both profiles and account suites passed; only documented opt-in E2E skips remained.
+9. [x] Push local `main` once with template history and the validated minimal seed while target Actions were disabled. No tags or other branches were pushed.
+10. [x] Clone target `main` separately on the native node. Clean `main` equals `origin/main` at the seed SHA; origin, `app_name=ritzaudemo` and host identity were verified.
 11. [ ] Prepare and review the exact operator bootstrap handoff. Complete Phase 2 before enabling heavy CI. Native bootstrap can affect shared packages/firewall/SSH/Avahi/Caddy; review execution packet section 8 before presenting the command.
 12. [ ] After runner/admission/variables are ready, enable target Actions. Make remaining identity/branding/readme updates in the first normal PR, require exact-head `build-test-push`, merge, and verify successful main-push CI/publication. This supplies initial setup's push provenance.
 
@@ -129,43 +144,51 @@ Exit: correct import, validated native bootstrap identity and, after Phase 2, gr
 
 ## Phase 2 — Make runner coexistence safe before enabling CI
 
-### A. Coordinate GrumPlates and RitzauDemo heavy work on `<deployment-node>`
+### A. Coordinate all three native build producers on the shared node
 
 Two runner services can start jobs independently. Idle service memory is not the primary risk; simultaneous builds, Testcontainers, Docker image builds and browser suites are. GitHub concurrency groups are repository-scoped. Existing deployment/browser locks do not automatically serialize all CI validation.
 
-1. [x] Read-only inspect the heavy producers actually running on `<deployment-node>`. Do not inspect or change other clusters merely because their projects were mentioned. Determine whether existing admission controls already cover any third-party producer on this host. A separate out-of-scope producer can route heavy native CI when its desktop route is busy or offline and supports a native canary; its restore, dependency installation, tests, and image/publication builds are not fully behind the shared lock. No workflow was in progress at inspection.
-2. [ ] Follow execution packet section 3 for wrapper coverage/nesting rules. Identify heavy GrumPlates and RitzauDemo CI/manual sections that need admission. Include dependency installation, image publication builds, tests and cleanup lifetime as applicable. Keep existing deployment/browser lock names and define a consistent acquisition order to avoid deadlocks.
-3. [ ] Reuse `Deployment/Common/Scripts/with-node-browser-lock.sh` and `/tmp/localsinglenode-ci-browser.lock`. Do not introduce a second lock or a detached holder spanning Actions steps. Never nest the same wrapper; remove inner wrapping when a full step block is admitted. Scope GrumPlates behavior to the intended host; do not change its cluster runner placement, supported profiles or deployment targets. Add or reuse the smallest portable helper needed, with reviewed compatible calls in the two repositories.
-4. [ ] Make the GrumPlates integration in a separate template PR using its full existing local gate, exact-head CI and main verification. Keep both profiles and every template deployment target green. Port only the needed helper/calls to RitzauDemo. Do not apply product deletions back to the template.
-5. [ ] Verify every heavy GrumPlates/RitzauDemo producer on this host participates before enabling the new heavy jobs. A lock used only by RitzauDemo cannot prevent overlap with GrumPlates. Do not pause or reconfigure another project's runner to claim success.
-6. [ ] If another active host producer does not participate in compatible admission, do not claim host-wide serialization. Read-only check its existing scheduling/resource isolation. Proceed only with demonstrated compatible admission or measured enforced limits that prove safety without changing that project. Otherwise keep new heavy CI disabled and report the specific out-of-scope dependency. A one-time idle observation is insufficient.
-7. [ ] Use bounded admission waits with clear status, automatic release on process exit, and no manual deletion of held locks. Start no heavy setup or test containers before admission. Measure idle/waiting-job overhead as well as build peak memory.
-8. [ ] Check available RAM, swap pressure, free disk on actual Docker/workspace roots and current application health after obtaining admission. Use the readiness policy as a floor. Measure one complete admitted build alongside existing apps; do not lower thresholds to pass.
-9. [ ] Verify overlapping lightweight contenders serialize, timeout/failure releases admission, and existing applications stay healthy. Then verify a complete real CI run. Do not mutate neighboring applications as part of the test.
-10. [ ] Record the two participating repositories, lock ownership/path privately, integration commits, coverage of actual `<deployment-node>` producers and memory evidence. If one build does not fit, stop rollout and report measured remediation without modifying other projects or hosts.
+1. [x] Read-only inspect the heavy producers actually running on the shared node. Determine whether existing admission controls already cover a third-party producer on this host. No other cluster was changed.
+2. [ ] Build a coverage table for GrumPlates, RitzauDemo and CarbonCalculator: eligible native jobs/manual commands, heavy setup, dependency install, restore/format/build, Testcontainers, browser/image smoke, migration/publication builds, resource lifetime and cleanup. Read each repository's current instructions and gate; preserve its profiles, reports, provenance and routing.
+3. [ ] Reuse `Deployment/Common/Scripts/with-node-browser-lock.sh` and `/tmp/localsinglenode-ci-browser.lock` on the intended native host. Verify all runner accounts open the same lock inode with compatible ownership/permissions. Do not introduce a second competing lock or a detached holder across Actions steps. Remove nested acquisitions when an outer block owns admission. Preserve CarbonCalculator's lock timing/report extensions and test them; do not overwrite its helper blindly.
+4. [ ] Prepare one admission PR in GrumPlates and one in CarbonCalculator, using their dedicated task branches/worktrees. GrumPlates retains both frontends and all targets. CarbonCalculator changes only native admission calls and directly required helpers/tests/audits/docs; its desktop selection, native fallback, application and deployments remain intact. Scope host admission through existing verified host/profile configuration; never commit the real host name or make cluster/desktop jobs depend on a lock on another machine.
+5. [ ] Follow support packet section 3's staged integration and controlled first-product-PR procedure. Run the full current local gate in each repository before push. CarbonCalculator requires `pwsh -File Scripts/Testing/Validate.ps1 -Mode full` in the prepared Linux environment with a fresh successful full-gate report; the old repo-gate summary alone is insufficient. Require `build-test-push` on each exact PR head, merge normally, and verify integrated main and applicable publication. No direct-main exception is added.
+6. [ ] Port compatible admission to RitzauDemo's first normal identity/CI PR. Keep its repository Actions disabled until existing native producers are integrated, runner setup is reviewed/completed, and the first-PR scheduling guard is ready. A guard must prevent the seed workflow and stale Dependabot branches from reaching a live heavy runner during rollout. CarbonCalculator participation is approved and required; do not stop merely because it needs these scoped changes.
+7. [ ] Use bounded waits, visible queue status and automatic release after command exit and task-owned cleanup. Keep lightweight status/checkout/report work outside heavy blocks. Keep resources that survive between commands within one admitted shell block through cleanup. Do not wrap lock contention tests in the same lock. Verify timeout, failure and cancellation behavior; reconcile orphan work before another heavy block starts.
+8. [ ] Recheck available RAM, swap-in/out, memory pressure, disk/inodes on actual Docker/workspace roots and application health after admission. Retain readiness thresholds. Record idle listeners and queued-job overhead. Do not infer saturation from old allocated swap or infer peak capacity from an idle snapshot.
+9. [ ] Prove the shared queue using lightweight contenders from the three repository contexts, then a complete admitted native validation/publication workload while all existing sites serve requests. Observe maximum concurrent heavy blocks = 1, lock wait durations, peak memory, pressure, swap rates, OOM events, container restarts and HTTP health/latency. Do not deliberately run uncontrolled simultaneous heavy builds to test safety.
+10. [ ] Record three-repository PR URLs, exact tested/integrated SHAs and CI attempts, complete coverage table and private host evidence. Approval resolved the scope conflict; build safety is proven only when implementation passes. If a single admitted build cannot fit with serving apps, measure and report a specific remediation; do not silently move builds, change routing, lower checks or redesign the runner fleet.
 
-**Current stop (2026-11-08):** An out-of-scope producer can run heavy native CI outside the planned two-repository admission lock. No compatible admission or enforced resource limit is proven. Keep RitzauDemo Actions disabled and stop Phase 2 before registering or enabling its runner. Exact workflow/routing evidence stays in private installation notes. Do not modify the out-of-scope producer.\n\n### B. Register RitzauDemo's own runner
+### A2. Isolate and budget the new runtime stack
 
-1. [ ] Prepare a separate native checkout for RitzauDemo using its own origin. Do not repoint the existing Books checkout: it still has a historical repository URL and belongs to that installation.
-2. [ ] Use the canonical tracked product defaults from execution packet section 2: `app_name: ritzaudemo`, distinct resource candidates, and `observability_enabled: false`. Keep private machine facts and credentials outside Git. Do not assume a Python settings override propagates through root bootstrap, Ansible or primary CD; do not invent a partial private-settings route.
+1. [ ] Verify unique Compose project, app/PostgreSQL/Redis containers, networks, volumes, ports, data roots, credentials, Data Protection keys, Caddy site and backups. Published database/cache/app backends stay loopback-only; expose only the chosen LAN listener through the supported proxy route.
+2. [ ] Add measured CPU/memory/PID budgets for RitzauDemo through its tracked settings, supported Compose rendering, validators and tests in the first suitable normal product PR. Choose values from the full app/migration/smoke workload plus headroom; do not copy idle usage as a hard limit. Verify effective Docker `HostConfig` and runtime limits, not just YAML. Preserve a host reserve for OS, existing services and one admitted build.
+3. [ ] Bound RitzauDemo Redis allocation consistently with its container memory budget and preserve intended cache/persistence behavior. Verify .NET/PostgreSQL startup, migrations and request load within the chosen limits. Container OOM kills or restart loops are failures, not acceptable containment evidence.
+4. [ ] Existing application limits remain unchanged in this task. Record their observed load; change a neighbor's runtime budget only under separate explicit scope. Limiting a runner service alone does not bound Docker-daemon-created build/test containers; admission and actual container budgets must cover those workloads.
+5. [ ] Deploy only after all later product phases pass. Phase 7 must repeat the coexistence workload with the new site running and verify independent acceptance plus backup/recovery. The shared build lock never surrounds HTTP request handling or stops an application while a job waits.
+
+### B. Register RitzauDemo's own runner
+
+1. [x] Prepare a separate native checkout for RitzauDemo using its own origin. The existing Books checkout was not repointed.
+2. [x] Use the canonical tracked product defaults: `app_name: ritzaudemo`, distinct resource candidates and `observability_enabled: false`. Private machine facts and credentials remain outside Git; no partial private-settings route was added.
 3. [ ] Read setup status and bootstrap code against the prepared candidate. The process must add a new app to an existing host, preserve every existing registration/site, and keep the current hostname. Never run fresh-node setup with a new hostname.
-4. [ ] Resolve the setup authorization boundary before mutation. `AgentSetup.md` requires an explicit native-node setup request and an operator-run root command. The controller must not silently run its state machine or bootstrap just because SSH works.
+4. [x] Resolve the setup authorization boundary before mutation. `AgentSetup.md` requires an explicit native-node setup request and an operator-run root command. The controller did not run the state machine or bootstrap through SSH.
 5. [ ] Read execution packet section 8 and review shared-host effects before presenting the operator command. Prepare everything it needs first: correct checkout/ref, validated candidate inputs, repository authentication status, collision/backup/capacity evidence, and reviewed shared-host effects. The validated minimal identity must already be in the first main import from Phase 1. Do not attempt feature-branch bootstrap or bypass the clean-main gate.
 6. [ ] If setup lacks CI capacity, use the documented runner/bootstrap-first route. Finish customization via a normal exact-head CI PR afterward. Do not automatically execute `setup-next-step` actions that dispatch CI/deployment before their prerequisites and authorization are satisfied.
 7. [ ] At the canonical `human` step, present the exact generated command and message. The operator runs it natively. Do not fabricate a generic sudo command, run sudo for the operator, copy registration tokens, or add sudoers rules.
 8. [ ] Request the installer’s CI option when CI and CD use this same registration. Expected identities from the inspected installer are:
 
    - Runner name: `<deployment-node>-ritzaudemo`.
-   - Directory: `/home/<install-user>/actions-runner-ritzaudemo`.
+   - Directory: `/home/deploy/actions-runner-ritzaudemo`.
    - CD label: `localsinglenode-ritzaudemo`.
    - CI label: `ci-ritzaudemo` when installed with `--ci-runner`.
 
 9. [ ] Verify the service is online in the RitzauDemo API and its repository URL, name, labels, service account, and workspace are correct. Existing Books runner must remain registered and healthy in GrumPlates. A runner does not need an organization to share a physical machine with another registration.
-10. [ ] Set RitzauDemo variables deliberately: `CI_RUNNER_LABEL=ci-ritzaudemo`, `CI_RUNNER_HOST=<verified-hostname>`, `LOCALSINGLENODE_RUNNER_LABEL=localsinglenode-ritzaudemo`, `LOCALSINGLENODE_HOST=<verified-hostname>`, `DEPLOY_TARGETS=localsinglenode`. Leave `ADDITIONAL_FRONTEND_PROFILES` unset.
+10. [ ] Set RitzauDemo host/CD variables deliberately: `CI_RUNNER_HOST=<verified-hostname>`, `LOCALSINGLENODE_RUNNER_LABEL=localsinglenode-ritzaudemo`, `LOCALSINGLENODE_HOST=<verified-hostname>`, `DEPLOY_TARGETS=localsinglenode`. Final canonical `CI_RUNNER_LABEL` is `ci-ritzaudemo`, but apply the temporary quarantine/bootstrap variable procedure in packet section 3 before making it schedulable. Leave `ADDITIONAL_FRONTEND_PROFILES` unset. Do not report canonical setup complete while temporary variables remain.
 11. [ ] Inspect all workflows for fallback labels, deployment environments, permissions and schedules. Restrict deployment to trusted main. Retain rejection of foreign-fork PR code on deployment runners. Do not expose this privileged shared host to arbitrary PR workflows.
-12. [ ] Enable Actions only after admission controls and variables are verified. Open the identity PR, including compatible target admission calls; run CI on its exact head, merge only after required checks, then verify exact-main push validation and publication. A manually dispatched validation may diagnose a missing run, but does not replace initial setup's required main-push provenance.
+12. [ ] Follow the enforced first-PR scheduling guard in packet section 3. Enable Actions only when existing native producers are admitted and only the prepared admitted product workflow can reach the new runner. Require exact-head checks and exact-main push publication, then retire the temporary bootstrap mechanism through a normal checked PR. Reconcile stale bot workflows before enabling the canonical label. Manual dispatch does not replace initial main-push provenance.
 
-Exit: GrumPlates and RitzauDemo runner services online, their heavy work serialized on `<deployment-node>`, any other actual host producers proven safe without out-of-scope edits, green identity main, fresh RitzauDemo publication, and existing apps healthy. No product deployment yet.
+Exit: RitzauDemo's runner is online; GrumPlates/RitzauDemo/CarbonCalculator native heavy work participates in the shared queue; routing and existing sites are preserved; new runtime budgets are validated; identity main and publication are green. No product deployment yet.
 
 ## Phase 3 — Remove React from RitzauDemo while preserving Blazor
 
@@ -189,7 +212,7 @@ Exit: no React app or selectable React release remains; Books and accounts still
 
 1. [ ] Branch from verified RitzauDemo main. Confirm no GrumPlates file or live cluster is being changed. Inventory all `LocalCluster`, `Cloud`, `localcluster`, `cloud`, and removed path references in workflows, scripts, Python imports, tests, lint configurations, and documentation.
 2. [ ] Use execution packet section 5 for exact destinations and the existing Common Ansible implementation. Extract still-needed functionality before deleting target folders. Known critical candidates under `Deployment/LocalCluster/Scripts/` include `ci-docker-smoke.sh`, `install-ansible.sh`, `audit-deployment.sh` and `Component/lib/audit_deployment.py`, capacity scripts, and their dependencies/tests. Classify and relocate to `Deployment/Common` or a product CI location as appropriate.
-3. [ ] Trace `Scripts/CI/check-runner-capacity.sh` and additional-frontend publication helpers. Replace template-host-specific capacity assumptions with retained shared-host safeguards. Remove additional-profile helpers if Phase 3 removed their purpose.
+3. [ ] Trace `Scripts/CI/check-runner-capacity.sh` and additional-frontend publication helpers. Replace secondary-runner-specific capacity assumptions with retained shared-host safeguards. Remove additional-profile helpers if Phase 3 removed their purpose.
 4. [ ] Update CI, `docs/Test.md`, agent rules, workflow policy, test fixtures and all callers for relocated scripts. Preserve a meaningful single-node deployment audit covering ownership, settings, release verification, secrets, locks, workflows, backups, and acceptance.
 5. [ ] Update shared tests that currently load both removed targets, especially `test_account_deploy_settings.py`, `test_settings_validation.py`, `test_node_journal_limit.py`, frontend release fixtures, and retention/release-status fixtures. Retain all assertions protecting the remaining target.
 6. [ ] Keep shared `Deployment/Common` roles/scripts, provenance/payload handling, tool pins, Caddy integration, host admission, deployment/browser locks, backup support, runner prerequisites, release status, and scoped registry retention used by LocalSingleNode.
@@ -240,7 +263,7 @@ During execution, this phase is a required part of the requested RitzauDemo outc
 6. [ ] Require workflow acceptance and release identity verification. Confirm database initialization, actual image digest, profile pair and persisted current marker. Setup or container startup alone is not deployment success.
 7. [ ] Run independent controller acceptance using renamed `Scripts/Test-DeployedSite.ps1`, manifest frontend/acceptance values, selected LAN address and listener port. Verify actual rendered Books UI, assets, Blazor interactivity and account route behavior in a browser.
 8. [ ] Create and verify this app's backup. Validate recovery using its documented isolated replacement-database procedure; never overwrite a live database to test recovery.
-9. [ ] Recheck existing Books/React Books/CarbonCalculator application health and runner registration. Record that no existing service, data volume or public route was adopted or replaced.
+9. [ ] Recheck existing Books/React Books/CarbonCalculator application health and runner registration. Record that no existing service, data volume or public route was adopted or replaced. With RitzauDemo serving, repeat one full admitted native validation/publication workload and a waiting lightweight contender; collect peak RAM, swap rates, pressure, OOM/restart deltas and HTTP health/latency for every site. Compare with baseline, verify effective RitzauDemo limits and host reserve, and record numeric acceptance against readiness and workload requirements. Do not declare coexistence proven from idle stats or container startup alone.
 10. [ ] Document rollback to a previously published immutable release after subsequent deployments. For first deployment failure, preserve diagnostic run/volumes and stop only this app's owned resources if needed. Do not invent a rollback release that does not exist.
 
 Exit: independently accepted LAN Books demo, correct release identity, verified backup/recovery evidence, and healthy neighboring apps.
@@ -268,29 +291,52 @@ Prepare and validate all inputs before asking for this step. Existing controller
 
 - Select the dedicated public hostname before Phase 8. Deferred by the user; no need to block earlier work or ask repeatedly.
 - Runner architecture is settled: preserve personal-account repository URLs, use repository registrations on shared hosts, and coordinate heavy execution. No organization or transfer decision remains.
-- Choose GrumPlates/RitzauDemo build admission after read-only inspection of actual `<deployment-node>` producers. Broader routing and other project changes are excluded. If safety requires an excluded change, report the dependency and keep new heavy CI disabled.
+- Implement shared native admission in GrumPlates/RitzauDemo/CarbonCalculator as explicitly approved. Broader routing and other project changes remain excluded. Keep new heavy CI guarded until coverage and capacity pass; a different excluded producer remains a concrete scope dependency.
 - No other product questions are required to start. Preserve history, keep Books and account behavior, perform full rename, and avoid introducing product features during bootstrap.
 
 ## Final completion checklist
 
-- [ ] No out-of-scope repository, runner, deployment, cluster or schedule changed. ImprovedDb and every other project retain their existing topology.
+- [x] No out-of-scope repository, runner, deployment, cluster or schedule changed. ImprovedDb and every other project retain their existing topology.
 
-- [ ] New origin/default repository verified; GrumPlates retains both frontend profiles and all deployment targets. Only its separately reviewed CI admission integration may change.
+- [x] New origin/default repository verified; GrumPlates retains both frontend profiles and all deployment targets. Only its separately reviewed CI admission integration may change.
 - [ ] Product main has integrated plan and all cleanup changes, with applicable exact-main checks green.
 - [ ] React app/toolchain removed; Blazor client/Tailwind retained; unsupported profiles rejected.
 - [ ] Only RitzauDemo is simplified to LocalSingleNode plus needed shared tooling. GrumPlates and other projects retain their deployment targets; product audit and gate remain effective.
 - [ ] Solution/projects/namespaces/runtime paths/labels use RitzauDemo, with intentional exceptions documented.
 - [ ] Books works; account routes remain available; registration and account seeds stay disabled.
-- [ ] RitzauDemo runner verified; GrumPlates/RitzauDemo admission works, other actual host producers proven safe without modifying them, and peak memory evidence recorded.
-- [ ] No private installation values or credentials in Git history added by this task.
+- [ ] RitzauDemo runner verified; GrumPlates/RitzauDemo/CarbonCalculator native admission works; any additional producer is proven safe; runtime limits, loaded coexistence and peak memory evidence are recorded; routing and existing sites are preserved.
+- [x] No private installation values or credentials in Git history added by this task.
 - [ ] Authorized deployment independently accepted; backup/recovery evidence and immutable release identity recorded.
-- [ ] Public hostname completed only when chosen and authorized; otherwise explicitly marked deferred.
+- [x] Public hostname explicitly deferred because no hostname or public-exposure authorization was supplied.
 - [ ] Finished branches/worktrees and task-only resources removed through supported scoped cleanup after integration/ownership proof. Preserve primary checkouts, keys, private configuration, app data and backups. Record deleted branch SHAs.
 
 ## Progress record
 
+### 2026-11-08 checkpoint
+
+- Seed: `5931a4a872de39db8a85ac886bcdf40097bc99db`; pushed once to empty RitzauDemo `main` with Actions disabled.
+- Post-import automation: the Actions permission remains disabled. A GitHub-hosted Dependabot dynamic run and four Dependabot PRs appeared automatically; no RitzauDemo self-hosted CI run occurred. Leave those PRs unmerged until exact-head checks are available.
+- Validation: full documented local gate passed on that exact seed commit in a clean Linux checkout. BlazorAuto suites: 197 non-account tests passed with 15 expected opt-in skips and 149 account tests passed. React suites: 189 non-account tests passed with 15 expected opt-in skips and 135 account tests passed. Remaining restore, formatting, policy, deployment, lint and actionlint gates passed.
+- Native clone: clean `main` at the same SHA, correct origin and `app_name` verified. No runner installation, native bootstrap, app deployment or application cleanup occurred.
+- Historical stop, superseded by later approval: CarbonCalculator could run native heavy CI outside the shared lock while its repository was excluded. The user has now approved its narrow native admission integration. Implement Phase 2A rather than repeating this scope stop. Actions remain disabled pending the controlled rollout; no build-safety proof is implied by approval.
+- Outstanding: canonical candidate collision check, native operator setup handoff, Phase 2A admission, runner/variables, Blazor-only cleanup, deployment/acceptance, backup/recovery proof. No public hostname or exposure authorization was supplied; that phase remains deferred.
+
+The sanitized plan copy in the initial seed is an execution snapshot. Update it through the first safe exact-head PR; do not make a second direct-main push.
+
+### Approved resumption amendment — 2026-11-08
+
+The user accepted the coexistence design: applications serve concurrently, native heavy builds queue across the three repositories, and RitzauDemo gets isolated resources and measured budgets. CarbonCalculator native-CI admission is now explicitly in scope. The latest idle snapshot supports proceeding with measured validation, while full build/load capacity remains unproven. This turn updates the handoff only; no CI integration, native setup, runner registration, runtime limit or deployment is claimed complete.
+
 For each phase, fill in: date; branch; full PR-head SHA; local gate commands/results; PR URL; integrated main SHA; exact CI run/attempt; sanitized result; next action. Leave unchecked work unchecked. Keep installation-specific evidence private and put only sanitized conclusions here.
+
+### Phase 2A local checkpoint — 2026-11-08
+
+- GrumPlates admission branch `task/ci-admission-ritzau-20261108`, commit `b17c20655dfb968133db7bb704106e2fc69a7959`, is pushed. The complete `docs/Test.md` local gate passed, including both frontend profiles, account tests, deployment audits, Python suites, rendered templates, ShellCheck and actionlint. No PR or CI run was created.
+- CarbonCalculator admission branch `task/ritzau-ci-admission-20261108`, commit `1f29e82f9e0a152f396dee8118f63308d1fc3674`, is pushed. `pwsh -File Scripts/Testing/Validate.ps1 -Mode full -ResultsDirectory TestResults/ci-admission-ritzau-20261108-r1` passed with a fresh report bound to that exact checkout SHA; repository-policy, deployment and .NET phases passed, including 728 non-account and 209 account tests with zero failures or skips in accounts. No PR or CI run was created.
+- CarbonCalculator run `42107307607` remains queued from deleted branch `task/fieldwork-polish-20261105`, head `a94eeb4340642a8e3081ada880d5976c3aa9d2a8`. The Jobs API returns no jobs and the branch lookup returns 404. Preserve the run; do not cancel it or start native PR CI until it is reconciled or completed. Existing repository routing and runner registrations remain unchanged.
+- RitzauDemo Actions remain disabled and the four existing Dependabot PRs remain open. A local product worktree from seed main contains the first-PR admission and bootstrap-label guard draft plus RitzauDemo README/UI identity changes. Targeted admission, workflow-policy and deployment audits pass; the full product gate remains pending. No product branch push, PR, bootstrap, runner registration or deployment occurred.
+- Existing sites, data, backups, routes, runners and services remain unchanged. The local validation containers were removed by their test lifecycles; only the pre-existing shared containers remain. Build/load coexistence is still unproven.
 
 ## Suggested handoff prompt
 
-> Execute `Plans/RitzauDemo-Blazor-SingleNode-Bootstrap.md` with its `Support/RitzauDemo-ExecutionPacket.md`. Read applicable agent rules first. Verify the source inventory before making changes; preparation tests are not the full implementation gate. Follow the initial-import bootstrap order, then use one reviewed PR per phase. Change only RitzauDemo and the narrowly specified GrumPlates CI admission integration. Preserve other projects and all existing deployment topologies. Complete RitzauDemo deployment and independent acceptance, not only cloning. Stop at the mandatory operator bootstrap handoff or a concrete unresolved safety/access dependency. Do not solve a blocker by changing another project or skipping checks. Record phase evidence and keep unchecked work visible.
+> Create a new /goal to complete the remaining work in `Plans/RitzauDemo-Blazor-SingleNode-Bootstrap.md` and `Plans/Support/RitzauDemo-ExecutionPacket.md`. Read their fresh-chat checkpoint first, then workspace/repository rules and the current private machine guide. The user explicitly approved narrow CarbonCalculator native-CI admission alongside GrumPlates admission and RitzauDemo product work. Preserve all three repository URLs, existing CI routing, deployments, data and other projects. The seed is already pushed at `5931a4a872de39db8a85ac886bcdf40097bc99db` and the native clone exists; revalidate rather than re-seed or direct-push main. Start with Phase 2A: integrate/test one shared native build queue across all three repositories, preserve CarbonCalculator desktop/native routing, and follow the guarded first RitzauDemo PR rollout. Do not repeat the obsolete CarbonCalculator scope blocker. Complete the remaining Blazor-only cleanup, single-node extraction, rename, isolated runtime budgets, LAN deployment, loaded coexistence trial, independent acceptance and backup/recovery evidence through reviewed PRs and required checks. Public hostname remains deferred until supplied and explicitly authorized. Prepare the exact canonical native operator handoff and stop for its required human action; never run its sudo command from the controller. Stop otherwise only for a concrete unresolved dependency after all available authorized work. Record evidence and keep incomplete items unchecked.

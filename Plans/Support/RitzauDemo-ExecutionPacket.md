@@ -1,6 +1,6 @@
 # RitzauDemo implementation decisions and dependency map
 
-Read this with `../RitzauDemo-Blazor-SingleNode-Bootstrap.md`. This packet resolves implementation choices for the researched source SHA `ee9af0b985f86c9568cbf077aeb20336841446de`. If the source changes, review the inventory diff before applying these instructions. This is not authorization to change another project.
+Read this with `../RitzauDemo-Blazor-SingleNode-Bootstrap.md`. This revised packet incorporates the user's 2026-11-08 approval for CarbonCalculator native-CI admission, alongside GrumPlates admission and RitzauDemo product work. Its original dependency map uses source SHA `ee9af0b985f86c9568cbf077aeb20336841446de`; review drift before applying it. Other projects and all unrelated CarbonCalculator behavior remain excluded.
 
 ## 1. Completed preparation and how to repeat it
 
@@ -18,7 +18,11 @@ Define `support` and `source` as absolute paths first. The preflight sets `DOTNE
 
 These are offline fixture tests. Their mocked maintenance/removal calls do not change the host. They do not prove the full local gate, live backup freshness, peak build memory or a deployable release.
 
+Keep the original inventory as historical evidence. A changed current main, including the approved admission PRs themselves, will no longer match its hashes. Review the actual diff and generate any new inventory to a distinct owned output path outside the source; do not reset a repository to the baseline or overwrite the historical JSON to hide drift. The CarbonCalculator admission coverage table is separate from this template React/target dependency inventory. Do not rerun the full application gate merely for these Markdown planning edits; implementation uses each repository's current required checks.
+
 ## 2. Resolve the bootstrap dependency cycle once
+
+**Resume checkpoint (2026-11-08): steps 1–6 below are already complete.** RitzauDemo main is seeded at `5931a4a872de39db8a85ac886bcdf40097bc99db`, full original local gate passed, and its separate native clone exists. Revalidate current state; never repeat the initial import or use it to justify another direct-main push. The workspace's updated main plan is authoritative over the seed-time copies. The user now approves CarbonCalculator native CI admission alongside GrumPlates/RitzauDemo; all other CarbonCalculator behavior stays in its existing scope.
 
 The original draft's order was invalid: `setup_status.status()` requires a clean checkout on branch `main` at `origin/main` before it offers the operator bootstrap command. An identity branch with a new slug cannot pass that check. Bootstrapping the untouched template would select `books`, colliding with the existing installation.
 
@@ -31,7 +35,7 @@ Use a **minimal bootstrap seed as part of the first import**, before any target 
 5. Push local main once, containing template history and that bootstrap seed, with Actions disabled. Record template SHA, seed SHA, and local gate results. This is the one-time initial import exception needed before a repository runner exists; it does not waive exact-head CI for any later PR or permit later direct-main pushes.
 6. Clone RitzauDemo's main separately on the native node. Verify clean main equals origin/main and the selected app is `ritzaudemo`. Prepare tools/authentication and candidate collision evidence. Do not run the state machine's deployment action automatically.
 7. Complete the canonical operator bootstrap handoff. Verify runner registration and private machine facts; set variables. Keep new heavy CI disabled until admission safety is proven.
-8. Implement the narrowly scoped GrumPlates admission integration through a normal template PR, with its existing complete gate. Preserve both profiles and all targets.
+8. Implement the narrowly scoped GrumPlates and CarbonCalculator native admission integrations through separate normal PRs, with each repository's full current local gate and exact-head/main verification. Preserve GrumPlates profiles/targets and CarbonCalculator routing, reports and product behavior. Follow section 3 for the product CI rollout.
 9. Enable target Actions only after admission and variables pass. Put remaining product identity/branding/readme changes in the first normal PR. Require exact-head `build-test-push`, merge, and require a successful **main push** validation/publication. That creates the push provenance demanded by initial setup; `workflow_dispatch` is not a substitute for the initial setup checkpoint.
 10. All subsequent cleanup, target reduction and rename work uses normal PRs. Never treat the initial import exception as permission to bypass failed checks.
 
@@ -72,7 +76,7 @@ Do not invent an ignored primary settings route: Python's `LOCALSINGLENODE_SETTI
 
 Reuse `Deployment/Common/Scripts/with-node-browser-lock.sh` and its existing shared lock file `/tmp/localsinglenode-ci-browser.lock`. This already has bounded `flock` acquisition, automatic release, a command descriptor close, and failure propagation. Do not add a competing lock or hold a background `flock` process across Actions steps.
 
-Expand admission coverage in GrumPlates and RitzauDemo rather than redesigning runners. Apply exactly one wrapper to each resource-heavy step or full multi-command block. Use the existing wrapper directly for individual commands:
+Expand admission coverage in GrumPlates, RitzauDemo and CarbonCalculator's native route. Preserve current runner registrations, hosts and routing, including CarbonCalculator's desktop preference/native fallback. Use existing host/profile configuration to scope the wrapper to the shared native host; desktop/cluster execution must retain its behavior. The portable code must not hard-code a private host name. Apply exactly one wrapper to each resource-heavy step or full multi-command block. Use the existing wrapper directly for individual commands:
 
 ```bash
 bash Deployment/Common/Scripts/with-node-browser-lock.sh dotnet restore GrumPlates.sln
@@ -100,11 +104,37 @@ Do not hold this lock around an entire Actions job containing the lock's own con
 
 The existing helper's default wait is 3,600 seconds; job timeout includes waiting time. Size queue/job limits from observed duration. A timeout must fail clearly, not mark work successful or trigger an automatic rerun storm.
 
-### Important shared-host limit
+### Approved CarbonCalculator integration
 
-Read-only preparation found an additional out-of-scope CI producer on the shared host. Do not assume its heavy jobs run elsewhere or that the two-repository lock covers every producer. Prove current eligibility and compatible admission without retrieving credentials or changing that project.
+CarbonCalculator main was inspected at `0d255392b99eb635030f9c90a03de8a6d37d227c`. Native CI is eligible: `CI_RUNNER_ROUTING_ENABLED=true`, an existing native label/host is configured, `auto` can fall back to native, and non-main dispatch supports `native-canary`. Its current browser helper protects selected React/browser/smoke commands, but restore, lifecycle tests, dependency install and image/publication work have gaps. Revalidate these facts against current main before editing.
 
-Before enabling new heavy CI, read-only verify its current eligible workload/routing and existing lock coverage through available authenticated configuration or live job evidence. Do not retrieve or expose credentials. If a third producer can build concurrently outside compatible admission, report a concrete out-of-scope dependency; do not alter CarbonCalculator or enable RitzauDemo heavy CI on an unproved assumption. The existing browser lock already covers some cooperating work but not all unwrapped image/.NET builds. No fleet-wide safety claim has been established by this preparation.
+The user approved fixing these gaps through native admission only. Inspect `.github/workflows/ci.yml`, `.github/workflows/select-ci-runner.yml`, `Scripts/CI/select_ci_runner.py`, `Scripts/CI/runner_profiles.py`, the existing lock helper and related tests. Preserve selector semantics and route variables. Preserve `CARBON_LOCK_TIMING_DIRECTORY` timing output and publisher/deployment lock contracts. Add coverage assertions proving every eligible native heavy path participates, and prove desktop/cluster behavior remains intact. Do not rewrite the helper from the template over CarbonCalculator's extensions.
+
+Follow CarbonCalculator `AGENTS.md`, task claims and `Scripts/Agents/DeliveryTask.ps1` for its isolated checkout. Use `pwsh -File Scripts/Testing/Validate.ps1 -Mode full` in the prepared Linux environment and inspect its fresh source-bound report; require successful full validation, then `build-test-push` on the exact PR head and integrated main. Do not deploy CarbonCalculator, alter its schedules, registrations, routes or product code. For GrumPlates, retain the complete `docs/Test.md` gate with both profiles/all targets. Product deletions never flow upstream.
+
+### Resource lifetime, lock identity and evidence
+
+- Verify every native runner account opens the same file/inode; inspect access permissions without widening unrelated host access. Existing deployment/browser lock paths and ownership labels remain interoperable.
+- Dependency installers, Docker pulls/builds, tests and their child containers must enter admission before consuming heavy resources. Keep a full resource lifetime inside one admitted shell block through cleanup. Separate blocks may interleave only after releasing their heavy resources. Do not create a detached holder to span Actions steps.
+- Preserve failure and cancellation exit codes and report/cleanup behavior. Exercise contention, timeout, failure and interruption with lightweight fixtures before a real admitted build. Confirm cancellation leaves no active owned build/test work; a released lock alone is insufficient if daemon work survives. Reconcile owned orphans before resuming; never delete a held lock.
+- Inventory nested deployment/publication reservation calls and choose one acyclic lock order across all three repositories. Do not hold admission while waiting for a workflow that must acquire it, and run lock contention tests outside that lock.
+- A runner systemd memory limit alone does not prove limits for containers created by the Docker daemon. Measure aggregate host use and verify actual container/build limits. Keep the serving applications running during the queue test.
+
+### Staged rollout, including the first RitzauDemo PR
+
+1. Prepare both existing-repository admission changes and the coverage table locally. Reserve native build capacity through the current shared task coordination mechanism; inspect current claims and live jobs. Integrate one PR at a time. Do not cancel other sessions' jobs or use one idle snapshot as permanent serialization proof. During migration, wait for legacy unadmitted work to finish and keep new RitzauDemo heavy jobs disabled. If a legacy job starts, defer the new native canary until it finishes. Record this bounded migration window separately from the final steady-state guarantee.
+2. Run each repository's full local gate on separately reserved controller capacity. Check the managed desktop CI environment and live jobs identified in private machine guidance. Do not overlap local gates or use another task's shared clone. Then obtain the exact PR-head CI result, merge, and verify main. A CarbonCalculator validation selected for desktop can retain that route; verify the native wrapper path independently with lightweight native contention and a subsequent admitted native workload.
+3. Prepare the first RitzauDemo admission/identity PR while Actions remain disabled. Include the sanitized revised plan/packet and complete current local gate. Native operator bootstrap and collision review remain mandatory before installing its runner; do not bootstrap a feature branch or silently execute root commands from the controller.
+4. Prevent legacy seed or stale Dependabot workflow code from reaching the first live product runner. A concrete controlled design to implement and test is to keep `CI_RUNNER_LABEL` pointed at an unregistered quarantine label while the first PR's workflow uses a separate explicit `CI_ADMISSION_BOOTSTRAP_RUNNER_LABEL` for the verified new registration. Audit every workflow/fallback label, including manual and scheduled heavy work; no legacy path may use the bootstrap label. Use that variable consistently in the first PR's workflow/policy/tests and preserve host verification. This is a proposed temporary workflow change, not an existing installer feature. Canonical setup status may remain incomplete until its usual label is restored; never bypass its checks or auto-run its next-step action to work around that. Never weaken required checks or fabricate results. Enable Actions only when the guard is ready and both existing native producers are admitted.
+5. Trigger only the prepared first PR's CI and require its exact-head `build-test-push`; merge normally and verify main validation/publication under the guarded workflow. Resolve stale Dependabot branches through the target repository's normal workflow: rebase/recreate against guarded main and verify their workflow content, or close superseded bot PRs with recorded reason. Do not merge dependency upgrades as bootstrap work. Old queued jobs must stay unschedulable or be explicitly reconciled as owned/superseded target jobs; do not release them onto a live runner.
+6. In a separate normal product PR, return the admitted workflow to canonical `CI_RUNNER_LABEL`, set that variable to the verified registration only after no unadmitted legacy branch/job can use it, and retire the bootstrap variable/calls. Obtain exact-head/main checks again. If the canonical tooling offers a simpler equally enforced branch-safe bootstrap, use it and record the proof; do not substitute an uncontrolled enable-and-watch window.
+7. Verify all three native producers and manual gate entry points now cooperate on the same lock; desktop/cluster routing and existing app health remain correct. Complete the full native validation/publication capacity trial before calling admission finished. A single admitted build that cannot fit is a measured capacity issue; do not silently change topology or reduce required checks.
+
+### Runtime coexistence acceptance
+
+RitzauDemo receives an isolated stack and measured CPU/memory/PID budgets through supported settings/rendering. Verify effective Docker limits and Redis allocation; avoid copying idle memory as a production hard cap. Existing applications' runtime limits are not changed under the CarbonCalculator CI exception. Record host reserve, peak workload and application behavior rather than inventing fixed budgets here. Docker's default is no resource constraints: [official resource documentation](https://docs.docker.com/engine/containers/resource_constraints/).
+
+Before rollout, capture health, latency, memory, available RAM, swap-in/out, pressure, OOM and restart baselines. Define the representative request workload, latency/error acceptance budget, canonical capacity floors and required host reserve before the trial; record them with their rationale and do not loosen them retrospectively to pass. After LAN deployment, run that workload while one full native build executes and another lightweight contender waits. Require one heavy owner at a time, all sites healthy with no new OOM/restart failures, the recorded latency/error and capacity budgets satisfied, and verified app-specific backup/isolated recovery. Save numeric observations and chosen limits privately, with sanitized conclusions in the plan. Do not run uncontrolled concurrent heavy builds or require deployed observability infrastructure for this measurement.
 
 ## 4. React deletion map and hidden dependencies
 
@@ -134,7 +164,7 @@ No deletion below applies to the GrumPlates template. Work in the RitzauDemo cop
 | `Deployment/LocalCluster/Scripts/ci-docker-smoke.sh` | Move adapted Blazor-only implementation to `Deployment/Common/Scripts/ci-docker-smoke.sh`. Both locations have the same depth relative to repository root; still verify relative paths. |
 | `Deployment/LocalCluster/Scripts/Tests/test-ci-docker-smoke.sh` | Move adapted tests to `Deployment/Common/Scripts/Tests/test-ci-docker-smoke.sh`. Fix smoke/Dockerfile path references and fixture expectations. |
 | `Deployment/LocalCluster/Scripts/audit-deployment.sh` and `Component/lib/audit_deployment.py` | Move to `Deployment/Common/Scripts/audit-deployment.sh` and `Component/lib/audit_deployment.py`. Replace cluster/cloud assertions with meaningful retained-target assertions before removing source targets. Review required/forbidden path lists. |
-| `Scripts/CI/check-runner-capacity.sh` | Replace cluster-only delegation with actual product runner/workspace/Docker filesystem checks. Do not copy template-host names or call a deleted script. Preserve disk/inode failure behavior. |
+| `Scripts/CI/check-runner-capacity.sh` | Replace cluster-only delegation with actual product runner/workspace/Docker filesystem checks. Do not copy secondary-runner names or call a deleted script. Preserve disk/inode failure behavior. |
 | Shared common tests | Adapt `test_account_deploy_settings.py`, `test_settings_validation.py`, `test_node_journal_limit.py`, release/status/retention tests and their live path imports. Never delete all common tests because they mention two removed targets. |
 | Local gate render command | Replace cluster render validation with `Deployment/LocalSingleNode/Scripts/validate-rendered-templates.sh`, using the same constrained Jinja/yamllint environment. Keep LocalSingleNode playbook syntax validation. |
 | CI/frontend release tests | `Scripts/CI/tests/test_frontend_release.py` constructs LocalCluster fixture paths. Update these together with moved smoke/release helpers. |
@@ -158,20 +188,20 @@ Mandatory runtime acceptance: Books public listing/detail; Blazor prerender and 
 
 ## 7. Work order and handoff contract
 
-1. Refresh baseline/inventory and capacity. Prepare seed defaults; run the full unchanged gate.
-2. Initial import with minimal seed; native operator bootstrap; new runner online but heavy CI gated.
-3. Narrow template CI admission PR; port compatible calls; verify actual host workload safety.
-4. First product identity PR and successful main-push release.
-5. Product React removal PR.
-6. Product target reduction/extraction PR.
-7. Product full rename PR.
-8. Product docs/hygiene PR.
-9. Required RitzauDemo deployment and independent LAN acceptance.
-10. Dedicated hostname when selected; public HTTPS acceptance.
+1. Resume the existing seed/main/native clone; revalidate source SHAs, current claims/jobs, private host facts, backups, collisions and capacity. Keep the historical inventory as a baseline. Review upstream drift rather than overwriting newer work or regenerating a seed.
+2. Prepare and integrate separate GrumPlates and CarbonCalculator admission PRs through their complete current local gates and required exact-head/main checks. Follow the staged migration in section 3; preserve CarbonCalculator routing and all existing deployments.
+3. Prepare RitzauDemo's first admitted identity/CI PR and its temporary scheduling guard while Actions are disabled. Finish static shared-host bootstrap review, canonical collisions and the mandatory native operator handoff before installing its runner. Verify registration and host/CD variables; keep legacy product workflows unschedulable.
+4. Enable only the controlled first product validation path, merge via exact-head checks and verify main-push release. Reconcile stale bot/queued workflow code, then retire bootstrap routing through a checked PR. Validate three-repository native admission and peak build capacity while existing sites serve.
+5. Product React removal PR, preserving Blazor and shared account/Books coverage.
+6. Product target reduction/extraction PR; preserve admission and operational safeguards.
+7. Product full rename PR; preserve migration IDs, payload provenance and shared ownership identifiers.
+8. Product measured runtime budgets plus documentation/hygiene through normal PRs; budgets may be included earlier when safely validated.
+9. Required RitzauDemo LAN deployment, independent rendered/browser acceptance, loaded three-repository coexistence evidence, and app-specific backup/isolated recovery verification.
+10. Dedicated hostname only when supplied and public exposure explicitly authorized; otherwise record deferral.
 
 For each PR, record head SHA, complete local gate, exact-head CI, integrated main SHA, exact-main publication outcome and remaining blockers. Do not present source fixture tests as the full gate. Do not dispatch a deployment from a documentation-only SHA lacking its own release; select the recorded published SHA explicitly.
 
-No code repository or native resource was changed during preparation. The files created are this packet, the main plan, the reusable preflight script, the source-inventory generator and its JSON output. Keep them together until copied into RitzauDemo. They remain useful handoff material, not disposable diagnostic logs.
+The original preparation created this packet, the main plan, reusable preflight and source inventory generator/JSON. Subsequent execution imported the seed and created the native product checkout; no runner/bootstrap/deployment followed. Retain all four support files with the revised plan. Sanitize and synchronize the revised documentation into RitzauDemo through its first normal PR; the parent workspace copy is the fresh-chat authority until then.
 
 ## 8. Native bootstrap is broader than runner registration
 
@@ -179,4 +209,4 @@ No code repository or native resource was changed during preparation. The files 
 
 If the stock procedure would replace foreign shared configuration, upgrade/restart a shared service unexpectedly or disrupt a neighbor, do not run it as written. Prepare a narrowly reviewed existing-host adaptation in RitzauDemo, with fixture checks and a concrete operator message describing its effects, before the root handoff. Keep the operator-run requirement; do not bypass it by calling the runner installer with forged context. A harmless app-owned addition or validated Caddy site reload is different from restarting Docker or changing another app's settings.
 
-This bootstrap-effects review is not complete because no privileged setup has run. It must not be reported as an already verified no-disruption path.
+The bootstrap-effects review and native preflight are still pending. Perform static effect review before any privileged execution; running setup is not a prerequisite to understanding its effects. Do not report a verified no-disruption path until review, operator action and post-action health evidence support it. An actual required existing-host code adaptation must use the normal checked integration route; report a concrete bootstrap/CI dependency if canonical tooling cannot support that route, rather than inventing sudo context or another direct-main exception.

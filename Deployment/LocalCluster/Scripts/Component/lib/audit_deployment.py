@@ -53,6 +53,13 @@ def workflow_step_text(workflow: str, step_name: str) -> str:
     return match.group(0) if match else ""
 
 
+def workflow_job_text(workflow: str, job_id: str) -> str:
+    match = re.search(
+        rf"(?ms)^  {re.escape(job_id)}:\r?\n(.*?)(?=^  [A-Za-z0-9_-]+:\r?\n|\Z)", workflow,
+    )
+    return match.group(1) if match else ""
+
+
 def tracked_files() -> set[str]:
     try:
         result = subprocess.run(
@@ -950,8 +957,6 @@ for path, checks in {
 for forbidden in ("prune-docker-residue.sh --force", "docker system prune", "docker container prune", "docker builder prune", "docker network prune", "docker volume prune"):
     if forbidden in ci:
         fail(f".github/workflows/ci.yml: CI must not run host-wide Docker cleanup: {forbidden}")
-if ci.count("run: bash Deployment/LocalCluster/Scripts/ci-docker-smoke.sh --cleanup-only") != 2:
-    fail(".github/workflows/ci.yml: both smoke jobs must recover their own interrupted resources")
 if ci.index("ci-docker-smoke.sh --cleanup-only") > ci.index("name: Remove this run's local Docker image"):
     fail(".github/workflows/ci.yml: owned smoke resources must be removed before their exact image tag")
 for needle in ("Cleanup-only requires the exact GitHub repository, run ID and attempt.", "expected_identity", "Owned smoke container remains", "Owned smoke network remains"):
@@ -1207,10 +1212,10 @@ if "validate" in ci_jobs and "publish-main" in ci_jobs:
     if (
         "    name: validate" not in validate_job
         or "    needs:" in validate_job
-        or 'runs-on: [self-hosted, linux, x64, "${{ vars.CI_RUNNER_LABEL }}"]' not in validate_job
+        or 'runs-on: [self-hosted, linux, x64, "${{ vars.CI_ADMISSION_BOOTSTRAP_RUNNER_LABEL }}"]' not in validate_job
         or "    name: publish-main" not in publisher_job
         or "needs: [validate]" not in publisher_job
-        or 'runs-on: [self-hosted, linux, x64, "${{ vars.CI_RUNNER_LABEL }}"]' not in publisher_job
+        or 'runs-on: [self-hosted, linux, x64, "${{ vars.CI_ADMISSION_BOOTSTRAP_RUNNER_LABEL }}"]' not in publisher_job
         or "!cancelled()" not in publisher_job
         or "needs.validate.result == 'success'" not in publisher_job
         or publisher_job.find("Validate required CI results") > publisher_job.find("- name: Checkout")
@@ -1220,17 +1225,21 @@ if "validate" in ci_jobs and "publish-main" in ci_jobs:
         or "needs: [validate, publish-main]" not in result_gate_job
         or "always()" not in result_gate_job
         or "'build-test-push'" not in result_gate_job
+        or 'runs-on: [self-hosted, linux, x64, "${{ vars.CI_ADMISSION_BOOTSTRAP_RUNNER_LABEL }}"]' not in result_gate_job
         or "python3 Scripts/CI/require_ci_results.py" not in result_gate_job
     ):
         fail(".github/workflows/ci.yml: validation, publication and the stable result gate must fail closed")
     for job_id in ("validate", "publish-main"):
         runner_step = workflow_step(job_id, "Verify CI runner")
         if (
-            "CI_RUNNER_LABEL: ${{ vars.CI_RUNNER_LABEL }}" not in runner_step
-            or "${CI_RUNNER_LABEL:?Set the CI_RUNNER_LABEL repository variable}" not in runner_step
+            "CI_ADMISSION_BOOTSTRAP_RUNNER_LABEL: ${{ vars.CI_ADMISSION_BOOTSTRAP_RUNNER_LABEL }}" not in runner_step
+            or "CI_CANONICAL_RUNNER_LABEL: ${{ vars.CI_RUNNER_LABEL }}" not in runner_step
+            or "${CI_ADMISSION_BOOTSTRAP_RUNNER_LABEL:?Set the CI_ADMISSION_BOOTSTRAP_RUNNER_LABEL repository variable}" not in runner_step
+            or "${CI_CANONICAL_RUNNER_LABEL:?Keep CI_RUNNER_LABEL set to an unregistered quarantine label during bootstrap}" not in runner_step
+            or "CI_RUNNER_LABEL must remain quarantined during the bootstrap rollout" not in runner_step
             or "^[A-Za-z0-9][A-Za-z0-9_.-]*$" not in runner_step
         ):
-            fail(f".github/workflows/ci.yml: {job_id} must check the CI_RUNNER_LABEL value before it runs")
+            fail(f".github/workflows/ci.yml: {job_id} must check the bootstrap and quarantined canonical runner labels before it runs")
     if "docker/login-action@" in validate_job or "docker push" in validate_job:
         fail(".github/workflows/ci.yml: validate must not log into GHCR or push images")
     if "dotnet ef migrations bundle" not in publisher_job:
@@ -2192,8 +2201,10 @@ for workflow in workflow_paths:
                                       ("ci-result-gate", "Verify native CI result-gate runner")):
                 body = ci_jobs.get(job_id, "")
                 runner_line = re.search(r"(?m)^    runs-on:.*$", body)
-                if runner_line is None or runner_line.group(0).strip() != 'runs-on: [self-hosted, linux, x64, "${{ vars.CI_RUNNER_LABEL }}"]':
-                    fail(f"{workflow}: {job_id} must run on the configured CI runner label")
+                expected_label = ("${{ vars.CI_RUNNER_LABEL }}" if job_id == "notify-dependabot-automerge"
+                                  else "${{ vars.CI_ADMISSION_BOOTSTRAP_RUNNER_LABEL }}")
+                if runner_line is None or runner_line.group(0).strip() != f'runs-on: [self-hosted, linux, x64, "{expected_label}"]':
+                    fail(f"{workflow}: {job_id} must run on its approved CI runner label")
                 profile = re.search(rf"(?ms)^      - name: {re.escape(step_name)}\n.*?(?=^      - name: |\Z)", body)
                 if profile is None or any(needle not in profile.group(0) for needle in (
                     "CI_RUNNER_HOST: ${{ vars.CI_RUNNER_HOST }}",
@@ -2201,6 +2212,14 @@ for workflow in workflow_paths:
                     'test "$(hostname)" = "$CI_RUNNER_HOST"',
                 )):
                     fail(f"{workflow}: {job_id} must verify the configured native CI host")
+                if job_id in ("validate", "publish-main") and any(needle not in profile.group(0) for needle in (
+                    "CI_ADMISSION_BOOTSTRAP_RUNNER_LABEL: ${{ vars.CI_ADMISSION_BOOTSTRAP_RUNNER_LABEL }}",
+                    "CI_CANONICAL_RUNNER_LABEL: ${{ vars.CI_RUNNER_LABEL }}",
+                    "CI_RUNNER_LABEL must remain quarantined during the bootstrap rollout",
+                )):
+                    fail(f"{workflow}: {job_id} must keep legacy CI routing quarantined during bootstrap")
+                if job_id == "ci-result-gate" and "CI_ADMISSION_BOOTSTRAP_RUNNER_LABEL: ${{ vars.CI_ADMISSION_BOOTSTRAP_RUNNER_LABEL }}" not in profile.group(0):
+                    fail(f"{workflow}: the stable result gate must use the bootstrap runner variable")
             if ("always()" not in ci_jobs.get("ci-result-gate", "")
                     or "python3 Scripts/CI/require_ci_results.py" not in ci_jobs.get("ci-result-gate", "")):
                 fail(f"{workflow}: the stable result gate must run after skipped or failed prerequisites")
@@ -2810,18 +2829,26 @@ for binding in ("GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}", "LOCALSINGLENODE_HO
     if binding not in maintenance_step:
         fail("Scoped maintenance must pass protected release-status inputs: " + binding.split(":", 1)[0])
 
-# Chromium and Docker smoke stages share the node with the other repository, so each runs under the node browser lock.
+# Resource-heavy workflow commands use runner admission. Native admission delegates to the shared node browser lock.
 require_file("Deployment/Common/Scripts/with-node-browser-lock.sh")
 require_file("Deployment/Common/Scripts/Tests/test-with-node-browser-lock.sh")
+require_file("Deployment/Common/Scripts/with-runner-build-admission.sh")
+require_file("Deployment/Common/Scripts/Tests/test-with-runner-build-admission.sh")
 for needle, why in [
-    ("with-node-browser-lock.sh pwsh -File Scripts/Testing/RunReactPublicE2E.ps1 -Browser chromium", "Chromium regression under the node browser lock"),
-    ("with-node-browser-lock.sh bash Deployment/LocalCluster/Scripts/ci-docker-smoke.sh", "Docker and browser smoke under the node browser lock"),
+    ("bash Deployment/Common/Scripts/Tests/test-with-runner-build-admission.sh", "runner build admission behaviour tests"),
 ]:
     require_contains(".github/workflows/ci.yml", needle, why)
-for line in read(".github/workflows/ci.yml").splitlines():
-    runs_browser_or_smoke = "RunReactPublicE2E.ps1" in line or re.search(r"Deployment/LocalCluster/Scripts/ci-docker-smoke\.sh", line)
-    if runs_browser_or_smoke and "--cleanup-only" not in line and "with-node-browser-lock.sh" not in line:
-        fail(f".github/workflows/ci.yml: browser and Docker smoke commands must run under the node browser lock: {line.strip()}")
+ci = read(".github/workflows/ci.yml")
+for job_id, step_name, expected_command in [
+    ("validate", "React public Chromium browser regression", "RunReactPublicE2E.ps1"),
+    ("validate", "Build and smoke both frontend image profiles", "Deployment/LocalCluster/Scripts/ci-docker-smoke.sh"),
+    ("validate", "Remove this run's smoke resources after interruption", "--cleanup-only"),
+    ("publish-main", "Docker smoke and browser smoke", "Deployment/LocalCluster/Scripts/ci-docker-smoke.sh"),
+    ("publish-main", "Remove this run's smoke resources after interruption", "--cleanup-only"),
+]:
+    step = workflow_step_text(workflow_job_text(ci, job_id), step_name)
+    if not step or "with-runner-build-admission.sh" not in step or expected_command not in step:
+        fail(f".github/workflows/ci.yml: {job_id}/{step_name} must use runner admission")
 
 if failures:
     print("Deployment audit failed:")
