@@ -166,17 +166,29 @@ Use the complete inventory's `react_consumers_outside_client` list as the review
 
 | Area | Exact instruction |
 | --- | --- |
-| Client | Remove `GrumPlates.React/`; keep `GrumPlates.Client/` including npm/Tailwind, `.razor.js`, axe and Lighthouse tooling. |
+| Client | Remove `GrumPlates.React/`; keep `GrumPlates.Client/` and npm/Tailwind needed for Blazor styles. Remove axe/Lighthouse and browser-test tooling unless a retained runtime/build dependency requires it. |
 | Server composition | Remove `FrontendComposition.React.cs`, `ReactFrontendHosting.cs`, `ReactFrontendStaticRoot.cs` and `Frontend/React/`. Keep Blazor composition and `Frontend/OpenApi/`. |
 | Server csproj | Remove React compile/content/Razor-exclusion conditions. Keep Blazor packages/references, the publish-output/source guard and source `wwwroot`. Rename `_ReactPublishWebRoot`/`_ReactSourceWebRoot` to neutral names when simplifying. |
 | Profile contract | Accept only `BlazorAuto` in resolver, MSBuild target, immutable manifest/profile validators and verification helpers. Preserve `BlazorAutoV1`. Unknown/empty/environment-derived selection must still fail. |
-| CI lifecycle test | `Prove Testcontainers lifecycle cleanup` explicitly builds/tests `-p:FrontendProfile=React` today. Change to Blazor; retain mandatory execution and zero skips. |
+| CI lifecycle test | The inherited `Testcontainers lifecycle cleanup` project test is outside the one-week product scope; remove it unless the reduced integration harness still depends on it. Keep shared runner admission, cancellation, cleanup, and release checks in their approved repositories. |
 | Node pin | CI currently parses `FROM node:26.13.0-bookworm-slim` in `GrumPlates/Dockerfile`. Add tracked `.node-version` containing `26.13.0` and point `actions/setup-node` at it with `package-manager-cache: false` before deleting the React stage. Retain npm 12.2.0 setup for surviving CSS tooling. |
-| Packaged smoke | `Deployment/LocalCluster/Scripts/ci-docker-smoke.sh` also parses that Node stage unconditionally for the React SMTP fixture. Remove React-only SMTP/browser resources and initialization, then remove that Node Dockerfile parse. Keep Blazor packaged render/pre-hydration/browser tests and cleanup. |
+| Packaged smoke | `Deployment/LocalCluster/Scripts/ci-docker-smoke.sh` also parses that Node stage unconditionally for the React SMTP fixture. Remove React-only SMTP/browser resources and initialization, then remove that Node Dockerfile parse. Keep one small packaged Blazor smoke for startup/rendering. Do not retain multiple browser suites; if one browser-driven CRUD path is chosen, make it the single E2E. |
 | App name in smoke | Smoke defaults through `read-deploy-setting.sh` from LocalCluster. Supply `APP_NAME` from the product LocalSingleNode parser; remove the obsolete fallback when moving the smoke helper. |
-| Tests | Remove React-only hosting/E2E tests. Adapt mixed `HostingResponseBehaviourTests`, `FrontendCompositionTests`, fixtures and profile unit tests. Keep shared account/Books/API tests. |
+| Tests | Remove React-only tests and apply the one-week product test scope in section 4A. Keep focused Books CRUD unit/integration coverage, minimal ownership/auth checks, and at most one optional CRUD E2E. |
 | Quality | Sonar/audit scripts have `Both`/React modes, React path/coverage fixtures and generated-contract assumptions. Simplify supported modes and tests, preserving the Blazor/.NET checks; do not retain broken optional commands. |
 | Publication | Remove `publish_additional_frontend.sh`, corresponding planning/tests and Actions variables only after all callers are adapted. Keep main image/payload receipt/provenance and report-store behavior. |
+
+### 4A. One-week demo product test scope — approved 2026-11-08
+
+Keep RitzauDemo application tests focused on the Books CRUD demo:
+
+- Unit tests cover core CRUD validation and small deterministic rules.
+- Integration tests cover one database-backed create/list/read/update/delete path and only the minimal private-book ownership and anonymous-access checks required by the existing account policy.
+- Keep at most one opt-in Playwright E2E for a signed-in Books CRUD happy path. Omit it if it cannot be made reliable within the demo week; the deployment phase still performs independent browser acceptance.
+- Remove product tests for Grafana/observability, visual snapshots, Lighthouse/performance, React, elaborate navigation/responsive behavior, cross-node cache invalidation, account/email/outbox lifecycle, deep migration edge cases, and broad architecture/layout details unrelated to CRUD.
+- Remove fixtures and dependencies used only by dropped suites. Do not retain tests to preserve inherited counts.
+
+This scope changes RitzauDemo product-behavior tests only. Keep CI admission/workflow policy, release identity/provenance, rendered settings, ownership/collision, backup/recovery, and shared-host health gates. Do not reduce GrumPlates or CarbonCalculator suites. Registration-disabled behavior, private API boundaries, migration identity, release provenance, and existing-site preservation remain requirements; verify each with its smallest relevant operational or acceptance check.
 
 ## 5. Single-node extraction map
 
@@ -216,7 +228,7 @@ Mandatory runtime acceptance: Books public listing/detail; Blazor prerender and 
 2. Prepare and integrate separate GrumPlates and CarbonCalculator admission PRs through their complete current local gates and required exact-head/main checks. Follow the staged migration in section 3; preserve CarbonCalculator routing and all existing deployments.
 3. Prepare RitzauDemo's first admitted identity/CI PR and its temporary scheduling guard while Actions are disabled. Finish static shared-host bootstrap review, canonical collisions and the mandatory native operator handoff before installing its runner. Verify registration and host/CD variables; keep legacy product workflows unschedulable.
 4. Enable only the controlled first product validation path, merge via exact-head checks and verify main-push release. Reconcile stale bot/queued workflow code, then retire bootstrap routing through a checked PR. Validate three-repository native admission and peak build capacity while existing sites serve.
-5. Product React removal PR, preserving Blazor and shared account/Books coverage.
+5. Product React removal and test-slimming PR, preserving Blazor and focused Books CRUD coverage.
 6. Product target reduction/extraction PR; preserve admission and operational safeguards.
 7. Product full rename PR; preserve migration IDs, payload provenance and shared ownership identifiers.
 8. Product measured runtime budgets plus documentation/hygiene through normal PRs; budgets may be included earlier when safely validated.
@@ -248,4 +260,4 @@ Perform static effect review before any privileged execution; running setup is n
 - Run `42107307607` was an orphaned CarbonCalculator `workflow_dispatch` from 2026-11-05: the source branch was absent, attempt 1 ended in `startup_failure`, and the aggregate run/check suite remained queued with zero jobs/check runs. Following the user's explicit full-authority instruction, the run and suite were canceled and verified `completed/cancelled`. Keep the original run and SHA in history; do not recreate or rerun that deleted-branch dispatch.
 - At the time PR CI began, no repository had queued, waiting, or in-progress Actions runs. The existing GrumPlates native runner was online/idle; read-only host checks found no active Runner.Worker and only the existing app/database/cache containers running and healthy. The bounded native capacity reservation is in the local GrumPlates claim ledger.
 - GrumPlates branch `task/ci-admission-ritzau-20261108`, full local gate SHA `b17c20655dfb968133db7bb704106e2fc69a7959`, is now in normal PR [#450](https://github.com/Grumlebob/GrumPlates/pull/450). Exact-head CI run `42521702333` failed at `Test runner build admission`: the cancellation fixture's immediate `kill -0` check observed the process group immediately after `wait`; the downstream `build-test-push` result gate failed because `validate` failed. All CodeQL jobs passed. A follow-up host check found no remaining lock-test processes and the runner is idle. The fixture now waits for non-zombie process-group exit and caps lock reacquisition at five seconds; full local validation and exact-head rerun are pending. Merge only after the rerun is green, then verify exact-main CI/publication before opening the CarbonCalculator admission PR.
-- CarbonCalculator branch `task/ritzau-ci-admission-20261108` remains full-gate validated at `1f29e82f9e0a152f396dee8118f63308d1fc3674`, with no PR/CI yet. RitzauDemo Actions remain disabled and draft PR #5 remains unchecked. No native bootstrap, runner registration, deployment, or existing-site change occurred.
+- CarbonCalculator branch `task/ritzau-ci-admission-20261108` remains full-gate validated at `1f29e82f9e0a152f396dee8118f63308d1fc3674`, with no PR/CI yet. RitzauDemo Actions remain disabled; draft PR #5 is open and unchecked at head `a86b00c8acfb41beada455373b4f724f4d4cdf20`. Parent plan and packet were synced to it in a docs-only `[skip ci]` commit. No native bootstrap, runner registration, deployment, or existing-site change occurred.
