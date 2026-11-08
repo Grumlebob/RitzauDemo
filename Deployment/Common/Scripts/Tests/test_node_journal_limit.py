@@ -34,6 +34,17 @@ class NodeJournalLimitTests(unittest.TestCase):
             roles = [role if isinstance(role, str) else role.get("role") for play in plays for role in play.get("roles", [])]
             self.assertIn("mint_base", roles, playbook)
 
+    def test_single_node_bootstrap_skips_dist_upgrade_on_existing_host(self):
+        playbook = yaml.safe_load((ROOT / "Deployment/LocalSingleNode/ansible/playbooks/PrepareSingleNode.yml").read_text())[0]
+        self.assertIs(playbook["vars"]["mint_base_upgrade_packages"], False)
+        self.assertEqual("mint_base_upgrade_packages | default(true) | bool",
+                         self.tasks["Upgrade installed packages"]["when"])
+
+    def test_docker_role_installs_missing_packages_without_requesting_latest(self):
+        tasks = yaml.safe_load((ROOT / "Deployment/Common/ansible/roles/docker/tasks/main.yml").read_text())
+        task = next(item for item in tasks if item["name"] == "Install Docker Engine and Compose plugin")
+        self.assertEqual("present", task["ansible.builtin.apt"]["state"])
+
 
 if __name__ == "__main__":
     unittest.main()

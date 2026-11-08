@@ -413,11 +413,16 @@ class MaintenanceTests(unittest.TestCase):
                 command.assert_not_called()
 
 
-    def test_bootstrap_refreshes_mdns_for_the_approved_hostname(self):
+    def test_bootstrap_keeps_mdns_running_without_restarting_shared_service(self):
         text = (TARGET / 'ansible/playbooks/PrepareSingleNode.yml').read_text()
         task = text.split('- name: Enable native name resolution', 1)[1].split('- name: Enable Caddy', 1)[0]
         self.assertIn('name: avahi-daemon', task)
-        self.assertIn('state: restarted', task)
+        self.assertIn('state: started', task)
+        self.assertNotIn('state: restarted', task)
+
+    def test_bootstrap_apt_install_does_not_upgrade_existing_packages(self):
+        text = (LIB / 'bootstrap.py').read_text()
+        self.assertIn('["install", "-y", "--no-install-recommends", "--no-upgrade", *packages]', text)
 
     def test_http_acceptance_avoids_readonly_home_assignment(self):
         import re

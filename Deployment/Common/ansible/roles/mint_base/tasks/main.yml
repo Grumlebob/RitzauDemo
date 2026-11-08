@@ -7,6 +7,7 @@
 - name: Upgrade installed packages
   ansible.builtin.apt:
     upgrade: dist
+  when: mint_base_upgrade_packages | default(true) | bool
 
 - name: Install baseline packages
   ansible.builtin.apt:
