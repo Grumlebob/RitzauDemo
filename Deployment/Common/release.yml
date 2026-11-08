@@ -1,4 +1,4 @@
-app_image: ghcr.io/grumlebob/books
-migration_bundle_name: books-migrate
+app_image: ghcr.io/grumlebob/ritzaudemo
+migration_bundle_name: ritzaudemo-migrate
 migration_runtime: linux-x64
 release_payload_prefix: private-

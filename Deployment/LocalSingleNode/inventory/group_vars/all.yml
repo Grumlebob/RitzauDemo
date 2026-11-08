@@ -1,13 +1,13 @@
 ---
-app_name: books
-app_port: 8080
-postgres_port: 5432
-redis_port: 6379
-deploy_root: /opt/books
-docker_subnet: 172.30.10.0/24
-lan_http_port: 80
+app_name: ritzaudemo
+app_port: 28080
+postgres_port: 25432
+redis_port: 26379
+deploy_root: /opt/ritzaudemo
+docker_subnet: 172.30.40.0/24
+lan_http_port: 28081
 lan_hostnames: []
-backup_root: /opt/books-backups
+backup_root: /opt/ritzaudemo-backups
 backup_keep_days: 7
 observability_enabled: false
 accounts_registration_enabled: false

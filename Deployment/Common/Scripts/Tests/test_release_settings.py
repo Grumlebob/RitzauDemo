@@ -19,10 +19,10 @@ from release_settings import (  # noqa: E402
 
 
 class ReleaseSettingsTests(unittest.TestCase):
-    def test_template_release_settings_use_private_payload_package_names(self) -> None:
+    def test_product_release_settings_use_private_payload_package_names(self) -> None:
         settings = load_release_settings(default_release_path())
         self.assertEqual(settings["release_payload_prefix"], "private-")
-        self.assertEqual(settings["release_payload_image"], "ghcr.io/grumlebob/private-books-release-payload")
+        self.assertEqual(settings["release_payload_image"], "ghcr.io/grumlebob/private-ritzaudemo-release-payload")
 
     def test_derives_payload_package_and_keeps_existing_release_names(self) -> None:
         values = {
