@@ -174,21 +174,21 @@ Use the complete inventory's `react_consumers_outside_client` list as the review
 | Node pin | CI currently parses `FROM node:26.13.0-bookworm-slim` in `GrumPlates/Dockerfile`. Add tracked `.node-version` containing `26.13.0` and point `actions/setup-node` at it with `package-manager-cache: false` before deleting the React stage. Retain npm 12.2.0 setup for surviving CSS tooling. |
 | Packaged smoke | `Deployment/LocalCluster/Scripts/ci-docker-smoke.sh` also parses that Node stage unconditionally for the React SMTP fixture. Remove React-only SMTP/browser resources and initialization, then remove that Node Dockerfile parse. Keep one small packaged Blazor smoke for startup/rendering. Do not retain multiple browser suites; if one browser-driven CRUD path is chosen, make it the single E2E. |
 | App name in smoke | Smoke defaults through `read-deploy-setting.sh` from LocalCluster. Supply `APP_NAME` from the product LocalSingleNode parser; remove the obsolete fallback when moving the smoke helper. |
-| Tests | Remove React-only tests and apply the one-week product test scope in section 4A. Keep focused Books CRUD unit/integration coverage, minimal ownership/auth checks, and at most one optional CRUD E2E. |
+| Tests | Remove React-only tests and apply the one-week product test scope in section 4A. Keep only focused Books CRUD unit/integration coverage and at most one optional CRUD E2E. Put any required ownership/access assertion inside CRUD integration; remove standalone account/auth suites. |
 | Quality | Sonar/audit scripts have `Both`/React modes, React path/coverage fixtures and generated-contract assumptions. Simplify supported modes and tests, preserving the Blazor/.NET checks; do not retain broken optional commands. |
 | Publication | Remove `publish_additional_frontend.sh`, corresponding planning/tests and Actions variables only after all callers are adapted. Keep main image/payload receipt/provenance and report-store behavior. |
 
-### 4A. One-week demo product test scope — approved 2026-11-08
+### 4A. One-week demo product test scope — approved 2026-11-08, clarified 2026-11-09
 
-Keep RitzauDemo application tests focused on the Books CRUD demo:
+Keep RitzauDemo automated product-behavior tests limited to the Books CRUD demo:
 
-- Unit tests cover core CRUD validation and small deterministic rules.
-- Integration tests cover one database-backed create/list/read/update/delete path and only the minimal private-book ownership and anonymous-access checks required by the existing account policy.
+- Unit tests cover only core CRUD validation and small deterministic rules used by that path.
+- Integration tests cover one database-backed create/list/read/update/delete path. Include an ownership/access assertion within this path only where required by the existing private-book policy; do not keep separate account or authentication test suites.
 - Keep at most one opt-in Playwright E2E for a signed-in Books CRUD happy path. Omit it if it cannot be made reliable within the demo week; the deployment phase still performs independent browser acceptance.
 - Remove product tests for Grafana/observability, visual snapshots, Lighthouse/performance, React, elaborate navigation/responsive behavior, cross-node cache invalidation, account/email/outbox lifecycle, deep migration edge cases, and broad architecture/layout details unrelated to CRUD.
 - Remove fixtures and dependencies used only by dropped suites. Do not retain tests to preserve inherited counts.
 
-This scope changes RitzauDemo product-behavior tests only. Keep CI admission/workflow policy, release identity/provenance, rendered settings, ownership/collision, backup/recovery, and shared-host health gates. Do not reduce GrumPlates or CarbonCalculator suites. Registration-disabled behavior, private API boundaries, migration identity, release provenance, and existing-site preservation remain requirements; verify each with its smallest relevant operational or acceptance check.
+This is the complete automated product-behavior test scope for the demo: focused CRUD unit and integration tests, plus zero or one CRUD E2E. Keep required CI admission/workflow policy, release identity/provenance, rendered settings, ownership/collision, backup/recovery, and shared-host health gates as operational gates rather than additional product test suites. Do not reduce GrumPlates or CarbonCalculator suites. Registration-disabled behavior, private API boundaries, migration identity, release provenance, and existing-site preservation remain requirements; verify each with its smallest relevant operational or acceptance check.
 
 ## 5. Single-node extraction map
 
@@ -270,3 +270,8 @@ Perform static effect review before any privileged execution; running setup is n
 - All three repositories had empty queued/running job lists at recheck; `node-demo-books` was online and idle. Host inspection during CI found existing web apps still running and PostgreSQL healthy. Run-owned Testcontainers/Compose resources were removed after their checks.
 - CarbonCalculator main still equals `0d255392b99eb635030f9c90a03de8a6d37d227c`; admission branch `1f29e82f9e0a152f396dee8118f63308d1fc3674` is clean and full-gate validated, with no PR or CI yet. Recheck queues and runner immediately before opening its approved native-CI-only PR.
 - RitzauDemo draft PR #5 is open at `902f98c5123f0a5054ac32f7bda7f498be5c4469`; Actions remain disabled. Product test pruning remains pending for Phase 3 under the approved lean Books CRUD scope. No bootstrap, product runner registration, deployment, or existing-site change occurred.
+
+### Lean product test scope and CarbonCalculator follow-up — 2026-11-09
+
+- The user clarified that the one-week demo should showcase only Books CRUD unit/integration tests and at most one optional CRUD E2E. Remove separate account/auth suites and other inherited product suites listed in section 4A, including Grafana/observability. Keep necessary ownership/access assertions inside the CRUD integration path, and keep shared CI/release/deployment/backup/host-safety checks as operational gates. The parent plan and support packet now state this narrower scope; sync the clarification to RitzauDemo draft PR #5 in a docs-only `[skip ci]` commit. PR #5 remains draft with Actions disabled.
+- CarbonCalculator PR #477 is open at exact head `1f29e82f9e0a152f396dee8118f63308d1fc3674`. Exact-head run `42532517774` failed in the runner-build-admission cancellation fixture because the test checked the process group before remaining processes had exited. Follow-up commit `3e2b22d21dde9eba5b54a345c0413170c8a7af22` adds bounded process-group cleanup polling; it is local and unpushed pending a fresh full local gate in a separate Ubuntu-24.04 worktree. After the gate, push the commit, update PR #477 evidence, and verify exact-head CI before merging.
