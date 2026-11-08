@@ -79,12 +79,13 @@ class CiRunnerProfileTests(unittest.TestCase):
         count = 0
         for name in ("ci.yml", "auto-merge-dependabot.yml"):
             text = (ROOT / ".github/workflows" / name).read_text()
-            runner_lines = re.findall(r"(?m)^    runs-on:.*$", text)
+            runner_lines = [line.strip() for line in re.findall(r"(?m)^    runs-on:.*$", text)]
             fallback = "vars.CI_RUNNER_LABEL || vars.LOCALCLUSTER_RUNNER_LABEL || 'localcluster-books'"
             if name == "ci.yml":
-                self.assertTrue(runner_lines)
-                self.assertTrue(all(line.strip() == 'runs-on: [self-hosted, linux, x64, "${{ vars.CI_RUNNER_LABEL }}"]'
-                                    for line in runner_lines))
+                bootstrap = 'runs-on: [self-hosted, linux, x64, "${{ vars.CI_ADMISSION_BOOTSTRAP_RUNNER_LABEL }}"]'
+                canonical = 'runs-on: [self-hosted, linux, x64, "${{ vars.CI_RUNNER_LABEL }}"]'
+                self.assertEqual(runner_lines.count(bootstrap), 3)
+                self.assertEqual(runner_lines.count(canonical), 1)
             else:
                 self.assertTrue(runner_lines)
                 self.assertTrue(all(fallback in line for line in runner_lines))
@@ -97,11 +98,19 @@ class CiRunnerProfileTests(unittest.TestCase):
                 self.assertIn("CI_RUNNER_HOST: ${{ vars.CI_RUNNER_HOST }}", body)
                 self.assertIn('${CI_RUNNER_HOST:?Set the CI_RUNNER_HOST repository variable', body)
                 self.assertIn('test "$(hostname)" = "$CI_RUNNER_HOST"', body)
+                if name == "ci.yml" and "Verify native CI result-gate runner" in body:
+                    self.assertIn("CI_ADMISSION_BOOTSTRAP_RUNNER_LABEL: ${{ vars.CI_ADMISSION_BOOTSTRAP_RUNNER_LABEL }}", body)
+                elif name == "ci.yml" and "CI_ADMISSION_BOOTSTRAP_RUNNER_LABEL" in body:
+                    self.assertIn("CI_ADMISSION_BOOTSTRAP_RUNNER_LABEL: ${{ vars.CI_ADMISSION_BOOTSTRAP_RUNNER_LABEL }}", body)
+                    self.assertIn("CI_CANONICAL_RUNNER_LABEL: ${{ vars.CI_RUNNER_LABEL }}", body)
+                    self.assertIn("CI_RUNNER_LABEL must remain quarantined during the bootstrap rollout", body)
                 script = body.split("        run: |\n", 1)[1]
                 yield name, "\n".join(line[10:] for line in script.splitlines() if line.startswith("          "))
         self.assertEqual(count, 5)
 
-    def check_host(self, expected, actual, succeeds, label="runner-label"):
+    def check_host(self, expected, actual, succeeds, bootstrap_label="bootstrap-label",
+                   canonical_label="quarantine-label", check_bootstrap_label=False,
+                   check_canonical_label=False):
         with tempfile.TemporaryDirectory() as directory:
             root = Path(directory)
             for name, content in (("hostname", '#!/bin/sh\nprintf "%s\\n" "$FIXTURE_HOST"\n'),
@@ -110,13 +119,17 @@ class CiRunnerProfileTests(unittest.TestCase):
                 stub.write_text(content)
                 stub.chmod(0o755)
             for name, script in self.profiles():
-                if label != "runner-label" and "CI_RUNNER_LABEL" not in script:
+                if check_bootstrap_label and "CI_CANONICAL_RUNNER_LABEL" not in script:
+                    continue
+                if check_canonical_label and "CI_RUNNER_LABEL" not in script and "CI_CANONICAL_RUNNER_LABEL" not in script:
                     continue
                 with self.subTest(workflow=name, expected=expected, actual=actual):
                     result = subprocess.run(["bash", "-euo", "pipefail", "-c", script],
                                             env={**os.environ, "PATH": str(root) + os.pathsep + os.environ["PATH"],
                                                  "CI_RUNNER_HOST": expected, "FIXTURE_HOST": actual,
-                                                 "CI_RUNNER_LABEL": label,
+                                                 "CI_RUNNER_LABEL": canonical_label,
+                                                 "CI_CANONICAL_RUNNER_LABEL": canonical_label,
+                                                 "CI_ADMISSION_BOOTSTRAP_RUNNER_LABEL": bootstrap_label,
                                                  "RUNNER_OS": "Linux", "GITHUB_WORKSPACE": directory},
                                             capture_output=True, text=True, check=False)
                     self.assertEqual(result.returncode == 0, succeeds, result.stdout + result.stderr)
@@ -135,7 +148,15 @@ class CiRunnerProfileTests(unittest.TestCase):
 
     def test_runner_label_must_be_set_and_safe(self):
         for label in ("", "bad label", "-leading", "label;x"):
-            self.check_host("runner-a", "runner-a", False, label=label)
+            self.check_host("runner-a", "runner-a", False, bootstrap_label=label,
+                            check_bootstrap_label=True)
+            self.check_host("runner-a", "runner-a", False, canonical_label=label,
+                            check_canonical_label=True)
+
+    def test_bootstrap_and_canonical_labels_must_differ(self):
+        self.check_host("runner-a", "runner-a", False,
+                        bootstrap_label="same-label", canonical_label="same-label",
+                        check_bootstrap_label=True, check_canonical_label=True)
 
 
 if __name__ == "__main__":
