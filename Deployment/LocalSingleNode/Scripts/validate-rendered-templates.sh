@@ -67,6 +67,18 @@ with tempfile.TemporaryDirectory(prefix='single-node-render-') as directory:
     assert 'Accounts__' not in interpolation_env.read_text(), 'Compose interpolation allowlist must exclude account settings'
     output = subprocess.check_output(['docker', 'compose', '--project-directory', str(single_fixture), '--env-file', str(interpolation_env), '-f', str(single_compose), 'config', '--format', 'json'], text=True)
     config = json.loads(output)
+    resource_limits = {
+        'web': {'cpus': 1.5, 'mem_limit': '536870912', 'pids_limit': 256},
+        'postgres': {'cpus': 1.0, 'mem_limit': '805306368', 'pids_limit': 256},
+        'redis': {'cpus': 0.25, 'mem_limit': '134217728', 'pids_limit': 128},
+    }
+    for service_name, expected in resource_limits.items():
+        service = config['services'][service_name]
+        for key, value in expected.items():
+            assert service.get(key) == value, f'{service_name} must set {key}={value}'
+    redis_command = config['services']['redis']['command']
+    assert redis_command[redis_command.index('--maxmemory') + 1] == '64mb'
+    assert redis_command[redis_command.index('--maxmemory-policy') + 1] == 'noeviction'
     for service in config['services'].values():
         for port in service.get('ports', []):
             assert port['host_ip'] == '127.0.0.1', 'Compose published a non-loopback port'
