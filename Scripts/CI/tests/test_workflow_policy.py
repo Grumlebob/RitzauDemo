@@ -41,19 +41,16 @@ class WorkflowPolicyTests(unittest.TestCase):
             with self.subTest(job=job_id):
                 job = workflow["jobs"][job_id]
                 self.assertEqual("native", job["env"]["CI_ADMISSION_POOL"])
-                self.assertIn("vars.CI_ADMISSION_BOOTSTRAP_RUNNER_LABEL", str(job["runs-on"]))
+                self.assertIn("vars.CI_RUNNER_LABEL", str(job["runs-on"]))
                 steps = {step.get("name"): step for step in job["steps"]}
                 for name in expected[job_id]:
                     run = steps[name]["run"]
                     self.assertIn("with-runner-build-admission.sh", run, name)
                     self.assertIn('--pool "$CI_ADMISSION_POOL"', run, name)
                 runner_check = steps["Verify CI runner"]
-                self.assertEqual(
-                    "${{ vars.CI_ADMISSION_BOOTSTRAP_RUNNER_LABEL }}",
-                    runner_check["env"]["CI_ADMISSION_BOOTSTRAP_RUNNER_LABEL"],
-                )
-                self.assertEqual("${{ vars.CI_RUNNER_LABEL }}", runner_check["env"]["CI_CANONICAL_RUNNER_LABEL"])
-                self.assertIn("CI_RUNNER_LABEL must remain quarantined", runner_check["run"])
+                self.assertEqual("${{ vars.CI_RUNNER_LABEL }}", runner_check["env"]["CI_RUNNER_LABEL"])
+                self.assertIn("CI_RUNNER_LABEL has an invalid format", runner_check["run"])
+                self.assertNotIn("quarantined", runner_check["run"])
 
         self.assertIn("cat .node-version", workflow["jobs"]["validate"]["steps"][
             next(index for index, step in enumerate(workflow["jobs"]["validate"]["steps"])
@@ -62,16 +59,21 @@ class WorkflowPolicyTests(unittest.TestCase):
         self.assertNotIn("ADDITIONAL_FRONTEND_PROFILES", (root / ".github" / "workflows" / "ci.yml").read_text())
 
         result_gate = workflow["jobs"]["ci-result-gate"]
-        self.assertIn("vars.CI_ADMISSION_BOOTSTRAP_RUNNER_LABEL", str(result_gate["runs-on"]))
-        for job_id in ("validate", "ci-result-gate"):
-            self.assertIn("vars.CI_BOOTSTRAP_HOSTED_VALIDATION == 'true'", str(workflow["jobs"][job_id]["runs-on"]))
-            self.assertIn("CI_BOOTSTRAP_HOSTED_VALIDATION", workflow["jobs"][job_id]["env"])
+        self.assertIn("vars.CI_RUNNER_LABEL", str(result_gate["runs-on"]))
+        gate_verify = next(step for step in result_gate["steps"]
+                           if step.get("name") == "Verify native CI result-gate runner")
+        self.assertEqual("${{ vars.CI_RUNNER_LABEL }}", gate_verify["env"]["CI_RUNNER_LABEL"])
+        workflow_source = (root / ".github" / "workflows" / "ci.yml").read_text(encoding="utf-8")
+        self.assertNotIn("CI_ADMISSION_BOOTSTRAP_RUNNER_LABEL", workflow_source)
+        self.assertNotIn("CI_BOOTSTRAP_HOSTED_VALIDATION", workflow_source)
         dependabot_notice = workflow["jobs"]["notify-dependabot-automerge"]
         self.assertIn("${{ vars.CI_RUNNER_LABEL }}", str(dependabot_notice["runs-on"]))
 
         for workflow_path in (root / ".github" / "workflows").glob("*"):
             if workflow_path.name != "ci.yml" and workflow_path.is_file():
-                self.assertNotIn("CI_ADMISSION_BOOTSTRAP_RUNNER_LABEL", workflow_path.read_text(encoding="utf-8"))
+                workflow_source = workflow_path.read_text(encoding="utf-8")
+                self.assertNotIn("CI_ADMISSION_BOOTSTRAP_RUNNER_LABEL", workflow_source)
+                self.assertNotIn("CI_BOOTSTRAP_HOSTED_VALIDATION", workflow_source)
 
         admission_test = next(step for step in workflow["jobs"]["validate"]["steps"]
                               if step.get("name") == "Test runner build admission")
@@ -237,64 +239,15 @@ jobs:
         self.assertFalse(any("hosted CodeQL job" in str(item) for item in valid))
         self.assertTrue(any("hosted CodeQL job must skip private repository clones" in str(item) for item in invalid))
 
-    def test_first_pr_hosted_bootstrap_route_is_narrow(self) -> None:
-        def workflow(number: int = 5) -> str:
-            guard = (
-                "github.event_name == 'pull_request' && github.event.pull_request.number == "
-                + str(number)
-                + " && vars.CI_BOOTSTRAP_HOSTED_VALIDATION == 'true'"
-            )
-            route = (
-                "${{ (" + guard + ") && fromJSON('[\"ubuntu-24.04\"]') || "
-                "fromJSON(format('[\"self-hosted\",\"linux\",\"x64\",\"{0}\"]', "
-                "vars.CI_ADMISSION_BOOTSTRAP_RUNNER_LABEL)) }}"
-            )
-            flag = "${{ " + guard + " }}"
-            source = """name: CI
+    def test_ci_jobs_reject_hosted_runner_routes(self) -> None:
+        findings = self._audit({"ci.yml": """name: CI
 jobs:
   validate:
-    if: ${{ github.event_name != 'pull_request' || github.event.pull_request.head.repo.full_name == github.repository }}
-    runs-on: @@ROUTE@@
-    env:
-      CI_BOOTSTRAP_HOSTED_VALIDATION: @@FLAG@@
-    steps:
-      - name: Record temporary hosted bootstrap validation
-        if: ${{ env.CI_BOOTSTRAP_HOSTED_VALIDATION == 'true' }}
-        run: echo hosted >> $GITHUB_STEP_SUMMARY
-      - name: Verify CI runner
-        if: ${{ env.CI_BOOTSTRAP_HOSTED_VALIDATION != 'true' }}
-        run: echo native
-      - name: Ensure self-hosted runner prerequisites
-        if: ${{ env.CI_BOOTSTRAP_HOSTED_VALIDATION != 'true' }}
-        run: echo native
-      - name: Check self-hosted runner disk
-        if: ${{ env.CI_BOOTSTRAP_HOSTED_VALIDATION != 'true' }}
-        run: echo native
-      - name: Activate validated Ansible generation
-        run: bash install-ansible.sh --provision
-  ci-result-gate:
-    if: ${{ always() && (github.event_name == 'workflow_dispatch' || github.ref == 'refs/heads/main' || (github.event_name == 'pull_request' && github.event.pull_request.head.repo.full_name == github.repository)) }}
-    runs-on: @@ROUTE@@
-    env:
-      CI_BOOTSTRAP_HOSTED_VALIDATION: @@FLAG@@
-    steps:
-      - name: Verify native CI result-gate runner
-        if: ${{ env.CI_BOOTSTRAP_HOSTED_VALIDATION != 'true' }}
-        run: echo native
-"""
-            return source.replace("@@ROUTE@@", route).replace("@@FLAG@@", flag)
+    runs-on: ubuntu-24.04
+    steps: []
+"""})
 
-        valid = self._audit({"ci.yml": workflow()})
-        wrong_pr = self._audit({"ci.yml": workflow(6)})
-        wrong_job = self._audit({"ci.yml": workflow().replace(
-            "  validate:\n", "  publish-main:\n", 1
-        )})
-        elsewhere = self._audit({"other.yml": workflow()})
-
-        self.assertEqual([], valid)
-        self.assertTrue(any("limited to first-party PR #5" in str(item) for item in wrong_pr))
-        self.assertTrue(any("must target self-hosted runners" in str(item) for item in wrong_job))
-        self.assertTrue(any("must target self-hosted runners" in str(item) for item in elsewhere))
+        self.assertTrue(any("must target self-hosted runners" in str(item) for item in findings))
 
     def test_runner_group_name_does_not_count_as_a_self_hosted_label(self) -> None:
         for runner in ("{group: self-hosted}", "{group: self-hosted, labels: linux}"):
