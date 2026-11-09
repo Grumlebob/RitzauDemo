@@ -24,6 +24,7 @@ public class AppDbContext(DbContextOptions<AppDbContext> options)
     public DbSet<UserBook> UserBooks => Set<UserBook>();
     public DbSet<AuthorBook> AuthorBooks => Set<AuthorBook>();
     public DbSet<DataProtectionKey> DataProtectionKeys => Set<DataProtectionKey>();
+    // Retain the historical table mapping until a forward migration is reviewed.
     internal DbSet<AccountOutboxMessage> AccountOutbox => Set<AccountOutboxMessage>();
 
     protected override void OnModelCreating(ModelBuilder modelBuilder)

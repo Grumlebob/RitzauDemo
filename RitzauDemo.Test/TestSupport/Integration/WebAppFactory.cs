@@ -1,4 +1,5 @@
 using System.Runtime.ExceptionServices;
+using DotNet.Testcontainers.Containers;
 using Microsoft.AspNetCore.Authentication;
 using Microsoft.AspNetCore.Hosting;
 using Microsoft.AspNetCore.Identity;
@@ -27,6 +28,7 @@ public class WebAppFactory : WebApplicationFactory<Program>, IAsyncLifetime
     private const string AppNameEnvironmentVariable = "App__Name";
     private const string CacheInvalidationEnabledEnvironmentVariable = "Cache__Invalidation__Enabled";
     private const string CacheInvalidationNodeIdEnvironmentVariable = "Cache__Invalidation__NodeId";
+    private const string CacheInvalidationChannelEnvironmentVariable = "Cache__Invalidation__ChannelName";
     private const string CacheBooksLocalListTtlEnvironmentVariable = "Cache__Books__LocalListTtlSeconds";
     private const string CacheBooksLocalItemTtlEnvironmentVariable = "Cache__Books__LocalItemTtlSeconds";
     private const string CacheBooksDisableLocalEnvironmentVariable = "Cache__Books__DisableLocalCache";
@@ -48,6 +50,9 @@ public class WebAppFactory : WebApplicationFactory<Program>, IAsyncLifetime
 
     private readonly WebAppFactoryOptions _options;
     private readonly PostgreSqlContainer? _dbContainer;
+    private readonly IContainer? _redisContainer;
+    private readonly string _cacheInvalidationNodeId;
+    private readonly string _cacheInvalidationChannelName;
 
     private string _connectionString = default!;
     private string _redisConnectionString = "CHANGE_ME";
@@ -57,22 +62,37 @@ public class WebAppFactory : WebApplicationFactory<Program>, IAsyncLifetime
     private int _disposed;
     public HttpClient HttpClient { get; private set; } = default!;
     internal string ConnectionString => _connectionString;
+    internal string RedisConnectionString => _redisConnectionString;
+    internal string CacheInvalidationChannelName => _cacheInvalidationChannelName;
     internal string KeyEncryptionCertificatePath => _keyCertificate.Path;
 
     public WebAppFactory()
-        : this(new WebAppFactoryOptions())
+        : this(new WebAppFactoryOptions
+        {
+            LocalListTtlSeconds = 60,
+            LocalItemTtlSeconds = 60
+        })
     {
     }
 
     internal WebAppFactory(WebAppFactoryOptions options)
     {
         _options = options;
+        _cacheInvalidationNodeId = options.CacheInvalidationNodeId ?? $"test-node-{Guid.NewGuid():N}";
+        _cacheInvalidationChannelName = options.CacheInvalidationChannelName ?? $"test-channel-{Guid.NewGuid():N}";
         // Account antiforgery cookies are Secure-only, as behind the deployed HTTPS proxy.
         ClientOptions.BaseAddress = new Uri("https://localhost");
         if (string.IsNullOrWhiteSpace(options.PostgresConnectionString))
         {
             _dbContainer = TestContainerImages.CreatePostgreSqlFixture()
                 .WithLabel(TestContainerLabels.For("web-app-factory-postgres"))
+                .WithCleanUp(true)
+                .Build();
+        }
+        if (string.IsNullOrWhiteSpace(options.RedisConnectionString))
+        {
+            _redisContainer = TestContainerImages.CreateRedisFixture()
+                .WithLabel(TestContainerLabels.For("web-app-factory-redis"))
                 .WithCleanUp(true)
                 .Build();
         }
@@ -87,13 +107,15 @@ public class WebAppFactory : WebApplicationFactory<Program>, IAsyncLifetime
 
         builder.ConfigureAppConfiguration((_, configuration) =>
         {
-            var redisAllowMissing = string.IsNullOrWhiteSpace(_options.RedisConnectionString);
+            var redisAllowMissing = string.Equals(_redisConnectionString, "CHANGE_ME", StringComparison.Ordinal);
             var values = new Dictionary<string, string?>
             {
                 ["App:Name"] = _options.AppName ?? "RitzauDemo",
                 ["ConnectionStrings:DefaultConnection"] = _connectionString,
                 ["Redis:Configuration"] = _redisConnectionString,
                 ["Redis:AllowMissing"] = redisAllowMissing.ToString(),
+                ["Cache:Invalidation:NodeId"] = _cacheInvalidationNodeId,
+                ["Cache:Invalidation:ChannelName"] = _cacheInvalidationChannelName,
                 ["Database:RunMigrationsAtStartup"] = _options.RunMigrationsAtStartup.ToString(),
                 ["AuthorBooks:SeedAtStartup"] = _options.AuthorBooksSeedAtStartup.ToString(),
                 ["DataProtection:KeyEncryptionCertificatePath"] = _keyCertificate.Path,
@@ -106,11 +128,6 @@ public class WebAppFactory : WebApplicationFactory<Program>, IAsyncLifetime
                 ["Observability:OpenTelemetry:Endpoint"] = _options.OpenTelemetryEndpoint ?? "http://127.0.0.1:4317",
                 ["Cache:Invalidation:Enabled"] = (_options.CacheInvalidationEnabled ?? !string.Equals(_redisConnectionString, "CHANGE_ME", StringComparison.Ordinal)).ToString()
             };
-
-            if (!string.IsNullOrWhiteSpace(_options.CacheInvalidationNodeId))
-            {
-                values["Cache:Invalidation:NodeId"] = _options.CacheInvalidationNodeId;
-            }
 
             foreach (var (key, value) in _options.ConfigurationOverrides)
             {
@@ -176,7 +193,7 @@ public class WebAppFactory : WebApplicationFactory<Program>, IAsyncLifetime
         }
     }
 
-    public HttpClient CreateAuthenticatedClient(string userName = "integration-user@example.test")
+    public HttpClient CreateAuthenticatedClient(string userName = "integration-user@example.test", params string[] roles)
     {
         if (_options.UseRealIdentityCookies)
         {
@@ -190,6 +207,11 @@ public class WebAppFactory : WebApplicationFactory<Program>, IAsyncLifetime
             new CookieContainerHandler());
         client.Timeout = TimeSpan.FromMinutes(MaxWaitTimeMinutes);
         client.DefaultRequestHeaders.Add(TestAuthenticationHandler.UserHeader, userName);
+        if (roles.Length > 0)
+        {
+            client.DefaultRequestHeaders.Add(TestAuthenticationHandler.RolesHeader, string.Join(",", roles));
+        }
+
         return client;
     }
 
@@ -205,16 +227,24 @@ public class WebAppFactory : WebApplicationFactory<Program>, IAsyncLifetime
             _connectionString = _options.PostgresConnectionString!;
         }
 
-        _redisConnectionString = string.IsNullOrWhiteSpace(_options.RedisConnectionString)
-            ? "CHANGE_ME"
-            : _options.RedisConnectionString;
+        if (_redisContainer is not null)
+        {
+            await _redisContainer.StartAsync();
+            _redisConnectionString = $"{_redisContainer.Hostname}:{_redisContainer.GetMappedPublicPort(6379)}";
+        }
+        else
+        {
+            _redisConnectionString = string.IsNullOrWhiteSpace(_options.RedisConnectionString)
+                ? "CHANGE_ME"
+                : _options.RedisConnectionString;
+        }
 
         if (_options.UseProcessEnvironmentOverrides)
         {
             // Minimal hosting reads some configuration before WebApplicationFactory
             // configuration callbacks can replace it. Keep these overrides scoped
             // and test parallelization disabled while this startup-time coupling exists.
-            var redisAllowMissing = string.IsNullOrWhiteSpace(_options.RedisConnectionString);
+            var redisAllowMissing = string.Equals(_redisConnectionString, "CHANGE_ME", StringComparison.Ordinal);
             var environmentValues = new Dictionary<string, string?>
             {
                 [AppNameEnvironmentVariable] = _options.AppName ?? "RitzauDemo",
@@ -222,7 +252,8 @@ public class WebAppFactory : WebApplicationFactory<Program>, IAsyncLifetime
                 [RedisConfigurationEnvironmentVariable] = _redisConnectionString,
                 [RedisAllowMissingEnvironmentVariable] = redisAllowMissing.ToString(),
                 [CacheInvalidationEnabledEnvironmentVariable] = (_options.CacheInvalidationEnabled ?? !string.Equals(_redisConnectionString, "CHANGE_ME", StringComparison.Ordinal)).ToString(),
-                [CacheInvalidationNodeIdEnvironmentVariable] = _options.CacheInvalidationNodeId,
+                [CacheInvalidationNodeIdEnvironmentVariable] = _cacheInvalidationNodeId,
+                [CacheInvalidationChannelEnvironmentVariable] = _cacheInvalidationChannelName,
                 [CacheBooksLocalListTtlEnvironmentVariable] = _options.LocalListTtlSeconds?.ToString(),
                 [CacheBooksLocalItemTtlEnvironmentVariable] = _options.LocalItemTtlSeconds?.ToString(),
                 [CacheBooksDisableLocalEnvironmentVariable] = _options.DisableLocalCache?.ToString(),
@@ -281,6 +312,18 @@ public class WebAppFactory : WebApplicationFactory<Program>, IAsyncLifetime
         {
             HttpClient?.Dispose();
             await base.DisposeAsync();
+        }
+        catch (Exception exception)
+        {
+            failures.Add(exception);
+        }
+
+        try
+        {
+            if (_redisContainer is not null)
+            {
+                await _redisContainer.DisposeAsync();
+            }
         }
         catch (Exception exception)
         {

@@ -13,14 +13,10 @@ ROOT = Path(__file__).resolve().parents[4]
 TARGET = ROOT / "Deployment/LocalSingleNode"
 ETC = Path(os.environ.get("LOCALSINGLENODE_ETC", "/etc"))
 ACCOUNT_SETTING_DEFAULTS = {
-    "accounts_registration_enabled": False,
     "accounts_admin_seed_enabled": False,
     "accounts_admin_seed_email": "",
-    "accounts_public_origin": "",
-    "accounts_email_host": "",
-    "accounts_email_port": 587,
-    "accounts_email_security": "StartTls",
-    "accounts_email_from": "",
+    "accounts_user_seed_enabled": False,
+    "accounts_user_seed_email": "",
 }
 
 
@@ -104,16 +100,15 @@ def settings(path: Path | None = None) -> dict:
         raise ValueError("backup_keep_days must be a positive integer")
     if values["observability_enabled"] is not False:
         raise ValueError("single-node observability must be disabled")
-    account_bool_keys = ("accounts_registration_enabled", "accounts_admin_seed_enabled")
+    account_bool_keys = ("accounts_admin_seed_enabled", "accounts_user_seed_enabled")
     if any(type(values[key]) is not bool for key in account_bool_keys):
-        raise ValueError("account feature settings must be true or false")
-    if type(values["accounts_email_port"]) is not int or not 1 <= values["accounts_email_port"] <= 65535:
-        raise ValueError("accounts_email_port must be an integer from 1 through 65535")
-    if values["accounts_email_security"] not in ("StartTls", "SslOnConnect"):
-        raise ValueError("accounts_email_security must be StartTls or SslOnConnect")
-    account_string_keys = ("accounts_admin_seed_email", "accounts_public_origin", "accounts_email_host", "accounts_email_from")
+        raise ValueError("seed account settings must be true or false")
+    account_string_keys = (
+        "accounts_admin_seed_email",
+        "accounts_user_seed_email",
+    )
     if any(type(values[key]) is not str or any(char in values[key] for char in "\r\n\0") for key in account_string_keys):
-        raise ValueError("account settings must be single-line strings")
+        raise ValueError("seed account email settings must be single-line strings")
     return values
 
 

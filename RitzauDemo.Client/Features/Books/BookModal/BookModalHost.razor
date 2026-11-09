@@ -58,15 +58,26 @@
             }
             else if (_lifecycle.Request.Mode is BookModalMode.Create or BookModalMode.Edit)
             {
-                <h1 id="book-modal-title" class="sr-only">@EditorHeading</h1>
-                <BookPageEditor Model="_lifecycle.EditorModel"
-                                Heading="@EditorHeading"
-                                SubmitLabel="Close and save"
-                                CancelLabel="Close"
-                                CancelHref="/books"
-                                Error="@_lifecycle.SaveError"
-                                IsBusy="@_lifecycle.Saving"
-                                OnValidSubmit="SaveAsync" />
+                <AuthorizeView Roles="@AccountRoleNames.Admin">
+                    <Authorized>
+                        <h1 id="book-modal-title" class="sr-only">@EditorHeading</h1>
+                        <BookPageEditor Model="_lifecycle.EditorModel"
+                                        Heading="@EditorHeading"
+                                        SubmitLabel="Close and save"
+                                        CancelLabel="Close"
+                                        CancelHref="/books"
+                                        Error="@_lifecycle.SaveError"
+                                        IsBusy="@_lifecycle.Saving"
+                                        OnValidSubmit="SaveAsync" />
+                    </Authorized>
+                    <NotAuthorized>
+                        <div class="w-full rounded-md border border-amber-200 bg-white px-4 py-3 text-sm text-amber-900 shadow-sm" role="alert">
+                            <h1 id="book-modal-title" class="mb-1 text-lg font-bold">Administrator access required</h1>
+                            <p>Your account can read books but cannot add or edit them.</p>
+                            <a class="mt-3 inline-flex font-bold underline" href="/books">Back to books</a>
+                        </div>
+                    </NotAuthorized>
+                </AuthorizeView>
             }
         </div>
     </div>

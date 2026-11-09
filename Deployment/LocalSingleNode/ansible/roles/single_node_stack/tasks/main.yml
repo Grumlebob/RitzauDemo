@@ -8,7 +8,7 @@
   ansible.builtin.assert:
     that:
       - docker_compose_version.stdout is version('2.30.0', '>=', version_type='loose')
-    fail_msg: "Docker Compose 2.30.0 or later is required for literal account environment values."
+    fail_msg: "Docker Compose 2.30.0 or later is required for literal seeded-account environment values."
 - name: Require native host identity and exact release inputs
   ansible.builtin.assert:
     that:
@@ -41,16 +41,14 @@
   ansible.builtin.assert:
     that:
       - >-
-        (accounts_public_origin | default('') ~ accounts_admin_seed_email | default('') ~ accounts_email_host | default('') ~ accounts_email_from | default('') ~ vault_accounts_admin_seed_password | default('') ~ vault_accounts_email_username | default('') ~ vault_accounts_email_password | default('') ~ vault_data_protection_certificate_password | default(''))
+        (accounts_admin_seed_email | default('') ~ accounts_user_seed_email | default('') ~ vault_accounts_admin_seed_password | default('') ~ vault_accounts_user_seed_password | default('') ~ vault_data_protection_certificate_password | default(''))
         | regex_search('[\r\n\0]') is none
       - vault_data_protection_certificate_password is match('^[A-Fa-f0-9]{64}$')
       - not (accounts_admin_seed_enabled | default(false) | bool) or ((accounts_admin_seed_email | default('') | length > 0) and (vault_accounts_admin_seed_password | default('') | length > 0))
-      - not (accounts_registration_enabled | default(false) | bool) or ((accounts_email_host | default('') | length > 0) and (accounts_email_from | default('') | length > 0) and (accounts_public_origin | default('') | length > 0))
+      - not (accounts_user_seed_enabled | default(false) | bool) or ((accounts_user_seed_email | default('') | length > 0) and (vault_accounts_user_seed_password | default('') | length > 0))
       - (accounts_admin_seed_email | default('') | length == 0) == (vault_accounts_admin_seed_password | default('') | length == 0)
-      - (vault_accounts_email_username | default('') | length == 0) == (vault_accounts_email_password | default('') | length == 0)
-      - (accounts_email_host | default('') | length > 0) or ((accounts_email_from | default('') | length == 0) and (vault_accounts_email_username | default('') | length == 0) and (vault_accounts_email_password | default('') | length == 0))
-      - (accounts_email_host | default('') | length == 0) or ((accounts_email_from | default('') | length > 0) and (accounts_public_origin | default('') | length > 0))
-    fail_msg: "Account deployment settings are incomplete or contain unsupported line breaks."
+      - (accounts_user_seed_email | default('') | length == 0) == (vault_accounts_user_seed_password | default('') | length == 0)
+    fail_msg: "Seed account values are incomplete or contain unsupported line breaks."
   no_log: true
 - name: Ensure protected Data Protection certificate directory
   ansible.builtin.file:

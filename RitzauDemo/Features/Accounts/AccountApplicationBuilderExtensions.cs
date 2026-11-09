@@ -10,17 +10,7 @@ internal static class AccountApplicationBuilderExtensions
     {
         "/api/auth/login",
         "/api/auth/logout",
-        "/api/auth/logout-all",
-        "/api/auth/register",
-        "/api/auth/resend-confirmation",
-        "/api/auth/confirm-email",
-        "/api/auth/forgot-password",
-        "/api/auth/reset-password",
-        "/api/auth/change-password",
-        "/api/auth/change-email",
-        "/api/auth/confirm-email-change",
-        "/api/auth/export",
-        "/api/auth/delete"
+        "/api/auth/logout-all"
     };
 
     public static void UseAccountRequestPolicies(this WebApplication app)

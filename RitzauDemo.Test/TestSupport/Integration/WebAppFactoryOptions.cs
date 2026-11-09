@@ -17,6 +17,8 @@ public sealed class WebAppFactoryOptions
 
     public string? CacheInvalidationNodeId { get; init; }
 
+    public string? CacheInvalidationChannelName { get; init; }
+
     public bool? CacheInvalidationEnabled { get; init; }
 
     public string? AppName { get; init; }

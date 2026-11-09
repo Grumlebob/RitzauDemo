@@ -70,8 +70,7 @@
           vault_postgres_password: {{ lookup('password', '/dev/null chars=ascii_letters,digits length=48') }}
           vault_redis_password: {{ lookup('password', '/dev/null chars=ascii_letters,digits length=48') }}
           vault_accounts_admin_seed_password: ''
-          vault_accounts_email_username: ''
-          vault_accounts_email_password: ''
+          vault_accounts_user_seed_password: ''
           vault_data_protection_certificate_password: {{ lookup('password', '/dev/null chars=hexdigits length=64') }}
         force: false
         owner: deploy

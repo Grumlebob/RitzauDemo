@@ -15,17 +15,8 @@ internal sealed class BlazorCurrentUserAccessor(
 
     public async ValueTask<string?> GetCurrentUserIdAsync(CancellationToken cancellationToken = default)
     {
-        var httpContext = httpContextAccessor.HttpContext;
-        var principal = httpContext?.User;
+        var principal = await GetCurrentPrincipalAsync(cancellationToken);
         var userId = GetUserId(principal);
-        if (string.IsNullOrWhiteSpace(userId)
-            && httpContext is null
-            && _authenticationStateProvider is not null)
-        {
-            var authenticationState = await _authenticationStateProvider.GetAuthenticationStateAsync();
-            principal = authenticationState.User;
-            userId = GetUserId(principal);
-        }
 
         if (string.IsNullOrWhiteSpace(userId))
         {
@@ -33,6 +24,23 @@ internal sealed class BlazorCurrentUserAccessor(
         }
 
         return userId;
+    }
+
+    public async ValueTask<ClaimsPrincipal> GetCurrentPrincipalAsync(CancellationToken cancellationToken = default)
+    {
+        var httpContext = httpContextAccessor.HttpContext;
+        if (httpContext is not null)
+        {
+            return httpContext.User;
+        }
+
+        if (_authenticationStateProvider is not null)
+        {
+            var authenticationState = await _authenticationStateProvider.GetAuthenticationStateAsync();
+            return authenticationState.User;
+        }
+
+        return httpContext?.User ?? new ClaimsPrincipal(new ClaimsIdentity());
     }
 
     public async ValueTask<string> GetRequiredUserIdAsync(CancellationToken cancellationToken = default)

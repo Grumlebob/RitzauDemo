@@ -7,7 +7,6 @@
   <ItemGroup>
     <PackageReference Include="Microsoft.AspNetCore.Identity.EntityFrameworkCore" />
     <PackageReference Include="Microsoft.AspNetCore.DataProtection.EntityFrameworkCore" />
-    <PackageReference Include="MailKit" />
     <PackageReference Include="Microsoft.AspNetCore.OpenApi" />
     <ProjectReference Include="..\RitzauDemo.Core\RitzauDemo.Core.csproj" />
     <PackageReference Include="Microsoft.EntityFrameworkCore" />
@@ -36,7 +35,6 @@
     <PackageReference Include="OpenTelemetry.Instrumentation.Runtime" />
   </ItemGroup>
   <ItemGroup Condition="'$(FrontendProfile)' == 'BlazorAuto'">
-    <PackageReference Include="Microsoft.AspNetCore.Authentication.Google" />
     <PackageReference Include="Microsoft.AspNetCore.Components.WebAssembly.Server" />
     <ProjectReference Include="..\RitzauDemo.Client\RitzauDemo.Client.csproj" GlobalPropertiesToRemove="RuntimeIdentifier;SelfContained" />
   </ItemGroup>

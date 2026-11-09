@@ -34,11 +34,11 @@ public static class BookEndpoints
 
 internal static class BookEndpointMetadata
 {
-    public static RouteHandlerBuilder WithAuthorizationResponses(this RouteHandlerBuilder endpoint) =>
+    public static RouteHandlerBuilder WithAuthorizationResponses(this RouteHandlerBuilder endpoint, string policyName) =>
         endpoint
             .Produces(StatusCodes.Status401Unauthorized)
             .Produces(StatusCodes.Status403Forbidden)
-            .RequireAuthorization();
+            .RequireAuthorization(policyName);
 }
 
 internal sealed class BooksEndpointLogCategory;

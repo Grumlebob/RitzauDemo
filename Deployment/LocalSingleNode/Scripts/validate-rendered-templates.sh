@@ -21,7 +21,7 @@ ASPNET_IMAGE = ASPNET_IMAGE_MATCH.group(1)
 def assert_runtime_environment(folder, expected):
     verifier = folder / 'verify-env.yml'
     start_marker, end_marker = '__RITZAU_ENV_START__', '__RITZAU_ENV_END__'
-    shell_values = '"$$' + '{Accounts__Email__Username}" "$$' + '{Accounts__Email__Password}"'
+    shell_values = '"$$' + '{Accounts__AdminSeed__Password}" "$$' + '{Accounts__UserSeed__Password}"'
     shell_script = (
         f"printf '{start_marker}'; printf '%s\\000' " + shell_values + f"; printf '{end_marker}'"
     )
@@ -43,12 +43,13 @@ def assert_runtime_environment(folder, expected):
         raise AssertionError('synthetic account environment verifier did not return its markers')
     output = result[start + len(start_marker):end]
     actual = output[:-1].split(b'\x00') if output.endswith(b'\x00') else []
-    assert actual == [expected['username'].encode('utf-8'), expected['password'].encode('utf-8')], 'synthetic account environment did not round-trip'
+    assert actual == [expected['admin_seed_password'].encode('utf-8'), expected['user_seed_password'].encode('utf-8')], 'synthetic seed account environment did not round-trip'
 
 
 target = Path(sys.argv[1]).resolve()
 root = target.parents[1]
 context = dict(app_name='books', inventory_hostname='node-rehearsal', node_ip='192.0.2.10', lan_http_port=80, app_port=8080, postgres_port=5432, redis_port=6379, lan_hostnames=['books.example.invalid'], docker_subnet='172.30.10.0/24', app_image='ghcr.io/fixture-owner/books', release_image_digest='sha256:' + 'a' * 64, app_version='b' * 40, vault_postgres_password='FixturePassword12345678901234567890', vault_redis_password='FixtureRedis12345678901234567890123', vault_data_protection_certificate_password='d' * 64, data_protection_certificate_gid='1001')
+context.update(accounts_admin_seed_enabled=False, accounts_admin_seed_email='', vault_accounts_admin_seed_password='', accounts_user_seed_enabled=False, accounts_user_seed_email='', vault_accounts_user_seed_password='')
 jinja = Environment(undefined=StrictUndefined, trim_blocks=True, lstrip_blocks=True)
 with tempfile.TemporaryDirectory(prefix='single-node-render-') as directory:
     folder = Path(directory)
@@ -84,26 +85,25 @@ with tempfile.TemporaryDirectory(prefix='single-node-render-') as directory:
             assert port['host_ip'] == '127.0.0.1', 'Compose published a non-loopback port'
     assert config['services']['web']['image'] == context['app_image'] + '@' + context['release_image_digest']
     assert 'Accounts__Enabled' not in config['services']['web']['environment']
-    assert config['services']['web']['environment']['Accounts__RegistrationEnabled'] == 'false'
+    assert config['services']['web']['environment']['Accounts__UserSeed__Enabled'] == 'false'
     assert config['services']['web']['environment']['DataProtection__KeyEncryptionCertificatePath'] == '/run/secrets/data-protection.pem'
     assert config['services']['web']['environment']['DataProtection__KeyEncryptionCertificatePassword'] == 'd' * 64
     assert config['services']['web']['group_add'] == ['1001']
     assert any(volume.get('target') == '/run/secrets/data-protection.pem' and volume.get('read_only') for volume in config['services']['web']['volumes'])
-    assert 'Accounts__Email__Password' not in (config['services']['postgres'].get('environment') or {})
+    assert 'Accounts__UserSeed__Password' not in (config['services']['postgres'].get('environment') or {})
+    assert 'Accounts__AdminSeed__Password' not in (config['services']['postgres'].get('environment') or {})
     assert config['networks']['default']['ipam']['config'][0]['subnet'] == context['docker_subnet']
 
-    special_password = "SMTP $one #two = \"three\" 'four' spaced"
+    admin_password = "Admin $one #two = \"three\" 'four' spaced"
+    user_password = "User $one #two = \"three\" 'four' spaced"
     enabled_context = {
         **context,
-        'accounts_registration_enabled': True,
-        'accounts_admin_seed_enabled': False,
-        'accounts_public_origin': 'https://books.example.invalid',
-        'accounts_email_host': 'smtp.example.invalid',
-        'accounts_email_port': 587,
-        'accounts_email_security': 'StartTls',
-        'accounts_email_from': 'accounts@example.invalid',
-        'vault_accounts_email_username': 'user $ # = "quoted"',
-        'vault_accounts_email_password': special_password,
+        'accounts_admin_seed_enabled': True,
+        'accounts_admin_seed_email': 'admin@example.invalid',
+        'vault_accounts_admin_seed_password': admin_password,
+        'accounts_user_seed_enabled': True,
+        'accounts_user_seed_email': 'user@example.invalid',
+        'vault_accounts_user_seed_password': user_password,
     }
     enabled_env = env
     enabled_environment = template.render(**enabled_context)
@@ -114,22 +114,27 @@ with tempfile.TemporaryDirectory(prefix='single-node-render-') as directory:
     enabled_output = subprocess.check_output(['docker', 'compose', '--project-directory', str(single_fixture), '--env-file', str(interpolation_env), '-f', str(single_compose), 'config', '--format', 'json'], text=True)
     enabled_config = json.loads(enabled_output)
     web_environment = enabled_config['services']['web']['environment']
-    assert web_environment['Accounts__RegistrationEnabled'] == 'true'
+    assert web_environment['Accounts__AdminSeed__Enabled'] == 'true'
+    assert web_environment['Accounts__AdminSeed__Email'] == 'admin@example.invalid'
+    assert web_environment['Accounts__UserSeed__Enabled'] == 'true'
+    assert web_environment['Accounts__UserSeed__Email'] == 'user@example.invalid'
     assert_runtime_environment(single_fixture, {
-        'username': enabled_context['vault_accounts_email_username'],
-        'password': special_password,
+        'admin_seed_password': admin_password,
+        'user_seed_password': enabled_context['vault_accounts_user_seed_password'],
     })
     for service_name in ('postgres', 'redis'):
-        assert 'Accounts__Email__Password' not in (enabled_config['services'][service_name].get('environment') or {})
+        assert 'Accounts__AdminSeed__Password' not in (enabled_config['services'][service_name].get('environment') or {})
+        assert 'Accounts__UserSeed__Password' not in (enabled_config['services'][service_name].get('environment') or {})
 
     root_fixture = folder / 'root-compose'
     root_fixture.mkdir()
     root_env = (root / '.env.example').read_text()
-    root_env = root_env.replace('Accounts__RegistrationEnabled=false', 'Accounts__RegistrationEnabled=true')
-    root_env = root_env.replace('Accounts__PublicOrigin=\n', 'Accounts__PublicOrigin=https://books.example.invalid\n')
-    root_env = root_env.replace('Accounts__Email__Host=\n', 'Accounts__Email__Host=smtp.example.invalid\n')
-    root_env = root_env.replace('Accounts__Email__From=\n', 'Accounts__Email__From=accounts@example.invalid\n')
-    root_env = root_env.replace('Accounts__Email__Password=\n', f"Accounts__Email__Password={special_password}\n")
+    root_env = root_env.replace('Accounts__AdminSeed__Enabled=false', 'Accounts__AdminSeed__Enabled=true')
+    root_env = root_env.replace('Accounts__AdminSeed__Email=\n', 'Accounts__AdminSeed__Email=admin@localhost.test\n')
+    root_env = root_env.replace('Accounts__AdminSeed__Password=\n', f"Accounts__AdminSeed__Password={admin_password}\n")
+    root_env = root_env.replace('Accounts__UserSeed__Enabled=false', 'Accounts__UserSeed__Enabled=true')
+    root_env = root_env.replace('Accounts__UserSeed__Email=\n', 'Accounts__UserSeed__Email=user@localhost.test\n')
+    root_env = root_env.replace('Accounts__UserSeed__Password=\n', f"Accounts__UserSeed__Password={user_password}\n")
     (root_fixture / '.env').write_text(root_env)
     root_interpolation = root_fixture / 'compose-input.env'
     root_interpolation.write_text('\n'.join(line for line in root_env.splitlines() if not line.startswith('Accounts__')) + '\n')
@@ -140,17 +145,23 @@ with tempfile.TemporaryDirectory(prefix='single-node-render-') as directory:
         '-f', str(root_fixture / 'docker-compose.yml'), 'config', '--format', 'json'
     ], text=True, cwd=root)
     root_config = json.loads(root_output)
-    assert 'Accounts__Email__Password' in root_config['services']['web']['environment']
+    assert root_config['services']['web']['environment']['Accounts__AdminSeed__Enabled'] == 'true'
+    assert root_config['services']['web']['environment']['Accounts__AdminSeed__Email'] == 'admin@localhost.test'
+    assert root_config['services']['web']['environment']['Accounts__AdminSeed__Password'] == admin_password.replace('$', '$$')
+    assert root_config['services']['web']['environment']['Accounts__UserSeed__Enabled'] == 'true'
+    assert root_config['services']['web']['environment']['Accounts__UserSeed__Email'] == 'user@localhost.test'
+    assert root_config['services']['web']['environment']['Accounts__UserSeed__Password'] == user_password.replace('$', '$$')
     for service_name in ('postgres', 'redis', 'redisinsight'):
-        assert 'Accounts__Email__Password' not in (root_config['services'][service_name].get('environment') or {})
+        assert 'Accounts__AdminSeed__Password' not in (root_config['services'][service_name].get('environment') or {})
+        assert 'Accounts__UserSeed__Password' not in (root_config['services'][service_name].get('environment') or {})
     assert root_config['services']['postgres']['environment']['POSTGRES_PASSWORD'] == 'postgres'
     assert_runtime_environment(root_fixture, {
-        'username': '',
-        'password': special_password,
+        'admin_seed_password': admin_password,
+        'user_seed_password': user_password,
     })
     site = jinja.from_string((target / 'ansible/roles/single_node_caddy_site/templates/app.caddy.j2').read_text()).render(**context)
     assert 'http://192.0.2.10:80' in site and 'http://node-rehearsal.local:80' in site
     assert 'reverse_proxy 127.0.0.1:8080' in site and 'health_uri /health/ready' in site
     assert '{{' not in site and '{%' not in site
-print('LocalSingleNode and root account settings, secret round-trip, Compose and Caddy checks passed')
+print('LocalSingleNode and root seed account settings, secret round-trip, Compose and Caddy checks passed')
 PY

@@ -1,5 +1,6 @@
 using RitzauDemo.Core.Features.Books.Contracts;
 using RitzauDemo.Features.Books.AuthorBookcase.Seed;
+using RitzauDemo.Features.Books.Authorization;
 using RitzauDemo.Features.Books.Caching;
 using RitzauDemo.Features.Books.Endpoints;
 using RitzauDemo.Features.Books.Services;
@@ -10,6 +11,7 @@ using RitzauDemo.Features.Books.UseCases.GetAuthorBooks;
 using RitzauDemo.Features.Books.UseCases.GetBook;
 using RitzauDemo.Features.Books.UseCases.GetBooks;
 using RitzauDemo.Features.Books.UseCases.UpdateBook;
+using RitzauDemo.Features.Books.UserBookcase.Seed;
 
 namespace RitzauDemo.Features.Books;
 
@@ -18,6 +20,7 @@ public static class DependencyInjection
     public static IServiceCollection AddBooksFeature(this IServiceCollection services, IConfiguration config)
     {
         services.AddScoped<BooksCachePolicy>();
+        services.AddScoped<BooksAuthorizationGuard>();
         services.AddScoped<GetBooksHandler>();
         services.AddScoped<GetBookHandler>();
         services.AddScoped<CreateBookHandler>();
@@ -28,6 +31,7 @@ public static class DependencyInjection
         services.AddScoped<IBooksApi, BooksServerService>();
         services.AddScoped<IAuthorBooksApi, AuthorBooksServerService>();
         services.AddScoped<IAuthorBookSeeder, AuthorBookSeeder>();
+        services.AddScoped<DemoUserBooksSeeder>();
         services.Configure<BooksCacheOptions>(config.GetSection("Cache:Books"));
         return services;
     }

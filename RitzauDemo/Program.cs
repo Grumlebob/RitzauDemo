@@ -5,6 +5,7 @@ using RitzauDemo.Features.Accounts.Identity;
 using RitzauDemo.Features.Accounts.Security;
 using RitzauDemo.Features.Books;
 using RitzauDemo.Features.Books.AuthorBookcase.Seed;
+using RitzauDemo.Features.Books.UserBookcase.Seed;
 using RitzauDemo.Frontend;
 using RitzauDemo.Frontend.OpenApi;
 using RitzauDemo.Infrastructure.Hosting;
@@ -38,7 +39,7 @@ builder.Services.AddAppRateLimiting(builder.Configuration);
 builder.Services.AddBooksFeature(builder.Configuration);
 builder.Services.AddIdentityBackend();
 builder.Services.AddAccountFeature(builder.Configuration, builder.Environment);
-FrontendComposition.AddFrontendServices(builder.Services, builder.Configuration);
+FrontendComposition.AddFrontendServices(builder.Services);
 
 var app = builder.Build();
 
@@ -70,6 +71,7 @@ FrontendComposition.UseFrontendStaticFiles(app);
 
 await app.ApplyAppMigrationsAsync();
 await app.SeedConfiguredAccountsAsync();
+await app.SeedDemoUserBooksAsync();
 await app.SeedAuthorBooksAsync();
 
 FrontendComposition.MapFrontendEndpoints(app);

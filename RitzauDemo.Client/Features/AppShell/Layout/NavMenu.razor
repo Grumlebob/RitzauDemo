@@ -22,7 +22,7 @@
                 <AuthorizeView>
                     <Authorized>
                         <li class="py-2">
-                            <a class="block rounded border border-gray-300 px-3 py-2 text-left text-sm hover:bg-gray-100" href="Account/Manage">@context.User.Identity?.Name</a>
+                            <span class="block px-3 py-2 text-sm">@context.User.Identity?.Name</span>
                         </li>
                         <li class="py-2">
                             <form action="Account/Logout" method="post">
@@ -33,9 +33,6 @@
                         </li>
                     </Authorized>
                     <NotAuthorized>
-                        <li class="py-2">
-                            <a class="block rounded border border-gray-300 px-3 py-2 text-left text-sm hover:bg-gray-100" href="Account/Register">Register</a>
-                        </li>
                         <li class="py-2">
                             <a class="block rounded bg-gray-900 px-3 py-2 text-left text-sm text-white hover:bg-gray-700" href="Account/Login">Login</a>
                         </li>
@@ -48,7 +45,7 @@
             <NavLink class="md:px-4" href="/" Match="NavLinkMatch.All">Books</NavLink>
             <AuthorizeView>
                 <Authorized>
-                    <a class="rounded border border-gray-300 px-3 py-1 text-sm hover:bg-gray-100" href="Account/Manage">@context.User.Identity?.Name</a>
+                    <span class="text-sm">@context.User.Identity?.Name</span>
                     <form action="Account/Logout" method="post">
                         <AntiforgeryToken />
                         <input type="hidden" name="ReturnUrl" value="@CurrentUrl" />
@@ -56,7 +53,6 @@
                     </form>
                 </Authorized>
                 <NotAuthorized>
-                    <a class="rounded border border-gray-300 px-3 py-1 text-sm hover:bg-gray-100" href="Account/Register">Register</a>
                     <a class="rounded bg-gray-900 px-3 py-1 text-sm text-white hover:bg-gray-700" href="Account/Login">Login</a>
                 </NotAuthorized>
             </AuthorizeView>

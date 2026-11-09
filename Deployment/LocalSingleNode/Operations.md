@@ -107,7 +107,7 @@ Keep the complete target database name at 63 characters or fewer. The suffix mus
 
 Add `--file <backup-root>/<backup-file>.dump` before the confirmation option to select a specific owned dump.
 
-For recovery on another node, restore `secrets.yml` to `/etc/<app-name>/secrets.yml` with owner `deploy` and mode `0600`, and restore `data-protection.pem` to `/etc/<app-name>/data-protection/certificate.pem` with owner `root`, group `deploy`, and mode `0440` before starting the app. Keep the same app name and Data Protection application discriminator. Database-only restore cannot decrypt stored keys, authentication cookies, or encrypted mail jobs.
+For recovery on another node, restore `secrets.yml` to `/etc/<app-name>/secrets.yml` with owner `deploy` and mode `0600`, and restore `data-protection.pem` to `/etc/<app-name>/data-protection/certificate.pem` with owner `root`, group `deploy`, and mode `0440` before starting the app. Keep the same app name and Data Protection application discriminator. Database-only restore cannot decrypt stored keys or authentication cookies.
 
 Validate recovered data before planning a separate reviewed cutover. A failed partial replacement is left for operator inspection.
 

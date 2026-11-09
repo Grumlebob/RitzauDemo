@@ -1,23 +1,12 @@
 # Accounts
 
-Accounts are part of the Blazor app. Registration, the Admin seed and email are opt-in. The server remains authoritative: hiding a link or route never replaces authentication, authorization, antiforgery or cache policy.
+The demo uses seeded `Admin` and `User` accounts. Registration, email delivery, external login, passkeys, two-factor setup, and account management are not included. The server remains authoritative for authentication, authorization, antiforgery, and cache policy.
 
-Server implementation and Blazor Identity UI live under `RitzauDemo/Features/Accounts`; shared DTOs live in `RitzauDemo.Core/Features/Accounts/Contracts`. `ApplicationUser` lives in the feature's `Identity` folder and namespace. The shared context, design-time factory and migrations stay under `Infrastructure/Persistence`. The outbox entity and operations belong to Accounts; its EF mapping remains inline in the shared `AppDbContext`. See [architecture](Architecture.md) for composition and the deliberate Books-to-Accounts integration.
+Server composition and the sign-in pages live under `RitzauDemo/Features/Accounts`; shared account contracts live in `RitzauDemo.Core/Features/Accounts/Contracts`. The shared context and existing migrations remain under `RitzauDemo/Infrastructure/Persistence`.
 
-## Capabilities
+`User` can read only their own private Books. `Admin` can read and create, update, or delete their own Books. Admin role does not bypass ownership. Private API requests return JSON `401`/`403` responses rather than login redirects, and responses use `Cache-Control: private, no-store`.
 
-| Configuration | Behavior |
-| --- | --- |
-| Email host empty | Login, logout, password change, export, deletion and private Books work. Registration, confirmation, recovery and email change stay unavailable. A configured Admin can be provisioned once with `Accounts:AdminSeed`. |
-| Email host and sender configured | The mail worker can send confirmation and recovery links. Registration additionally requires `Accounts:RegistrationEnabled=true`. `Accounts:PublicOrigin` must be a bare HTTPS origin. |
-
-The Blazor UI lives under `/Account`. Private Books API requests require an authenticated user and return JSON `401`/`403` responses rather than login redirects. Account mutations use antiforgery protection.
-
-The authentication cookie is `Secure`, `HttpOnly`, `SameSite=Lax`, host-only and fixed at eight hours, or fourteen days when “remember me” is selected. Account and private API responses use `Cache-Control: private, no-store`. Passwords must contain 15–128 Unicode characters, contain no control characters, and differ from the application name and email; common passwords are rejected. Password changes, resets and confirmed email changes rotate the security stamp; account deletion removes the user. Each action revokes existing sessions.
-
-Blazor supports MFA, passkeys and configured external login. Password recovery preserves MFA, and sensitive management requires a valid session and current-password proof. New external users complete email-first registration, then sign in to link their provider; disabling registration also prevents external callbacks from creating accounts.
-
-Keep user-owned Books data scoped to its owner on the server. Client state must not expose one user's private data to another user after sign-in changes.
+The authentication cookie is `Secure`, `HttpOnly`, `SameSite=Lax`, host-only, and fixed at eight hours, or fourteen days when “remember me” is selected. Login is rate limited and preserves lockout feedback. Passwords must contain 15–128 Unicode characters, contain no control characters, and differ from the application name and email; common passwords are rejected. The `logout-all` endpoint verifies the current password and rotates the security stamp. Sign-in state is revalidated on requests.
 
 ## Local seeded accounts
 
@@ -27,7 +16,7 @@ Local setup seeds one Admin and one User for the Blazor app. Run it once, or aga
 pwsh -File ./Scripts/LocalDevelopment/setup-local.ps1
 ```
 
-Setup fills `Accounts__AdminSeed__*` with `admin@localhost.test` and `Accounts__UserSeed__*` with `user@localhost.test` in the ignored `.env`, each with a generated 24-character password. It prints the emails, never the passwords. It leaves a seed alone when its email or password is already set, so your own values are kept. Startup creates each account once, confirmed, with the `Admin` or `User` role. It never changes an existing password or email, and it refuses an email that belongs to an account without that role. Local self-registration stays off because there is no local mail server.
+Setup fills `Accounts__AdminSeed__*` with `admin@localhost.test` and `Accounts__UserSeed__*` with `user@localhost.test` in the ignored `.env`, each with a generated 24-character password. It prints the emails, never the passwords. It leaves a seed alone when its email or password is already set. Startup creates each account once, confirmed, with the `Admin` or `User` role. It never changes an existing password or email, and refuses an email that belongs to an account without the configured role.
 
 Start the app and sign in at `https://localhost:7186/Account/Login`:
 
@@ -35,25 +24,6 @@ Start the app and sign in at `https://localhost:7186/Account/Login`:
 .\Scripts\LocalDevelopment\RunLocal.ps1 -NoBrowser
 ```
 
-| Setting | Meaning |
-| --- | --- |
-| `Accounts:AdminSeed` | `Enabled`, `Email`, `Password`. Creates the Admin once. Deployments use it too. |
-| `Accounts:UserSeed` | Same shape. Creates an ordinary User once. Local development only; deployments do not set it. |
+`Accounts:AdminSeed` and `Accounts:UserSeed` each accept `Enabled`, `Email`, and `Password`. Their passwords must satisfy the account policy. Local setup enables both seeds; deployment defaults disable both. Keep `.env`, local databases, and generated certificates out of commits and images.
 
-Seed passwords must satisfy the account password policy and must not be common or match the email or application name. Do not carry local seed values into a deployed environment. Keep `.env`, local databases and generated certificates out of commits and images. The seeded Admin role does not add an admin dashboard to the template.
-
-## Email, quotas and delivery
-
-Email requires `Accounts:Email:Host`, a valid `Accounts:Email:From`, and `Accounts:PublicOrigin`. `Accounts:Email:Security` accepts `StartTls` or `SslOnConnect`; username and password must either both be empty or both be supplied. Registration cannot be enabled without accounts and an email host. Email links use the configured HTTPS origin. The exact environment keys and defaults live in [`.env.example`](../.env.example).
-
-Account POSTs are limited to 20 per client IP per five minutes. JSON account requests also use the API limit of 60 requests per minute. The outbox suppresses an active duplicate, enforces a 60-second cooldown and allows at most five intents per user and purpose per hour. It has a global capacity of 1,000 active jobs. A queued job expires after 45 minutes; its Identity link expires after one hour. The worker makes at most three attempts by default, then clears the protected payload. Public email requests return the same accepted response regardless of whether an address is known.
-
-A database restore may replay an active pending job and produce a duplicate email; SMTP delivery cannot guarantee exactly-once delivery. The worker checks job expiry, link expiry, account confirmation and the current security stamp before sending. It cancels expired or stale intents and clears their protected payloads.
-
-## Production key and backup recovery
-
-Data Protection keys and account data share the PostgreSQL database. Production keys are wrapped with the app-owned certificate and private key stored outside that database. A database dump alone cannot restore sign-in cookies or decrypt outbox jobs. Preserve the same app identity, deployment environment, database, certificate/private key and certificate password. Replicas of one app share those inputs; unrelated apps must not.
-
-Keep the wrapping key across ordinary redeploys. Store it with protected off-host backups and never bake it into an image. Follow [LocalSingleNode backup verification and recovery](../Deployment/LocalSingleNode/Operations.md#backups-and-recovery).
-
-Restart and restore acceptance uses disposable fixtures only. Do not treat a fixture restore test as authorization or a procedure for restoring live account data.
+Data Protection keys and account data share PostgreSQL. Preserve the app identity, database, and wrapped key material across redeploys and backups. Follow [LocalSingleNode backup verification and recovery](../Deployment/LocalSingleNode/Operations.md#backups-and-recovery). Restart and restore acceptance uses disposable fixtures only; it does not authorize or describe a live data restore.

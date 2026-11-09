@@ -1,5 +1,6 @@
 using Microsoft.AspNetCore.Identity;
 using Microsoft.Extensions.Options;
+using RitzauDemo.Core.Features.Accounts.Contracts;
 using ApplicationUser = RitzauDemo.Features.Accounts.Identity.ApplicationUser;
 
 namespace RitzauDemo.Features.Accounts;
@@ -18,7 +19,11 @@ internal static class AccountSeed
         IServiceProvider services,
         ILogger logger)
     {
-        (AccountSeedOptions Seed, string Role)[] seeds = [(options.AdminSeed, "Admin"), (options.UserSeed, "User")];
+        (AccountSeedOptions Seed, string Role)[] seeds =
+        [
+            (options.AdminSeed, AccountRoleNames.Admin),
+            (options.UserSeed, AccountRoleNames.User)
+        ];
         if (!seeds.Any(entry => entry.Seed.Enabled))
         {
             return;

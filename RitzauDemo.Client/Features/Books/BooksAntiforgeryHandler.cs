@@ -42,7 +42,7 @@ public sealed class BooksAntiforgeryHandler(AuthenticationStateProvider authenti
             using var sessionResponse = await base.SendAsync(sessionRequest, cancellationToken);
             sessionResponse.EnsureSuccessStatusCode();
             var session = await sessionResponse.Content.ReadFromJsonAsync<AccountSession>(cancellationToken);
-            if (session is not { Enabled: true, CsrfToken.Length: > 0 })
+            if (session is not { CsrfToken.Length: > 0 })
             {
                 throw new InvalidDataException("The account session is unavailable.");
             }

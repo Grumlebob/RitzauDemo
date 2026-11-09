@@ -131,11 +131,15 @@ settings_path = "Deployment/LocalSingleNode/inventory/group_vars/all.yml"
 for key, value in (
     ("app_name", "ritzaudemo"),
     ("observability_enabled", "false"),
-    ("accounts_registration_enabled", "false"),
     ("accounts_admin_seed_enabled", "false"),
+    ("accounts_user_seed_enabled", "false"),
 ):
     if not re.search(rf"(?m)^{re.escape(key)}:\s*{re.escape(value)}\s*$", read(settings_path)):
         failures.append(f"{settings_path}: {key} must default to {value}")
+
+for path in (".env.example", "Deployment/LocalSingleNode/ansible/templates/app.env.j2"):
+    if re.search(r"Accounts__(?:RegistrationEnabled|PublicOrigin|Email__)|Authentication__Google__", read(path)):
+        failures.append(f"{path}: removed account registration, mail, or external-login settings must not be rendered")
 
 release = read("Deployment/Common/release.yml")
 for key, value in (

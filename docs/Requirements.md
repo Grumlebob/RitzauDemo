@@ -1,12 +1,12 @@
 # Requirements
 
-RitzauDemo is a small CRUD demonstration with Books as its example. It supports one frontend, one application instance per LocalSingleNode deployment, and no account registration by default. Detailed local commands live in [README](../README.md) and [Run locally](HowToRunLocally.md).
+RitzauDemo is a small CRUD demonstration with Books as its example. It supports one frontend and one application instance per LocalSingleNode deployment. Accounts use seeded roles; registration and email-based account operations are not included. Detailed local commands live in [README](../README.md) and [Run locally](HowToRunLocally.md).
 
 ## Product scope
 
 - Build and run the Blazor Auto app (`BlazorAuto`). React and alternate frontend profiles are not supported.
-- Keep the Books example easy to follow. Keep product behavior tests to five focused CRUD unit cases, one PostgreSQL-backed create/list/read/update/delete integration path, and at most one optional packaged render/hydration smoke.
-- Retain the existing account sign-in routes. Registration remains disabled. Account, Grafana, visual, navigation, layout, and performance behavior suites are outside this demo's test scope.
+- Keep the Books example easy to follow. Cover request validation, role-aware ownership and CRUD, real-cookie account sessions, cache freshness, and project dependency direction with a small PostgreSQL/Redis-backed suite and one compiled architecture test.
+- Use seeded `User` and `Admin` roles for private Books: Users read their own books, and Admins perform CRUD on their own books. Preserve sign-in, sign-out, lockout, ownership, and session revocation behavior.
 - Deploy only to LocalSingleNode. Keep application resources, credentials, database, and Data Protection keys isolated from neighboring sites.
 
 ## Blazor behavior
@@ -21,7 +21,7 @@ RitzauDemo is a small CRUD demonstration with Books as its example. It supports 
 - PostgreSQL stores Books and account data. Redis supports the configured runtime cache and coordination behavior.
 - The app and database use separate app-owned resources and backups. Preserve the existing initial migration ID and schema when updating the demo.
 - User-specific API responses use `Cache-Control: private, no-store`. API authentication failures return `401` or `403`, not an HTML login redirect.
-- Local development may seed an Admin and a User. Deployments keep seeding and registration disabled unless the supported settings explicitly enable an Admin seed.
+- Local development may seed an Admin and a User. Deployments keep both seed switches disabled by default.
 - Deployment observability remains disabled. Telemetry export must fail open so it cannot block application requests.
 
 ## Verification and security

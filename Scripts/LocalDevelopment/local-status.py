@@ -298,7 +298,7 @@ def main() -> int:
                 fail(f".env missing {key}")
             elif value.startswith("REPLACE_WITH") or value == "INJECT_THIS_IN_ORDER_TO_RUN":
                 fail(f".env has placeholder value for {key}")
-            elif value == "" and key not in {"Authentication__Google__ClientId", "Authentication__Google__ClientSecret"}:
+            elif value == "":
                 fail(f".env has empty required value for {key}")
     else:
         fail(".env missing; copy .env.example to .env")
