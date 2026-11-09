@@ -23,11 +23,10 @@ jobs:
   validate:
     name: validate
     if: ${{ github.event_name != 'pull_request' || github.event.pull_request.head.repo.full_name == github.repository }}
-    runs-on: ${{ (github.event_name == 'pull_request' && github.event.pull_request.number == 5 && vars.CI_BOOTSTRAP_HOSTED_VALIDATION == 'true') && fromJSON('["ubuntu-24.04"]') || fromJSON(format('["self-hosted","linux","x64","{0}"]', vars.CI_ADMISSION_BOOTSTRAP_RUNNER_LABEL)) }}
+    runs-on: [self-hosted, linux, x64, "${{ vars.CI_RUNNER_LABEL }}"]
     timeout-minutes: 75
     env:
       CI_ADMISSION_POOL: native
-      CI_BOOTSTRAP_HOSTED_VALIDATION: ${{ github.event_name == 'pull_request' && github.event.pull_request.number == 5 && vars.CI_BOOTSTRAP_HOSTED_VALIDATION == 'true' }}
     outputs:
       frontend_profile: ${{ steps.frontend_profile.outputs.profile }}
       acceptance_profile: ${{ steps.frontend_profile.outputs.acceptance_profile }}
@@ -41,16 +40,6 @@ jobs:
           ref: ${{ github.sha }}
           clean: true
 
-      - name: Record temporary hosted bootstrap validation
-        if: ${{ env.CI_BOOTSTRAP_HOSTED_VALIDATION == 'true' }}
-        run: |
-          {
-            echo '## Temporary first PR validation'
-            echo
-            echo 'This exact PR #5 check uses a disposable ubuntu-24.04 runner to unblock safe native runner bootstrap.'
-            echo 'Main and later application CI, publication, and durable reporting use the registered native runner.'
-          } >> "$GITHUB_STEP_SUMMARY"
-
       - name: Test quality scripts
         run: python3 -m unittest discover -s Scripts/Quality/tests -v
 
@@ -61,25 +50,14 @@ jobs:
           echo "DOCKER_CONFIG=$docker_config" >> "$GITHUB_ENV"
 
       - name: Verify CI runner
-        if: ${{ env.CI_BOOTSTRAP_HOSTED_VALIDATION != 'true' }}
         env:
-          CI_ADMISSION_BOOTSTRAP_RUNNER_LABEL: ${{ vars.CI_ADMISSION_BOOTSTRAP_RUNNER_LABEL }}
-          CI_CANONICAL_RUNNER_LABEL: ${{ vars.CI_RUNNER_LABEL }}
+          CI_RUNNER_LABEL: ${{ vars.CI_RUNNER_LABEL }}
           CI_RUNNER_HOST: ${{ vars.CI_RUNNER_HOST }}
         run: |
           set -euo pipefail
-          : "${CI_ADMISSION_BOOTSTRAP_RUNNER_LABEL:?Set the CI_ADMISSION_BOOTSTRAP_RUNNER_LABEL repository variable}"
-          : "${CI_CANONICAL_RUNNER_LABEL:?Keep CI_RUNNER_LABEL set to an unregistered quarantine label during bootstrap}"
-          if [[ ! "$CI_ADMISSION_BOOTSTRAP_RUNNER_LABEL" =~ ^[A-Za-z0-9][A-Za-z0-9_.-]*$ ]]; then
-            echo "CI_ADMISSION_BOOTSTRAP_RUNNER_LABEL has an invalid format" >&2
-            exit 1
-          fi
-          if [[ ! "$CI_CANONICAL_RUNNER_LABEL" =~ ^[A-Za-z0-9][A-Za-z0-9_.-]*$ ]]; then
+          : "${CI_RUNNER_LABEL:?Set the CI_RUNNER_LABEL repository variable}"
+          if [[ ! "$CI_RUNNER_LABEL" =~ ^[A-Za-z0-9][A-Za-z0-9_.-]*$ ]]; then
             echo "CI_RUNNER_LABEL has an invalid format" >&2
-            exit 1
-          fi
-          if [[ "$CI_ADMISSION_BOOTSTRAP_RUNNER_LABEL" == "$CI_CANONICAL_RUNNER_LABEL" ]]; then
-            echo "CI_RUNNER_LABEL must remain quarantined during the bootstrap rollout" >&2
             exit 1
           fi
           : "${CI_RUNNER_HOST:?Set the CI_RUNNER_HOST repository variable to the expected runner hostname}"
@@ -97,16 +75,11 @@ jobs:
           test "$(hostname)" = "$CI_RUNNER_HOST"
 
       - name: Ensure self-hosted runner prerequisites
-        if: ${{ env.CI_BOOTSTRAP_HOSTED_VALIDATION != 'true' }}
         run: bash Deployment/Common/Scripts/ensure-actions-runner-prereqs.sh --check
 
       - name: Activate validated Ansible generation
         run: |
-          if [[ "${CI_BOOTSTRAP_HOSTED_VALIDATION:-false}" == "true" ]]; then
-            bash Deployment/LocalCluster/Scripts/install-ansible.sh --provision
-          else
-            bash Deployment/LocalCluster/Scripts/install-ansible.sh --check
-          fi
+          bash Deployment/LocalCluster/Scripts/install-ansible.sh --check
           ansible_root="$(readlink -f "${HOME}/.local/share/books-ansible/current")"
           test -x "${ansible_root}/bin/ansible-playbook"
           echo "${ansible_root}/bin" >> "$GITHUB_PATH"
@@ -150,7 +123,6 @@ jobs:
       # Report only. The self-hosted node's Docker daemon is shared with apps, so CI
       # must not prune it; an operator runs scoped cleanup when space is low.
       - name: Check self-hosted runner disk
-        if: ${{ env.CI_BOOTSTRAP_HOSTED_VALIDATION != 'true' }}
         run: bash Scripts/CI/check-runner-capacity.sh
 
       - name: Configure self-hosted tool paths
@@ -444,7 +416,7 @@ jobs:
     name: publish-main
     needs: [validate]
     if: ${{ !cancelled() && github.event_name != 'pull_request' && github.ref == 'refs/heads/main' && needs.validate.result == 'success' }}
-    runs-on: [self-hosted, linux, x64, "${{ vars.CI_ADMISSION_BOOTSTRAP_RUNNER_LABEL }}"]
+    runs-on: [self-hosted, linux, x64, "${{ vars.CI_RUNNER_LABEL }}"]
     concurrency:
       group: template-registry-payloads
       queue: max
@@ -492,23 +464,13 @@ jobs:
 
       - name: Verify CI runner
         env:
-          CI_ADMISSION_BOOTSTRAP_RUNNER_LABEL: ${{ vars.CI_ADMISSION_BOOTSTRAP_RUNNER_LABEL }}
-          CI_CANONICAL_RUNNER_LABEL: ${{ vars.CI_RUNNER_LABEL }}
+          CI_RUNNER_LABEL: ${{ vars.CI_RUNNER_LABEL }}
           CI_RUNNER_HOST: ${{ vars.CI_RUNNER_HOST }}
         run: |
           set -euo pipefail
-          : "${CI_ADMISSION_BOOTSTRAP_RUNNER_LABEL:?Set the CI_ADMISSION_BOOTSTRAP_RUNNER_LABEL repository variable}"
-          : "${CI_CANONICAL_RUNNER_LABEL:?Keep CI_RUNNER_LABEL set to an unregistered quarantine label during bootstrap}"
-          if [[ ! "$CI_ADMISSION_BOOTSTRAP_RUNNER_LABEL" =~ ^[A-Za-z0-9][A-Za-z0-9_.-]*$ ]]; then
-            echo "CI_ADMISSION_BOOTSTRAP_RUNNER_LABEL has an invalid format" >&2
-            exit 1
-          fi
-          if [[ ! "$CI_CANONICAL_RUNNER_LABEL" =~ ^[A-Za-z0-9][A-Za-z0-9_.-]*$ ]]; then
+          : "${CI_RUNNER_LABEL:?Set the CI_RUNNER_LABEL repository variable}"
+          if [[ ! "$CI_RUNNER_LABEL" =~ ^[A-Za-z0-9][A-Za-z0-9_.-]*$ ]]; then
             echo "CI_RUNNER_LABEL has an invalid format" >&2
-            exit 1
-          fi
-          if [[ "$CI_ADMISSION_BOOTSTRAP_RUNNER_LABEL" == "$CI_CANONICAL_RUNNER_LABEL" ]]; then
-            echo "CI_RUNNER_LABEL must remain quarantined during the bootstrap rollout" >&2
             exit 1
           fi
           : "${CI_RUNNER_HOST:?Set the CI_RUNNER_HOST repository variable to the expected runner hostname}"
@@ -769,9 +731,15 @@ jobs:
     steps:
       - name: Verify CI runner
         env:
+          CI_RUNNER_LABEL: ${{ vars.CI_RUNNER_LABEL }}
           CI_RUNNER_HOST: ${{ vars.CI_RUNNER_HOST }}
         run: |
           set -euo pipefail
+          : "${CI_RUNNER_LABEL:?Set the CI_RUNNER_LABEL repository variable}"
+          if [[ ! "$CI_RUNNER_LABEL" =~ ^[A-Za-z0-9][A-Za-z0-9_.-]*$ ]]; then
+            echo "CI_RUNNER_LABEL has an invalid format" >&2
+            exit 1
+          fi
           : "${CI_RUNNER_HOST:?Set the CI_RUNNER_HOST repository variable to the expected runner hostname}"
           echo "Runner name: ${RUNNER_NAME:-unknown}"
           echo "Host: $(hostname)"
@@ -805,12 +773,10 @@ jobs:
     name: ${{ (github.event_name == 'pull_request' || github.ref == 'refs/heads/main') && 'build-test-push' || 'CI result' }}
     needs: [validate, publish-main]
     if: ${{ always() && (github.event_name == 'workflow_dispatch' || github.ref == 'refs/heads/main' || (github.event_name == 'pull_request' && github.event.pull_request.head.repo.full_name == github.repository)) }}
-    runs-on: ${{ (github.event_name == 'pull_request' && github.event.pull_request.number == 5 && vars.CI_BOOTSTRAP_HOSTED_VALIDATION == 'true') && fromJSON('["ubuntu-24.04"]') || fromJSON(format('["self-hosted","linux","x64","{0}"]', vars.CI_ADMISSION_BOOTSTRAP_RUNNER_LABEL)) }}
+    runs-on: [self-hosted, linux, x64, "${{ vars.CI_RUNNER_LABEL }}"]
     timeout-minutes: 5
     permissions:
       contents: read
-    env:
-      CI_BOOTSTRAP_HOSTED_VALIDATION: ${{ github.event_name == 'pull_request' && github.event.pull_request.number == 5 && vars.CI_BOOTSTRAP_HOSTED_VALIDATION == 'true' }}
     steps:
       - name: Checkout
         uses: actions/checkout@v7
@@ -819,13 +785,16 @@ jobs:
           clean: true
 
       - name: Verify native CI result-gate runner
-        if: ${{ env.CI_BOOTSTRAP_HOSTED_VALIDATION != 'true' }}
         env:
-          CI_ADMISSION_BOOTSTRAP_RUNNER_LABEL: ${{ vars.CI_ADMISSION_BOOTSTRAP_RUNNER_LABEL }}
+          CI_RUNNER_LABEL: ${{ vars.CI_RUNNER_LABEL }}
           CI_RUNNER_HOST: ${{ vars.CI_RUNNER_HOST }}
         run: |
           set -euo pipefail
-          : "${CI_ADMISSION_BOOTSTRAP_RUNNER_LABEL:?Set the CI_ADMISSION_BOOTSTRAP_RUNNER_LABEL repository variable}"
+          : "${CI_RUNNER_LABEL:?Set the CI_RUNNER_LABEL repository variable}"
+          if [[ ! "$CI_RUNNER_LABEL" =~ ^[A-Za-z0-9][A-Za-z0-9_.-]*$ ]]; then
+            echo "CI_RUNNER_LABEL has an invalid format" >&2
+            exit 1
+          fi
           : "${CI_RUNNER_HOST:?Set the CI_RUNNER_HOST repository variable to the expected native runner hostname}"
           test "${RUNNER_OS:?GitHub runner OS is required}" = "Linux"
           test "$(hostname)" = "$CI_RUNNER_HOST"

@@ -323,74 +323,11 @@ class WorkflowPolicy:
             return False
         return relative == ".github/workflows/codeql.yml" and job_id == "analyze"
 
-    def _is_first_pr_bootstrap_job(self, workflow: Path, job_id: str, job: dict[str, Any]) -> bool:
-        try:
-            relative = workflow.resolve().relative_to(self.root).as_posix().lower()
-        except ValueError:
-            return False
-        runner = str(job.get("runs-on", "")).lower()
-        return (
-            relative == ".github/workflows/ci.yml"
-            and job_id in {"validate", "ci-result-gate"}
-            and "ci_bootstrap_hosted_validation" in runner
-        )
-
-    def _check_first_pr_bootstrap_job(self, workflow: Path, job_id: str, job: dict[str, Any]) -> None:
-        location = self._location(workflow, f" jobs.{job_id}")
-        guard = "github.event_name=='pull_request'&&github.event.pull_request.number==5&&vars.ci_bootstrap_hosted_validation=='true'"
-        runs_on = re.sub(r"\s+", "", str(job.get("runs-on", ""))).lower()
-        env = job.get("env")
-        hosted_flag = env.get("CI_BOOTSTRAP_HOSTED_VALIDATION") if isinstance(env, dict) else None
-        hosted_flag = re.sub(r"\s+", "", str(hosted_flag or "")).lower()
-        expected_flag = "${{" + guard + "}}"
-        native_fallback = "fromjson(format('[\"self-hosted\",\"linux\",\"x64\",\"{0}\"]',vars.ci_admission_bootstrap_runner_label))"
-        valid_route = (
-            runs_on.startswith("${{") and runs_on.endswith("}}")
-            and guard in runs_on
-            and "fromjson('[\"ubuntu-24.04\"]')" in runs_on
-            and native_fallback in runs_on
-            and hosted_flag == expected_flag
-        )
-        if not valid_route:
-            self.findings.append(Finding(
-                self._location(workflow, f" jobs.{job_id}.runs-on"),
-                "temporary hosted validation must be limited to first-party PR #5 with the fixed ubuntu-24.04 runner and native admission fallback",
-            ))
-            return
-
-        expected_steps = {
-            "validate": ("Verify CI runner", "Ensure self-hosted runner prerequisites", "Check self-hosted runner disk"),
-            "ci-result-gate": ("Verify native CI result-gate runner",),
-        }[job_id]
-        steps = job.get("steps")
-        if not isinstance(steps, list):
-            self.findings.append(Finding(self._location(workflow, f" jobs.{job_id}.steps"), "bootstrap validation steps must be inspectable"))
-            return
-        for name in expected_steps:
-            matches = [step for step in steps if isinstance(step, dict) and step.get("name") == name]
-            skip_condition = "${{env.ci_bootstrap_hosted_validation!='true'}}"
-            missing_native_guard = len(matches) != 1
-            if len(matches) == 1:
-                missing_native_guard = re.sub(r"\s+", "", str(matches[0].get("if", ""))).lower() != skip_condition
-            if missing_native_guard:
-                self.findings.append(Finding(
-                    self._location(workflow, f" jobs.{job_id}.steps"),
-                    f"{name} must run only on the native bootstrap path",
-                ))
-
-        job_condition = re.sub(r"\s+", "", str(job.get("if", ""))).lower()
-        if "github.event.pull_request.head.repo.full_name==github.repository" not in job_condition:
-            self.findings.append(Finding(self._location(workflow, f" jobs.{job_id}.if"), "bootstrap validation must continue to reject fork pull requests"))
-
     def _check_runner(self, workflow: Path, job_id: str, job: dict[str, Any]) -> None:
         location = self._location(workflow, f" jobs.{job_id}.runs-on")
         labels = _flatten_labels(job.get("runs-on"))
         if not labels:
             self.findings.append(Finding(location, "job must declare an inspectable runner"))
-            return
-
-        if self._is_first_pr_bootstrap_job(workflow, job_id, job):
-            self._check_first_pr_bootstrap_job(workflow, job_id, job)
             return
 
         hosted_labels = [label for label in labels if _is_hosted_label(label)]
