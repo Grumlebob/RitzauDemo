@@ -74,6 +74,8 @@ elif args[0] == "inspect" or args[:2] == ["network", "inspect"]:
         raise SystemExit(1)
     item = json.loads(state(name).read_text())
     print(" ".join(item.get("localcluster.ci." + key, "") for key in ("repository", "owner", "run_id", "run_attempt")))
+elif args[0] == "logs":
+    print("fake smoke logs")
 elif args[0] == "rm" or args[:2] == ["network", "rm"]:
     state(args[-1]).unlink()
 elif args[0] == "port":
@@ -119,7 +121,7 @@ for argument in "$@"; do
   if [[ "$previous" == "--results-directory" ]]; then results_dir="$argument"; fi
   previous="$argument"
 done
-[[ "$results_dir" == */test-results/123-2/validate/docker-smoke/BlazorAuto ]] || exit 39
+[[ "$results_dir" == */test-results/123-2/validate/docker-smoke/BlazorAuto || "$results_dir" == */test-results/local-*-1/validate/docker-smoke/BlazorAuto ]] || exit 39
 mkdir -p "$results_dir"
 cat > "$results_dir/blazor-browser-smoke.trx" <<'XML'
 <TestRun xmlns="http://microsoft.com/schemas/VisualStudio/TeamTest/2010"><Results><UnitTestResult testName="render-mode-smoke" outcome="Passed"/></Results></TestRun>
