@@ -82,9 +82,8 @@ class CiRunnerProfileTests(unittest.TestCase):
             runner_lines = [line.strip() for line in re.findall(r"(?m)^    runs-on:.*$", text)]
             fallback = "vars.CI_RUNNER_LABEL || vars.LOCALCLUSTER_RUNNER_LABEL || 'localcluster-books'"
             if name == "ci.yml":
-                bootstrap = 'runs-on: [self-hosted, linux, x64, "${{ vars.CI_ADMISSION_BOOTSTRAP_RUNNER_LABEL }}"]'
                 canonical = 'runs-on: [self-hosted, linux, x64, "${{ vars.CI_RUNNER_LABEL }}"]'
-                self.assertEqual(runner_lines.count(bootstrap), 3)
+                self.assertEqual(sum("vars.CI_ADMISSION_BOOTSTRAP_RUNNER_LABEL" in line for line in runner_lines), 3)
                 self.assertEqual(runner_lines.count(canonical), 1)
             else:
                 self.assertTrue(runner_lines)

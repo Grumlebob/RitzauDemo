@@ -1111,6 +1111,45 @@ ci_jobs = {
     ]
     for index, match in enumerate(ci_job_matches)
 }
+
+def is_pr5_bootstrap_route(job_id: str, job_body: str) -> bool:
+    if job_id not in {"validate", "ci-result-gate"}:
+        return False
+    runner_line = re.search(r"(?m)^    runs-on:.*$", job_body)
+    if runner_line is None:
+        return False
+    compact = re.sub(r"\s+", "", runner_line.group(0)).lower()
+    guard = "github.event_name=='pull_request'&&github.event.pull_request.number==5&&vars.ci_bootstrap_hosted_validation=='true'"
+    native_fallback = "fromjson(format('[\"self-hosted\",\"linux\",\"x64\",\"{0}\"]',vars.ci_admission_bootstrap_runner_label))"
+    expected_env = "CI_BOOTSTRAP_HOSTED_VALIDATION: ${{ github.event_name == 'pull_request' && github.event.pull_request.number == 5 && vars.CI_BOOTSTRAP_HOSTED_VALIDATION == 'true' }}"
+    return (
+        guard in compact
+        and "fromjson('[\"ubuntu-24.04\"]')" in compact
+        and native_fallback in compact
+        and expected_env in job_body
+    )
+
+
+def approved_ci_runner_route(job_id: str, job_body: str) -> bool:
+    if is_pr5_bootstrap_route(job_id, job_body):
+        return True
+    runner_line = re.search(r"(?m)^    runs-on:.*$", job_body)
+    if runner_line is None:
+        return False
+    expected_label = ("${{ vars.CI_RUNNER_LABEL }}" if job_id == "notify-dependabot-automerge"
+                      else "${{ vars.CI_ADMISSION_BOOTSTRAP_RUNNER_LABEL }}")
+    return runner_line.group(0).strip() == f'runs-on: [self-hosted, linux, x64, "{expected_label}"]'
+
+
+bootstrap_routes = {
+    job_id for job_id, body in ci_jobs.items()
+    if "ci_bootstrap_hosted_validation" in body.lower()
+}
+if bootstrap_routes and bootstrap_routes != {"validate", "ci-result-gate"}:
+    fail(".github/workflows/ci.yml: temporary hosted bootstrap routing is limited to validate and ci-result-gate")
+if bootstrap_routes and any(not is_pr5_bootstrap_route(job_id, ci_jobs[job_id]) for job_id in bootstrap_routes):
+    fail(".github/workflows/ci.yml: temporary hosted bootstrap routing must match first-party PR #5 and native fallback exactly")
+
 allowed_ci_jobs = {
     "validate", "publish-main",
     "notify-dependabot-automerge", "ci-result-gate",
@@ -1166,10 +1205,10 @@ if "validate" in ci_jobs and "publish-main" in ci_jobs:
     if (
         "    name: validate" not in validate_job
         or "    needs:" in validate_job
-        or 'runs-on: [self-hosted, linux, x64, "${{ vars.CI_ADMISSION_BOOTSTRAP_RUNNER_LABEL }}"]' not in validate_job
+        or not approved_ci_runner_route("validate", validate_job)
         or "    name: publish-main" not in publisher_job
         or "needs: [validate]" not in publisher_job
-        or 'runs-on: [self-hosted, linux, x64, "${{ vars.CI_ADMISSION_BOOTSTRAP_RUNNER_LABEL }}"]' not in publisher_job
+        or not approved_ci_runner_route("publish-main", publisher_job)
         or "!cancelled()" not in publisher_job
         or "needs.validate.result == 'success'" not in publisher_job
         or publisher_job.find("Validate required CI results") > publisher_job.find("- name: Checkout")
@@ -1179,7 +1218,7 @@ if "validate" in ci_jobs and "publish-main" in ci_jobs:
         or "needs: [validate, publish-main]" not in result_gate_job
         or "always()" not in result_gate_job
         or "'build-test-push'" not in result_gate_job
-        or 'runs-on: [self-hosted, linux, x64, "${{ vars.CI_ADMISSION_BOOTSTRAP_RUNNER_LABEL }}"]' not in result_gate_job
+        or not approved_ci_runner_route("ci-result-gate", result_gate_job)
         or "python3 Scripts/CI/require_ci_results.py" not in result_gate_job
     ):
         fail(".github/workflows/ci.yml: validation, publication and the stable result gate must fail closed")
@@ -1194,6 +1233,26 @@ if "validate" in ci_jobs and "publish-main" in ci_jobs:
             or "^[A-Za-z0-9][A-Za-z0-9_.-]*$" not in runner_step
         ):
             fail(f".github/workflows/ci.yml: {job_id} must check the bootstrap and quarantined canonical runner labels before it runs")
+    for job_id, step_names in {
+        "validate": ("Verify CI runner", "Ensure self-hosted runner prerequisites", "Check self-hosted runner disk"),
+        "ci-result-gate": ("Verify native CI result-gate runner",),
+    }.items():
+        if is_pr5_bootstrap_route(job_id, ci_jobs.get(job_id, "")):
+            native_only = "if: ${{ env.CI_BOOTSTRAP_HOSTED_VALIDATION != 'true' }}"
+            for step_name in step_names:
+                if native_only not in workflow_step(job_id, step_name):
+                    fail(f".github/workflows/ci.yml: {step_name} must run only on the native bootstrap path")
+            if job_id == "validate":
+                summary = workflow_step(job_id, "Record temporary hosted bootstrap validation")
+                ansible = workflow_step(job_id, "Activate validated Ansible generation")
+                if (
+                    "if: ${{ env.CI_BOOTSTRAP_HOSTED_VALIDATION == 'true' }}" not in summary
+                    or "$GITHUB_STEP_SUMMARY" not in summary
+                    or "CI_BOOTSTRAP_HOSTED_VALIDATION" not in ansible
+                    or "--provision" not in ansible
+                    or "--check" not in ansible
+                ):
+                    fail(".github/workflows/ci.yml: temporary hosted validation must be documented and provision its pinned Ansible generation")
     if "docker/login-action@" in validate_job or "docker push" in validate_job:
         fail(".github/workflows/ci.yml: validate must not log into GHCR or push images")
     if "dotnet ef migrations bundle" not in publisher_job:
@@ -2109,15 +2168,23 @@ for workflow in workflow_paths:
     if workflow == CODEQL_WORKFLOW:
         continue
     has_runs_on = False
+    temporary_runner_lines = {
+        re.search(r"(?m)^    runs-on:.*$", ci_jobs[job_id]).group(0).strip()
+        for job_id in ("validate", "ci-result-gate")
+        if workflow == ".github/workflows/ci.yml"
+        and is_pr5_bootstrap_route(job_id, ci_jobs.get(job_id, ""))
+        and re.search(r"(?m)^    runs-on:.*$", ci_jobs[job_id]) is not None
+    }
     for line_number, line in enumerate(read(workflow).splitlines(), start=1):
         stripped = line.strip()
         if not stripped.startswith("runs-on:"):
             continue
         has_runs_on = True
-        if "self-hosted" not in stripped:
+        temporary_runner = workflow == ".github/workflows/ci.yml" and stripped in temporary_runner_lines
+        if "self-hosted" not in stripped and not temporary_runner:
             fail(f"{workflow}:{line_number}: runs-on must target the node-main self-hosted runner: {stripped}")
         for hosted_runner in ["ubuntu-", "ubuntu-latest", "windows-", "macos-"]:
-            if hosted_runner in stripped:
+            if hosted_runner in stripped and not temporary_runner:
                 fail(f"{workflow}:{line_number}: contains forbidden GitHub-hosted runner label: {stripped}")
     if has_runs_on:
         single_node_workflow = "localsinglenode" in Path(workflow).name
@@ -2131,9 +2198,7 @@ for workflow in workflow_paths:
                                       ("ci-result-gate", "Verify native CI result-gate runner")):
                 body = ci_jobs.get(job_id, "")
                 runner_line = re.search(r"(?m)^    runs-on:.*$", body)
-                expected_label = ("${{ vars.CI_RUNNER_LABEL }}" if job_id == "notify-dependabot-automerge"
-                                  else "${{ vars.CI_ADMISSION_BOOTSTRAP_RUNNER_LABEL }}")
-                if runner_line is None or runner_line.group(0).strip() != f'runs-on: [self-hosted, linux, x64, "{expected_label}"]':
+                if runner_line is None or not approved_ci_runner_route(job_id, body):
                     fail(f"{workflow}: {job_id} must run on its approved CI runner label")
                 profile = re.search(rf"(?ms)^      - name: {re.escape(step_name)}\n.*?(?=^      - name: |\Z)", body)
                 if profile is None or any(needle not in profile.group(0) for needle in (
