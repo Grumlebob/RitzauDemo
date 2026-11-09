@@ -1,10 +1,10 @@
 # Test
 
-Use the full local gate for code, configuration, and other non-Markdown changes. The product test suite covers Books CRUD request validation and one database-backed CRUD path. Tests require Docker for PostgreSQL and Redis Testcontainers. One packaged browser smoke is opt-in; see [Browser testing](Testing/Browser.md). Integration fixture details live in [Infrastructure testing](Testing/Infrastructure.md).
+Use the full local gate for code, configuration, and other non-Markdown changes. The one-week product suite covers five focused Books CRUD unit cases and one database-backed create/list/read/update/delete integration test. Tests require Docker for PostgreSQL and Redis Testcontainers. At most one packaged Blazor render/hydration E2E smoke is optional and off by default; it is not a browser CRUD journey. Required CI, release, deployment and host-safety checks remain separate operational gates. Grafana/observability validation is not part of the RitzauDemo demo gate while deployed observability is disabled. See [Browser testing](Testing/Browser.md) and [Infrastructure testing](Testing/Infrastructure.md) for retained smoke and integration fixture details.
 
 ## Normal run
 
-Run `dotnet test` for the single `BlazorAuto` profile. The packaged render smoke stays skipped unless `RUN_E2E=1`. The retained validation script builds and tests the one product suite, then validates its TRX result. It rejects failures, empty discovery and unexplained skips; it does not pin a test count:
+Run `dotnet test` for the single `BlazorAuto` profile. The optional packaged render/hydration smoke stays skipped unless `RUN_E2E=1`. The retained validation script builds and tests the one product suite, then validates its TRX result. It rejects failures, empty discovery and unexplained skips; it does not pin a test count:
 
 ```bash
 bash Scripts/CI/validate-frontend-profiles.sh /tmp/frontend-profile-results
@@ -40,7 +40,6 @@ dotnet format GrumPlates.sln --verify-no-changes --verbosity minimal --no-restor
 bash Scripts/CI/validate-frontend-profiles.sh /tmp/frontend-profile-results # needs Docker
 bash Deployment/Common/Scripts/validate-common-release.sh
 bash Deployment/Cloud/Scripts/validate-cloud-settings.sh
-bash Deployment/Common/observability/scripts/validate-observability.sh
 bash Deployment/LocalCluster/Scripts/audit-deployment.sh
 python3 -m unittest discover -s Deployment/Common/Scripts/Tests -v
 python3 -m unittest discover -s Deployment/LocalCluster/Scripts/Tests -p 'test_*.py' -v

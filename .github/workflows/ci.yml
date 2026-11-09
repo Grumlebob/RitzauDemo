@@ -227,9 +227,6 @@ jobs:
       - name: Cloud deployment settings validation
         run: bash Deployment/Cloud/Scripts/validate-cloud-settings.sh
 
-      - name: Common observability validation
-        run: bash Deployment/Common/observability/scripts/validate-observability.sh
-
       - name: Deployment audit
         run: bash Deployment/LocalCluster/Scripts/audit-deployment.sh
 

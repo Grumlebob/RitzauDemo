@@ -198,19 +198,20 @@ Exit: RitzauDemo's runner is online; GrumPlates/RitzauDemo/CarbonCalculator nati
 
 Apply the approved lean product test scope below in this phase. The broad inherited test suite is not a product requirement for this one-week demo.
 
-1. [ ] Branch from verified product main. Capture the actual dependency inventory with `rg`, including hidden tracked configuration. Classify matches before deleting anything.
-2. [ ] Inspect and remove React client assets/tooling under `GrumPlates.React/`, `GrumPlates/Frontend/FrontendComposition.React.cs`, `ReactFrontendHosting.cs`, `ReactFrontendStaticRoot.cs`, and `GrumPlates/Frontend/React/` after removing their consumers.
-3. [ ] Keep `GrumPlates.Client/`, its npm lockfile, Tailwind, generated `GrumPlates/wwwroot/tailwind.css`, Blazor render modes, account UI, Books UI, and shared Core contracts. Removing React does not remove all Node/npm tooling.
-4. [ ] Simplify `Directory.Build.props`, `Directory.Build.targets`, project references, server csproj compile/content rules, frontend composition, and configuration. Preserve publish safeguards that prevent output from overwriting source `wwwroot`.
-5. [ ] Keep the tracked profile and immutable release profile pair `BlazorAuto` / `BlazorAutoV1`. Make profile validation reject unsupported React selection. Update resolver tests, manifest validation, release verifiers, acceptance scripts, frontend publication planning, and status helpers together. Keep generic shared contracts only when deliberately needed.
-6. [ ] Simplify `GrumPlates/Dockerfile`: remove React dependency/assets/publish/final stages; retain `final-blazor`, non-root execution, image identity labels, and Blazor assets. Update local Compose target resolution and `Scripts/RunLocal.ps1` consistently.
+1. [x] Branch from verified product main. Capture the actual dependency inventory with `rg`, including hidden tracked configuration. Classify matches before deleting anything.
+2. [x] Inspect and remove React client assets/tooling under `GrumPlates.React/`, `GrumPlates/Frontend/FrontendComposition.React.cs`, `ReactFrontendHosting.cs`, `ReactFrontendStaticRoot.cs`, and `GrumPlates/Frontend/React/` after removing their consumers.
+3. [x] Keep `GrumPlates.Client/`, its npm lockfile, Tailwind, generated `GrumPlates/wwwroot/tailwind.css`, Blazor render modes, account UI, Books UI, and shared Core contracts. Removing React does not remove all Node/npm tooling.
+4. [x] Simplify `Directory.Build.props`, `Directory.Build.targets`, project references, server csproj compile/content rules, frontend composition, and configuration. Preserve publish safeguards that prevent output from overwriting source `wwwroot`.
+5. [x] Keep the tracked profile and immutable release profile pair `BlazorAuto` / `BlazorAutoV1`. Make profile validation reject unsupported React selection. Update resolver tests, manifest validation, release verifiers, acceptance scripts, frontend publication planning, and status helpers together. Keep generic shared contracts only when deliberately needed.
+6. [x] Simplify `GrumPlates/Dockerfile`: remove React dependency/assets/publish/final stages; retain `final-blazor`, non-root execution, image identity labels, and Blazor assets. Update local Compose target resolution and `Scripts/RunLocal.ps1` consistently.
 7. [x] Remove React-only browser fixtures and scripts: `Scripts/Testing/RunReactPublicE2E.ps1`, React SMTP fixture, and `GrumPlates.Test/E2E/Features/React/`. Remove React hosting-only tests; adapt mixed frontend composition/security checks only where required for the retained Blazor application.
 8. [x] Reduce product-behavior tests to the approved Books CRUD scope below. Keep the ownership/access assertion inside the CRUD integration path; remove standalone account/auth suites and inherited account lifecycle, caching, observability, visual, layout, concurrency, and architecture suites. Keep backend endpoints still needed by the Blazor app.
 9. [x] Rewrite `.github/workflows/ci.yml` to validate/build/test/smoke/publish Blazor only. Remove React npm/unit/browser/contract steps, profile loops, additional-profile publishing, Grafana/observability test requirements, and obsolete reports. Keep required `build-test-push`, lean CRUD unit/integration results, image smoke/release provenance as operational checks, cleanup, and failure propagation.
 10. [x] Update `Scripts/CI/validate-frontend-profiles.sh` and its callers to validate only Blazor and the lean unit/integration result. Remove inherited account/non-account suite requirements; update CI tests, release checks, reports, and local-gate docs.
 11. [x] Update Dependabot, quality scripts, browser docs, README, and frontend documentation. Keep Tailwind tooling needed to build Blazor styles; remove axe/Lighthouse and React-only browser dependencies.
 12. [x] Search live product, CI, release, and quality paths for React profiles and removed file paths. Remaining React fixture values only assert unsupported profile rejection or preserve the existing separate Books site; historical plan references remain historical.
-13. [x] Fix both Node Dockerfile parsers, remove the React-selected lifecycle test and fixtures, and retain one opt-in packaged Blazor render/hydration smoke. Full local validation passed on 2026-11-09 at code SHA `e907256c0b74544acdb6aab323917ad5d61d37f6`; update the existing draft PR and keep it open until exact-head CI is available.
+13. [x] Fix both Node Dockerfile parsers, remove the React-selected lifecycle test and fixtures, and retain one opt-in packaged Blazor render/hydration smoke. Full local validation passed on 2026-11-09 at code SHA `e907256c0b74544acdb6aab323917ad5d61d37f6`.
+14. [ ] Remove the Grafana dashboard validator from the RitzauDemo CI and local gate while deployed observability remains disabled. Keep host-safety, release, deployment, backup and recovery gates. Rerun the revised gate before completing this scope update.
 
 Exit: no React app or selectable React release remains; Books CRUD works through Blazor; product tests match the one-week demo scope.
 
@@ -218,13 +219,14 @@ Exit: no React app or selectable React release remains; Books CRUD works through
 
 Keep automated product-behavior coverage limited to the Books CRUD example:
 
-- Unit tests cover only core CRUD validation and small deterministic rules used by that path.
+- Unit tests cover only core CRUD validation and small deterministic rules used by that path (five focused cases in the current suite).
 - Integration tests cover one database-backed create/list/read/update/delete path. Include an ownership/access assertion within this path only where required by the existing private-book policy; do not keep separate account or authentication test suites.
-- Keep the one existing opt-in packaged Blazor render/hydration smoke. It does not exercise signed-in CRUD UI; the database-backed integration test covers the complete CRUD path. Do not rebuild a second browser flow for this one-week demo.
+- Keep at most one optional E2E: the existing opt-in packaged Blazor render/hydration smoke. It is off by default and does not exercise signed-in CRUD UI; the database-backed integration test covers the complete CRUD path. Do not add a second browser flow for this one-week demo.
 - Remove product tests for Grafana dashboards/alerts and observability stacks, visual snapshots, Lighthouse/performance, React, elaborate responsive/navigation behavior, cross-node cache invalidation, account/email/outbox lifecycle, deep migration edge cases, and broad architecture/layout details unrelated to CRUD.
+- Do not run the Grafana dashboard/observability validator in RitzauDemo CI or its required local gate while the single-node deployment keeps observability disabled.
 - Remove test fixtures, containers, and dependencies used only by deleted suites. Do not keep a suite merely to preserve inherited test counts.
 
-This is the complete automated product-behavior test scope for the demo: focused CRUD unit and integration tests, plus one opt-in packaged render/hydration E2E smoke. There is no browser CRUD journey. Keep required CI admission, release, deployment, backup/recovery, and shared-host safety checks as operational gates rather than extra product test suites. Do not reduce GrumPlates or CarbonCalculator test suites. Disabled registration, private API boundaries, migration identity, release provenance, and existing-site preservation remain requirements; verify each with the smallest relevant operational or acceptance check.
+This is the complete automated product-behavior test scope for the demo: five focused CRUD unit cases, one database-backed CRUD integration test, and at most one optional packaged render/hydration E2E smoke. There is no browser CRUD journey. Keep required CI admission, release, deployment, backup/recovery, and shared-host safety checks as operational gates rather than extra product test suites. Do not reduce GrumPlates or CarbonCalculator test suites. Disabled registration, private API boundaries, migration identity, release provenance, and existing-site preservation remain requirements; verify each with the smallest relevant operational or acceptance check.
 
 ## Phase 4 — Remove unused deployment targets from RitzauDemo only
 
@@ -428,6 +430,12 @@ For each phase, fill in: date; branch; full PR-head SHA; local gate commands/res
 - The product suite has five Books CRUD unit cases, one PostgreSQL/Redis-backed CRUD integration test with ownership coverage, and one opt-in packaged Blazor render/hydration E2E smoke. The default run reported 6 passed, 1 expected skip, 7 total. It has no browser CRUD journey.
 - Removed the React product app/build path and React-only product suites, along with standalone account/auth, Grafana/observability behavior, visual, Lighthouse/performance, navigation/responsive and other unrelated product tests. Kept shared admission, release, deployment, host-safety, backup and recovery checks. The legacy React acceptance contract remains isolated to LocalSingleNode support for existing independent sites; product profile selection still accepts only BlazorAuto.
 - PR #5 remains draft and RitzauDemo Actions remain disabled, so exact-head CI has not run. No runner registration, bootstrap, deployment, or route/data mutation occurred. The pre-existing minio-minio-1 and postgres containers remained unchanged; no Testcontainers fixtures remained after the gate.
+
+### Test-scope reaffirmation — 2026-11-09
+
+- The user reaffirmed the one-week demo boundary: five focused Books CRUD unit cases, one database-backed CRUD integration test, and at most one optional packaged Blazor render/hydration E2E smoke. No Grafana, account/auth, visual, Lighthouse/performance, navigation, layout or other inherited product-behavior suites belong in the demo.
+- The RitzauDemo workflow and `docs/Test.md` local gate now omit the Common Grafana/observability validator because deployed observability is disabled. Required admission, release, deployment, backup/recovery and shared-host safety gates remain operational checks; GrumPlates and CarbonCalculator test scope is unchanged.
+- The updated test-gate change is on the current follow-up branch. The revised full local gate is pending; leave Phase 3 item 14 unchecked until it passes.
 
 ## Current fresh-chat starting point — 2026-11-09
 
