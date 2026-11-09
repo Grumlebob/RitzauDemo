@@ -83,7 +83,16 @@ removed_paths = [
     ".github/workflows/localcluster-prepare-vault.yml",
 ]
 for item in removed_paths:
-    if (ROOT / item).exists():
+    candidate = ROOT / item
+    if candidate.is_dir():
+        leftovers = [
+            path for path in candidate.rglob("*")
+            if path.is_symlink() or path.is_file()
+            if not (path.is_file() and not path.is_symlink() and "__pycache__" in path.parts and path.suffix == ".pyc")
+        ]
+        if leftovers:
+            failures.append(f"unsupported deployment target must be removed from RitzauDemo: {item}")
+    elif candidate.exists():
         failures.append(f"unsupported deployment target must be removed from RitzauDemo: {item}")
 
 
@@ -166,7 +175,10 @@ for needle, why in (
 
 ci = read(".github/workflows/ci.yml")
 for needle, why in (
-    ("build-test-push:", "required result gate"),
+    ("ci-result-gate:", "required result gate job"),
+    ("'build-test-push'", "stable required result name"),
+    ("needs: [validate, publish-main]", "validation and publication dependencies"),
+    ("run: python3 Scripts/CI/require_ci_results.py", "event-specific result validation"),
     ("packages: write", "main image publication permission"),
     ("Deployment/Common/Scripts/with-runner-build-admission.sh", "shared native build admission"),
     ("Deployment/Common/Scripts/ci-docker-smoke.sh", "single-node packaged smoke"),
@@ -175,6 +187,15 @@ for needle, why in (
 ):
     if needle not in ci:
         failures.append(f".github/workflows/ci.yml: missing {why}")
+result_gate = read("Scripts/CI/require_ci_results.py")
+for needle, why in (
+    ('event_name == "pull_request"', "PR publication skip behavior"),
+    ('ref != "refs/heads/main"', "main-only push behavior"),
+    ('validation != "success"', "successful validation requirement"),
+    ('publication != "success"', "successful main publication requirement"),
+):
+    if needle not in result_gate:
+        failures.append(f"Scripts/CI/require_ci_results.py: missing {why}")
 for stale in (
     "Deployment/Cloud/",
     "Deployment/LocalCluster/",

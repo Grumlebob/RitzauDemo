@@ -181,8 +181,11 @@ for args in calls:
             assert "DataProtection__KeyEncryptionCertificatePath=/run/dp-cert/dp.pfx" in args
             assert any(value.endswith(":/run/dp-cert:ro") for value in args)
         assert "localcluster.ci.repository=example/repo" in args
+        assert "localcluster.ci.owner=ci-smoke" in args
         assert "localcluster.ci.purpose=smoke" in args
         assert any(value.startswith("localcluster.ci.session=") for value in args)
+        assert any(value.startswith("localcluster.ci.run_id=") for value in args)
+        assert any(value.startswith("localcluster.ci.run_attempt=") for value in args)
     assert "prune" not in args and "volume" not in args
 PY
 
