@@ -70,8 +70,6 @@ def validate_results(path: Path, expected_skipped: int | None = None) -> TestRes
         raise ValueError(
             f"unexpected test outcomes: failed={summary.failed}, other={summary.unexpected}"
         )
-    if summary.passed == 0:
-        raise ValueError(f"no test passed; total={summary.total}, skipped={summary.skipped}")
     if expected_skipped is None:
         if summary.unexplained_skips:
             raise ValueError(
@@ -84,6 +82,8 @@ def validate_results(path: Path, expected_skipped: int | None = None) -> TestRes
             f"expected skipped={expected_skipped}; "
             f"found passed={summary.passed}, skipped={summary.skipped}, total={summary.total}"
         )
+    if summary.passed == 0:
+        raise ValueError(f"no test passed; total={summary.total}, skipped={summary.skipped}")
     return summary
 
 
