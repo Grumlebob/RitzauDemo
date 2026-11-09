@@ -8,6 +8,7 @@ trap 'rm -rf "$TMP_ROOT"' EXIT
 mkdir -p "$TMP_ROOT/bin" "$TMP_ROOT/state" "$TMP_ROOT/runner-temp"
 export SMOKE_STATE="$TMP_ROOT/state"
 export SMOKE_CALLS="$TMP_ROOT/calls.jsonl"
+export SMOKE_DOTNET_CALLS="$TMP_ROOT/dotnet-calls.log"
 export PATH="$TMP_ROOT/bin:$PATH"
 export APP_IMAGE=example/app APP_VERSION=test APP_NAME=sample GITHUB_REPOSITORY=example/repo GITHUB_SHA=aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa
 cat > "$TMP_ROOT/bin/docker" <<'PY'
@@ -113,6 +114,7 @@ exit 0
 SH
 cat > "$TMP_ROOT/bin/dotnet" <<'SH'
 #!/usr/bin/env bash
+printf '%s\n' "$*" >> "$SMOKE_DOTNET_CALLS"
 [[ "$*" == *"FullyQualifiedName~RenderModeE2ETests"* ]] || exit 3
 [[ "${E2E_BASE_URL:-}" == http://127.0.0.1:* ]] || exit 4
 results_dir=""
@@ -135,18 +137,21 @@ SH
 chmod +x "$TMP_ROOT/bin/"*
 
 run_case() {
-  local expected="$1" status=0
-  RUNNER_TEMP="$TMP_ROOT/runner-temp" GITHUB_RUN_ID=123 GITHUB_RUN_ATTEMPT=2 bash "$SCRIPT" > "$TMP_ROOT/output" 2>&1 || status=$?
+  local expected="$1" run_e2e="${2:-0}" status=0
+  RUN_E2E="$run_e2e" RUNNER_TEMP="$TMP_ROOT/runner-temp" GITHUB_RUN_ID=123 GITHUB_RUN_ATTEMPT=2 bash "$SCRIPT" > "$TMP_ROOT/output" 2>&1 || status=$?
   [[ "$status" == "$expected" ]] || { cat "$TMP_ROOT/output" >&2; echo "expected $expected, got $status" >&2; exit 1; }
   [[ -z "$(find "$SMOKE_STATE" -type f -print)" ]] || { echo "owned resources leaked" >&2; exit 1; }
 }
 
 run_case 0
+[[ ! -s "$SMOKE_DOTNET_CALLS" ]] || { echo "optional browser smoke ran by default" >&2; exit 1; }
+run_case 0 1
+grep -Fq 'FullyQualifiedName~RenderModeE2ETests' "$SMOKE_DOTNET_CALLS"
 FAIL_IMAGE_LABEL=1 run_case 1
 FAIL_ACCEPTANCE_LABEL=1 run_case 1
 FAIL_REDIS=1 run_case 17
 FAIL_API=1 run_case 1
-FAIL_BROWSER=19 run_case 19
+FAIL_BROWSER=19 run_case 19 1
 FAIL_HTTP_ACCEPTANCE=23 run_case 23
 FRONTEND_PROFILE=React run_case 2
 FRONTEND_PROFILE=BlazorAuto FRONTEND_ACCEPTANCE_PROFILE=ReactPublicV1 run_case 2

@@ -232,6 +232,8 @@ for path, content in (
 smoke = read("Deployment/Common/Scripts/ci-docker-smoke.sh")
 if "RenderModeE2ETests" not in smoke:
     failures.append("packaged smoke must run only the opt-in Blazor hydration test")
+if 'case "${RUN_E2E:-0}" in' not in smoke or "Skipping optional packaged Blazor render/hydration smoke" not in smoke:
+    failures.append("packaged Blazor hydration smoke must remain opt-in")
 if "React" in smoke or "SMTP" in smoke:
     failures.append("packaged demo smoke must not initialize React or SMTP fixtures")
 

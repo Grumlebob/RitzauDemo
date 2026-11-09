@@ -249,17 +249,29 @@ forwarded_proto=(--header "X-Forwarded-Proto: https")
     -ForwardedProto https -BaseUrl "$base_url"
   echo "Blazor HTTP smoke passed"
 
-cd "$REPO_ROOT"
-pwsh "$REPO_ROOT/GrumPlates.Test/bin/Release/net10.0/playwright.ps1" install chromium
-browser_results_dir="${RUNNER_TEMP:-${TMPDIR:-/tmp}}/test-results/${expected_run_id}-${expected_run_attempt}/${GITHUB_JOB:-validate}/docker-smoke/BlazorAuto"
-mkdir -p "$browser_results_dir"
-RUN_E2E=1 E2E_BASE_URL="$base_url" E2E_HEADLESS=1 E2E_SLOW_MO_MS=0 \
-  dotnet test "$REPO_ROOT/GrumPlates.Test/GrumPlates.Test.csproj" \
-    --configuration Release --no-build --no-restore \
-    --filter "$BROWSER_SMOKE_FILTER" \
-    --logger "trx;LogFileName=blazor-browser-smoke.trx" \
-    --results-directory "$browser_results_dir"
-python3 "$REPO_ROOT/Scripts/CI/validate_dotnet_test_results.py" \
-  "$browser_results_dir/blazor-browser-smoke.trx" \
-  --expected-skipped 0 --suite "Blazor packaged browser smoke"
-echo "Blazor HTTP and browser smoke passed"
+case "${RUN_E2E:-0}" in
+  1)
+    cd "$REPO_ROOT"
+    pwsh "$REPO_ROOT/GrumPlates.Test/bin/Release/net10.0/playwright.ps1" install chromium
+    browser_results_dir="${RUNNER_TEMP:-${TMPDIR:-/tmp}}/test-results/${expected_run_id}-${expected_run_attempt}/${GITHUB_JOB:-validate}/docker-smoke/BlazorAuto"
+    mkdir -p "$browser_results_dir"
+    E2E_BASE_URL="$base_url" E2E_HEADLESS=1 E2E_SLOW_MO_MS=0 \
+      dotnet test "$REPO_ROOT/GrumPlates.Test/GrumPlates.Test.csproj" \
+        --configuration Release --no-build --no-restore \
+        --filter "$BROWSER_SMOKE_FILTER" \
+        --logger "trx;LogFileName=blazor-browser-smoke.trx" \
+        --results-directory "$browser_results_dir"
+    python3 "$REPO_ROOT/Scripts/CI/validate_dotnet_test_results.py" \
+      "$browser_results_dir/blazor-browser-smoke.trx" \
+      --expected-skipped 0 --suite "Blazor packaged browser smoke"
+    echo "Blazor packaged browser smoke passed"
+    ;;
+  0|"")
+    echo "Skipping optional packaged Blazor render/hydration smoke; set RUN_E2E=1 to enable."
+    ;;
+  *)
+    echo "RUN_E2E must be 0 or 1." >&2
+    exit 2
+    ;;
+esac
+echo "Blazor HTTP smoke passed"
