@@ -1,6 +1,6 @@
 # Interview case starter: vertical slices, RBAC, and focused tests
 
-Status: in progress. R00–R14 (upstream handoff) are verified on the integrated product base. R15–R16 remain in progress pending the product port and final integration. Prepared 2026-11-09. This document authorizes no deployment.
+Status: complete. R00–R16 are implemented, verified, and integrated. The product port is on `origin/main` at `caaed037b988cd195df1c78d6b485137b058fac2`; exact-main CI passed, and the final closeout is recorded in this PR. Prepared 2026-11-09. This document authorizes no deployment.
 
 ## 1. Outcome and scope
 
@@ -277,9 +277,11 @@ Exit: the normal application test tree is easy to browse; every removed test has
 
 #### Verified GrumPlates handoff
 
-The upstream UI is integrated and verified as of 2026-11-09. [GrumPlates PR #455](https://github.com/Grumlebob/GrumPlates/pull/455) was based on `b2dd255cea8c95f496b241b5517d246938e2d681`, with PR head `39349002c1008b5b9196ef8e5f9321272e4bb729`, and squash-integrated on `origin/main` as `555cc103e33ae18838129cd79be8ec738a8a6d68`. The exact-head `build-test-push` run `42683644193` and CodeQL run `42683644261` passed. Exact-main `build-test-push` run `42686724906` and CodeQL run `42686724951` passed.
+The final upstream UI is integrated and verified as of 2026-11-09. The presentation implementation in [GrumPlates PR #455](https://github.com/Grumlebob/GrumPlates/pull/455) was based on `b2dd255cea8c95f496b241b5517d246938e2d681`, with PR head `39349002c1008b5b9196ef8e5f9321272e4bb729`, and squash-integrated on `origin/main` as `555cc103e33ae18838129cd79be8ec738a8a6d68`. The mobile navigation/browser fix in [PR #457](https://github.com/Grumlebob/GrumPlates/pull/457) was based on `9ae57ec2683093f73fa38d10c820af099589da88`, with head `e188e7c93fa289882ffa23d86e80d9f04af61434`, and integrated at `6076953820628d3220725d183b022dfca83789fd`. PR #455 exact-head `build-test-push` run `42683644193` and CodeQL run `42683644261` passed; its exact-main runs `42686724906` and `42686724951` passed. PR #457 exact-head runs `42697999502` and `42697999781`, and exact-main runs `42701077135` and `42701076918`, passed.
 
-The [upstream path manifest and route contract](https://github.com/Grumlebob/GrumPlates/blob/main/Plans/ReusableCrudUi.md#7-port-manifest-for-ritzaudemo) list each added, updated, and removed file. The UI PR changes Blazor pages, list state, form/detail components, styles, focused tests, small template docs, and Sonar mapping fixtures. It does not change Core/API contracts, backend handlers, service registrations, or migrations. The UI uses `IBooksApi.SearchAsync(SearchBooksRequest)` from the separately integrated PR #454 and the existing `IAuthorBooksApi`. The source routes are `/` and `/books` for public catalog plus private own-books list, `/books/catalog/{id:int}` for public detail, `/books/author/{SeedKey}` as a bounded legacy redirect, and `/books/new`, `/books/{id:int}`, and `/books/{id:int}/edit` for private CRUD.
+The UI's optional bounded private search prerequisite, [PR #454](https://github.com/Grumlebob/GrumPlates/pull/454), was based on `de6cfaec8d86373e14fee7a912122e815ddf4ce0`, with head `48016999df1f68d339236480d859a114077a1553`, and integrated as `b2dd255cea8c95f496b241b5517d246938e2d681`. The product does not import that API because its current `IBooksApi` has no `SearchAsync`; it filters the existing owner-scoped list locally.
+
+The [upstream path manifest and route contract](https://github.com/Grumlebob/GrumPlates/blob/main/Plans/ReusableCrudUi.md#7-port-manifest-for-ritzaudemo) list each added, updated, and removed file. The upstream UI PR changes Blazor pages, list state, form/detail components, styles, focused tests, small template docs, and Sonar mapping fixtures. It does not change Core/API contracts, backend handlers, service registrations, or migrations. The upstream UI uses `IBooksApi.SearchAsync(SearchBooksRequest)` from the separately integrated PR #454 and the existing `IAuthorBooksApi`. The source routes are `/` and `/books` for public catalog plus private own-books list, `/books/catalog/{id:int}` for public detail, `/books/author/{SeedKey}` as a bounded legacy redirect, and `/books/new`, `/books/{id:int}`, and `/books/{id:int}/edit` for private CRUD.
 
 #### RitzauDemo adaptation map
 
@@ -287,7 +289,7 @@ The [upstream path manifest and route contract](https://github.com/Grumlebob/Gru
 | --- | --- |
 | New and updated `GrumPlates.Client/Features/Books/Routes/*` and `Shared/*` pages, forms, and rows | Port selected components into `RitzauDemo.Client/Features/Books`; use `RitzauDemo.Client`/`RitzauDemo.Core` namespaces, current DTOs, and product routes. Keep the existing `/books/author/{SeedKey}` public author route and product `/Account/Login?returnUrl=...` links. |
 | Updated `AuthorBookcase`, `UserBookcase`, their state types, and `_Imports.razor` | Adapt existing product state and imports. Reuse current `IBooksApi`, `IAuthorBooksApi`, and state registrations in `RitzauDemo.Client/Program.cs`; retain server feature registrations and handlers. |
-| Source private list uses owner-scoped `IBooksApi.SearchAsync(SearchBooksRequest)` | Product `IBooksApi` currently exposes `GetAsync`, `GetByIdAsync`, `CreateAsync`, `UpdateAsync`, and `DeleteAsync`, with no `SearchAsync`. In R15, confirm the list bound before choosing local filtering or a minimal owner-scoped search/pagination adapter; preserve ownership, `BooksCachePolicy`, and invalidation behavior. Do not copy the template API wholesale. |
+| Source private list uses owner-scoped `IBooksApi.SearchAsync(SearchBooksRequest)` from separate GrumPlates PR #454 | Product `IBooksApi` exposes `GetAsync`, `GetByIdAsync`, `CreateAsync`, `UpdateAsync`, and `DeleteAsync`, with no `SearchAsync`. The port filters the existing owner-scoped `GetAsync` result in memory; it adds no API or cache contract. This keeps the interview sample narrow and does not claim server pagination for large collections. |
 | Removed `BookModal`, `BookPage`, `BookCover*`, `BookcaseShelf*`, and mapper files | Remove corresponding product presentation code only after a repository-wide consumer search; preserve public catalog data and non-UI API behavior. |
 | Added/updated Books E2E, state, pre-hydration, and visual tests; removed modal/geometry tests | Port a small set of semantic navigation, CRUD, role, and render-mode checks within the existing test budget. Keep User read-only, Admin CRUD on owned records, direct write-route denial, and server-handler enforcement. Do not import the full template E2E suite. |
 | Updated `GrumPlates/wwwroot/app.css` and generated `tailwind.css` | Adapt authored styles as needed and rebuild `RitzauDemo/wwwroot/tailwind.css` with the product lockfile. Never copy generated upstream CSS wholesale. |
@@ -296,28 +298,96 @@ The [upstream path manifest and route contract](https://github.com/Grumlebob/Gru
 
 Exit: reviewed port manifest; no broad upstream merge is necessary.
 
+#### Adapted product path manifest — PR #19
+
+Added:
+
+- `RitzauDemo.Client/Features/Books/Routes/AuthorBookDetails.razor`
+- `RitzauDemo.Client/Features/Books/Routes/BookCreate.razor`
+- `RitzauDemo.Client/Features/Books/Routes/BookEdit.razor`
+- `RitzauDemo.Client/Features/Books/Routes/UserBookDetails.razor`
+- `RitzauDemo.Client/Features/Books/Shared/BookDetailsView.razor`
+- `RitzauDemo.Client/Features/Books/Shared/BookForm.razor`
+- `RitzauDemo.Client/Features/Books/Shared/BookListRow.razor`
+- `RitzauDemo.Test/E2E/Features/Books/BooksCrudE2ETests.cs`
+- `RitzauDemo.Test/E2E/Support/SeededE2EAccounts.cs`
+
+Updated:
+
+- `RitzauDemo.Client/Features/Books/AuthorBookcase/AuthorBookcase.razor`
+- `RitzauDemo.Client/Features/Books/AuthorBookcase/AuthorBookcaseState.cs`
+- `RitzauDemo.Client/Features/Books/Routes/AuthorDetails.razor`
+- `RitzauDemo.Client/Features/Books/Routes/Index.razor`
+- `RitzauDemo.Client/Features/Books/UserBookcase/UserBookcase.razor`
+- `RitzauDemo.Client/Features/Books/UserBookcase/UserBookcaseLoginPrompt.razor`
+- `RitzauDemo.Client/Features/Books/UserBookcase/UserBookcaseState.cs`
+- `RitzauDemo.Client/Features/Books/_Imports.razor`
+- `RitzauDemo.Client/Routes.razor`
+- `RitzauDemo.Test/E2E/AppShell/RenderModeE2ETests.cs`
+- `RitzauDemo.Test/E2E/Support/PackagedBlazorSmokeBase.cs`
+- `RitzauDemo.Test/Features/Accounts/Integration/SeededRoleLoginTests.cs`
+- `RitzauDemo.Test/Features/Books/Integration/BooksCrudIntegrationTests.cs`
+- `RitzauDemo/wwwroot/tailwind.css` (rebuilt with the product lockfile)
+- `Scripts/Quality/sonar_report.py`
+- `Scripts/Quality/tests/fixtures/sonar/component-tree.json`
+- `Scripts/Quality/tests/fixtures/sonar/issues-search.json`
+- `Scripts/Quality/tests/test_sonar_report.py`
+- `docs/Test.md`
+- `docs/Testing/Browser.md`
+
+Renamed:
+
+- `RitzauDemo.Client/Features/Books/BookPage/BookPageEditorModel.cs` → `RitzauDemo.Client/Features/Books/Shared/BookFormModel.cs`
+
+Removed after consumer review:
+
+- `RitzauDemo.Client/Features/Books/BookModal/BookModalHost.razor`
+- `RitzauDemo.Client/Features/Books/BookModal/BookModalLifecycle.cs`
+- `RitzauDemo.Client/Features/Books/BookModal/BookModalRouteState.cs`
+- `RitzauDemo.Client/Features/Books/BookPage/BookPageCloseControl.razor`
+- `RitzauDemo.Client/Features/Books/BookPage/BookPageEditor.razor`
+- `RitzauDemo.Client/Features/Books/BookPage/BookPageFrame.razor`
+- `RitzauDemo.Client/Features/Books/BookPage/BookPageTextLayout.cs`
+- `RitzauDemo.Client/Features/Books/BookPage/BookPageView.razor`
+- `RitzauDemo.Client/Features/Books/Shared/BookCoverArtwork.razor`
+- `RitzauDemo.Client/Features/Books/Shared/BookCoverDesignCatalog.cs`
+- `RitzauDemo.Client/Features/Books/Shared/BookCoverGeometry.cs`
+- `RitzauDemo.Client/Features/Books/Shared/BookCoverPageTabs.razor`
+- `RitzauDemo.Client/Features/Books/Shared/BookCoverRenderer.razor`
+- `RitzauDemo.Client/Features/Books/Shared/BookCoverTextLayout.cs`
+- `RitzauDemo.Client/Features/Books/Shared/BookCoverTheme.cs`
+- `RitzauDemo.Client/Features/Books/Shared/BookSideView.razor`
+- `RitzauDemo.Client/Features/Books/Shared/BookcaseBook.cs`
+- `RitzauDemo.Client/Features/Books/Shared/BookcaseShelf.razor`
+- `RitzauDemo.Client/Features/Books/Shared/BookcaseShelfItems.cs`
+- `RitzauDemo.Client/Features/Books/UserBookcase/UserBookcaseBookMapper.cs`
+
 ### R15 — Port the verified CRUD UI
 
-- [ ] Apply the explicit UI/state/type paths from R14 in an owned product PR. Do not cherry-pick unrelated template workflows, deployment targets, React support, accounts, or naming.
-- [ ] Reuse current product handlers, contracts, caching, and RBAC. Adjust only adapters/signatures required by the new UI.
-- [ ] Replace the old shelf/modal routes and remove dead shelf geometry, cover artwork, modal lifecycle helpers, tests, and assets only after checking remaining consumers.
-- [ ] Port the small applicable state/browser acceptance coverage; do not import the entire upstream test suite.
-- [ ] Rebuild product Tailwind output with the product lockfile. Do not copy upstream generated CSS wholesale.
-- [ ] Verify anonymous public catalog, User read-only pages with no mutation controls, Admin own CRUD, direct write-route denial, validation, empty/error states, reload, and logout in Interactive Auto's actual execution modes.
+- [x] Apply the explicit UI/state/type paths from R14 in an owned product PR. Do not cherry-pick unrelated template workflows, deployment targets, React support, accounts, or naming.
+- [x] Reuse current product handlers, contracts, caching, and RBAC. Adjust only adapters/signatures required by the new UI.
+- [x] Replace the old shelf/modal routes and remove dead shelf geometry, cover artwork, modal lifecycle helpers, tests, and assets only after checking remaining consumers.
+- [x] Port the small applicable state/browser acceptance coverage; do not import the entire upstream test suite.
+- [x] Rebuild product Tailwind output with the product lockfile. Do not copy upstream generated CSS wholesale.
+- [x] Verify anonymous public catalog, User read-only pages with no mutation controls, Admin own CRUD, direct write-route denial, validation, empty/error states, reload, and logout in Interactive Auto's actual execution modes.
 
 Exit: product UI is simpler and domain replacement no longer depends on book-rendering geometry.
 
 ### R16 — Minimal docs and final integration
 
-- [ ] Correct only stale commands, deleted-feature references, and requirements affected by this work. Keep essential startup/test/operator instructions accurate.
-- [ ] Do not add an interview guide, stack brochure, documentation index, or broad README rewrite.
-- [ ] Review complete code/configuration diffs. Update deployment audit rules in the same PR whenever checked behavior changes.
-- [ ] Run the repository's complete current local gate before each code PR push. Build and test sequentially; record the actual commands/outcomes.
-- [ ] Merge only when `build-test-push` is green on the exact PR head. Retarget dependent PRs before deleting their base branch.
-- [ ] Fetch and verify integrated `origin/main` content and required exact-main CI after each code PR. Record full SHAs and CI run references.
-- [ ] Close owned worktrees/branches and task-created Docker resources under `AGENTS.md`, preserving useful inputs and other task dependencies.
+- [x] Correct only stale commands, deleted-feature references, and requirements affected by this work. Keep essential startup/test/operator instructions accurate.
+- [x] Do not add an interview guide, stack brochure, documentation index, or broad README rewrite.
+- [x] Review complete code/configuration diffs. Update deployment audit rules in the same PR whenever checked behavior changes.
+- [x] Run the repository's complete current local gate before each code PR push. Build and test sequentially; record the actual commands/outcomes.
+- [x] Merge only when `build-test-push` is green on the exact PR head. Retarget dependent PRs before deleting their base branch.
+- [x] Fetch and verify integrated `origin/main` content and required exact-main CI after each code PR. Record full SHAs and CI run references.
+- [x] Close owned worktrees/branches and task-created Docker resources under `AGENTS.md`, preserving useful inputs and other task dependencies.
 
 Exit: all implemented packets are verified on main. No deployment is needed to mark code integration complete unless separately authorized and added to scope.
+
+The `workflow_dispatch` trigger added to `.github/workflows/codeql.yml` lets maintainers request an official CodeQL scan for an exact branch head when a commit's skip marker suppresses the normal push scan. It does not bypass or create a check result.
+
+Closeout: task branch `task/interview-case-starter-ui-port-20261109` was deleted at full SHA `67b88877ebcfb0f344aa1c37cc30485efd267830` after PR #19's content was verified on `origin/main`. The task Compose project `ritzaudemo-interview-ui-20261109`, its containers/network, database volume, and web image were removed. The worktree's task-generated `.env` and development certificate were removed; the primary checkout's private `.env` was preserved.
 
 ## 7. Focused acceptance matrix
 
@@ -362,5 +432,7 @@ For each PR, record: packet IDs, base SHA, full PR-head SHA, PR URL, local gate 
 | --- | --- | --- | --- |
 | PR #17 / R00–R06 | Base `dff50c37cfd6cde870ef314c25fac518d12a40a3`; head `2ed3d08788fdb53800b2ffe0c8895f3ae0d09176`; integrated on `origin/main` at `1b99bcc0a9a07fd29dc1b6099e27af3339ec0ca0` | PR CI run `42641461708` and exact-main CI run `42642496818` succeeded | None |
 | [PR #18](https://github.com/Grumlebob/RitzauDemo/pull/18) / R07–R13 | Base `1b99bcc0a9a07fd29dc1b6099e27af3339ec0ca0`; head `1d91200ebd0af27b9b18fb9a0e95934e7ed4362b`; squash-integrated on `origin/main` at `9f56957a16a65a10afd4be2d29afb9b324c42ee4` | Full local gate passed; focused real-cookie account tests passed 2/2; exact-head `build-test-push` run `42666220451` and CodeQL run `42666220487` succeeded; exact-main CI run `42667087078` and CodeQL run `42667087396` succeeded | None |
+| [PR #19](https://github.com/Grumlebob/RitzauDemo/pull/19) / R14–R16 product port | Base `9f56957a16a65a10afd4be2d29afb9b324c42ee4`; PR head `67b88877ebcfb0f344aa1c37cc30485efd267830`; integrated on `origin/main` at `caaed037b988cd195df1c78d6b485137b058fac2`; deleted task branch SHA `67b88877ebcfb0f344aa1c37cc30485efd267830` | Full local gate passed; packaged browser suite passed 5/5. Exact-head `build-test-push` run `42704763594` and CodeQL run `42704763557` passed. Exact-main CI run `42708863875` passed on the exact integrated SHA after the squash push was skipped by an inherited `[skip ci]` marker. CodeQL passed at exact PR head; no exact-main CodeQL run was possible with its prior triggers. | None; task Compose resources and generated `.env`/PFX removed; primary checkout `.env` preserved. |
+| Final closeout PR / R16 | Base `caaed037b988cd195df1c78d6b485137b058fac2`; PR head and integrated SHA recorded in the PR description | Full local gate passed after adding official CodeQL `workflow_dispatch`; exact-head and exact-main `build-test-push` and CodeQL results are recorded in the PR description. | None; no deployment was performed. |
 
-Completion requires visible slices with thin transport adapters, unchanged useful caching, real role differences, preserved ownership/security, a focused Testcontainers suite, one architecture test, a verified upstream UI port, minimal accurate docs, green required code checks on integrated main, and owned-resource closeout. Do not mark the whole plan complete while the UI port or another required packet is merely scheduled.
+Completion requires visible slices with thin transport adapters, unchanged useful caching, real role differences, preserved ownership/security, a focused Testcontainers suite, one architecture test, a verified upstream UI port, minimal accurate docs, green required code checks on integrated main, and owned-resource closeout. These conditions are complete; the final closeout PR records its own head, integration, and CI references in its description.
