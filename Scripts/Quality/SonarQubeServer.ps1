@@ -7,7 +7,7 @@ param(
     [switch]$Initialize,
     [switch]$ApplyProfile,
     [switch]$EnsureCandidate,
-    [ValidateSet('BlazorAuto', 'React', 'Both')][string]$FrontendProfile = 'Both',
+    [ValidateSet('BlazorAuto')][string]$FrontendProfile = 'BlazorAuto',
     [string]$CandidateSha,
     [string]$RepoRoot = (Split-Path -Parent (Split-Path -Parent $PSScriptRoot)),
     [string]$SettingsPath,
@@ -35,7 +35,7 @@ if ($provisioning.Count -gt 1) {
 if (($Stop -or $Status -or $Logs) -and ($Initialize -or $ApplyProfile -or $EnsureCandidate)) {
     throw 'Provisioning switches cannot be combined with -Stop, -Status, or -Logs.'
 }
-if ($EnsureCandidate -and ($CandidateSha -notmatch '^[0-9a-f]{40}$' -or $FrontendProfile -eq 'Both')) {
+if ($EnsureCandidate -and $CandidateSha -notmatch '^[0-9a-f]{40}$') {
     throw '-EnsureCandidate requires a full 40-character -CandidateSha and one -FrontendProfile.'
 }
 if (-not $EnsureCandidate -and $CandidateSha) { throw '-CandidateSha is valid only with -EnsureCandidate.' }
@@ -262,7 +262,7 @@ function Ensure-QualityAdminPassword {
 }
 
 function Get-QualityProjectKey {
-    param([Parameter(Mandatory)][ValidateSet('BlazorAuto', 'React')][string]$Profile, [string]$Sha)
+    param([Parameter(Mandatory)][ValidateSet('BlazorAuto')][string]$Profile, [string]$Sha)
     $mainKey = [string]$Context.ProjectKeys.$Profile
     if (-not $Sha) { return $mainKey }
     if ($Sha -notmatch '^[0-9a-f]{40}$') { throw 'Candidate SHA must be a full lowercase Git commit SHA.' }
@@ -372,7 +372,7 @@ function Get-QualityDirectUserPermissions {
 }
 
 function Ensure-QualityProject {
-    param([Parameter(Mandatory)][ValidateSet('BlazorAuto', 'React')][string]$Profile, [string]$Sha)
+    param([Parameter(Mandatory)][ValidateSet('BlazorAuto')][string]$Profile, [string]$Sha)
     $projectKey = Get-QualityProjectKey -Profile $Profile -Sha $Sha
     $found = Invoke-QualityAdminApi -Path 'api/projects/search' -Query @{ projects = $projectKey; ps = 100 }
     $project = @($found.components | Where-Object { $_.key -eq $projectKey }) | Select-Object -First 1
@@ -621,9 +621,9 @@ try {
         if ($Initialize) {
             Ensure-QualityAdminPassword
             Ensure-QualityNoBroadPermissions
-            foreach ($profile in @('BlazorAuto', 'React')) { Ensure-QualityProjectResources -Profile $profile }
+            Ensure-QualityProjectResources -Profile 'BlazorAuto'
             Apply-QualityProfileOverrides
-            Write-Host "Owned SonarQube projects are ready: $($Context.ProjectKeys.BlazorAuto), $($Context.ProjectKeys.React)."
+            Write-Host "Owned SonarQube project is ready: $($Context.ProjectKeys.BlazorAuto)."
         }
         elseif ($ApplyProfile) {
             Ensure-QualityAdminPassword

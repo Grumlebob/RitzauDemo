@@ -24,7 +24,11 @@ except ImportError as exc:  # pragma: no cover - exercised in CI if dependency i
 
 
 ROOT = Path(sys.argv[1])
-NODE_IMAGE = re.search(r"^FROM (node:[0-9]+\.[0-9]+\.[0-9]+-bookworm-slim)", (ROOT / "GrumPlates/Dockerfile").read_text(encoding="utf-8"), re.M).group(1)
+DOCKERFILE = (ROOT / "GrumPlates/Dockerfile").read_text(encoding="utf-8")
+ASPNET_IMAGE_MATCH = re.search(r"^FROM (mcr\.microsoft\.com/dotnet/aspnet:[^\s]+) AS base$", DOCKERFILE, re.M)
+if ASPNET_IMAGE_MATCH is None:
+    raise SystemExit("rendered template validation failed: ASP.NET runtime image is missing from the product Dockerfile")
+ASPNET_IMAGE = ASPNET_IMAGE_MATCH.group(1)
 JINJA = Environment(undefined=StrictUndefined, trim_blocks=True, lstrip_blocks=True)
 
 
@@ -157,19 +161,21 @@ def check_prometheus_config(config_path: Path) -> None:
 def assert_runtime_account_environment(folder: Path, expected: dict[str, str]) -> None:
     verifier = folder / "verify-account-env.yml"
     keys = list(expected)
-    node_script = (
-        "console.log(JSON.stringify(Object.fromEntries("
-        f"{json.dumps(keys)}.map(key => [key, process.env[key]]))))"
-    )
+    if any(not re.fullmatch(r"[A-Za-z_][A-Za-z0-9_]*", key) for key in keys):
+        fail("synthetic account environment has an invalid key")
+    start_marker, end_marker = "__RITZAU_ENV_START__", "__RITZAU_ENV_END__"
+    # Compose must leave the container-side variable expansion for the shell.
+    shell_values = " ".join('"$$' + "{" + key + "}" + '"' for key in keys)
+    shell_script = f"printf '{start_marker}'; printf '%s\\000' {shell_values}; printf '{end_marker}'"
     verifier.write_text(
         json.dumps(
             {
                 "services": {
                     "verify": {
-                        "image": NODE_IMAGE,
+                        "image": ASPNET_IMAGE,
                         "network_mode": "none",
                         "env_file": [{"path": "./.env", "format": "raw"}],
-                        "command": ["node", "-e", node_script],
+                        "command": ["sh", "-c", shell_script],
                     }
                 }
             },
@@ -195,11 +201,17 @@ def assert_runtime_account_environment(folder: Path, expected: dict[str, str]) -
             "-T",
             "verify",
         ],
-        text=True,
         stderr=subprocess.STDOUT,
     )
-    lines = [line for line in result.splitlines() if line.startswith("{")]
-    if not lines or json.loads(lines[-1]) != expected:
+    start = result.find(start_marker.encode("ascii"))
+    end = result.find(end_marker.encode("ascii"), start + len(start_marker)) if start >= 0 else -1
+    if start < 0 or end < 0:
+        fail("synthetic account environment verifier did not return its markers")
+    output = result[start + len(start_marker):end]
+    if not output.endswith(b"\x00"):
+        fail("synthetic account environment verifier returned incomplete values")
+    actual = output[:-1].split(b"\x00")
+    if actual != [expected[key].encode("utf-8") for key in keys]:
         fail("synthetic LocalCluster or Cloud app environment did not round-trip")
 
 

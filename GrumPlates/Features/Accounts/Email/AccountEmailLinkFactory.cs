@@ -14,22 +14,17 @@ internal sealed class AccountEmailLinkFactory(AccountOptions options, IAccountMa
         }
 
         var baseUrl = $"{options.PublicOrigin.TrimEnd('/')}/{route}";
-        var tokenValue = frontend.UsesFragmentSecrets
-            ? payload.Token
-            : Microsoft.AspNetCore.WebUtilities.WebEncoders.Base64UrlEncode(System.Text.Encoding.UTF8.GetBytes(payload.Token));
         var values = new Dictionary<string, string?>
         {
             ["userId"] = payload.UserId,
-            [frontend.UsesFragmentSecrets ? "token" : "code"] = tokenValue
+            ["code"] = WebEncoders.Base64UrlEncode(System.Text.Encoding.UTF8.GetBytes(payload.Token))
         };
         if (payload.TargetEmail is not null)
         {
             values["email"] = payload.TargetEmail;
         }
 
-        var link = frontend.UsesFragmentSecrets
-            ? $"{baseUrl}#{QueryHelpers.AddQueryString(string.Empty, values).TrimStart('?')}"
-            : QueryHelpers.AddQueryString(baseUrl, values);
+        var link = QueryHelpers.AddQueryString(baseUrl, values);
         var subject = payload.Purpose switch
         {
             AccountMailPurpose.Confirmation => "Confirm your account",

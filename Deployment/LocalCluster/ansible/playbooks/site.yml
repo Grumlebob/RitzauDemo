@@ -52,8 +52,8 @@
           - app_version is match('^[0-9a-f]{40}$')
           - release_source_sha == app_version
           - release_manifest_schema_version | string == '2'
-          - release_frontend_profile in ['BlazorAuto', 'React']
-          - (release_frontend_profile == 'BlazorAuto' and release_acceptance_profile == 'BlazorAutoV1') or (release_frontend_profile == 'React' and release_acceptance_profile == 'ReactPublicV1')
+          - release_frontend_profile == 'BlazorAuto'
+          - release_acceptance_profile == 'BlazorAutoV1'
           - source_repo_url is match('^https://github.com/[A-Za-z0-9_.-]+/[A-Za-z0-9_.-]+$')
           - release_ci_run_id is not defined or release_ci_run_id | string is match('^[0-9]+$')
           - release_ci_run_attempt is not defined or release_ci_run_attempt | string is match('^[1-9][0-9]*$')

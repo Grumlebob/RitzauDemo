@@ -1,6 +1,6 @@
 [CmdletBinding()]
 param(
-    [ValidateSet('BlazorAuto', 'React', 'Both')][string]$FrontendProfile = 'Both',
+    [ValidateSet('BlazorAuto')][string]$FrontendProfile = 'BlazorAuto',
     [ValidateSet('Debug', 'Release')][string]$Configuration = 'Release',
     [ValidateRange(1, 60)][int]$TimeoutMinutes = 20,
     [string]$OutputRoot = 'artifacts/quality/quick',
@@ -13,7 +13,7 @@ $ErrorActionPreference = 'Stop'
 Import-Module -Name (Join-Path $PSScriptRoot 'SonarQuality.psm1') -Force
 $repoRoot = (Resolve-Path -LiteralPath $RepoRoot).Path
 $standalone = $null -eq $Context
-$profiles = if ($FrontendProfile -eq 'Both') { @('BlazorAuto', 'React') } else { @($FrontendProfile) }
+$profiles = @($FrontendProfile)
 if (-not $Context) {
     $Context = Get-QualityContext -RepoRoot $repoRoot
 }
@@ -227,7 +227,7 @@ finally {
     if ($optInRestoreAttempted) {
         try {
             $selectedProfile = (Get-Content -LiteralPath (Join-Path $repoRoot 'frontend-profile.txt') -Raw).Trim()
-            if ($selectedProfile -notin @('BlazorAuto', 'React')) { throw "Invalid tracked frontend profile '$selectedProfile'." }
+            if ($selectedProfile -ne 'BlazorAuto') { throw "Invalid tracked frontend profile '$selectedProfile'." }
             $normalArgs = @(
                 'restore', (Join-Path $repoRoot 'GrumPlates.sln'), '--verbosity', 'minimal',
                 "-p:FrontendProfile=$selectedProfile", '-p:RunSonarAnalyzers=false'

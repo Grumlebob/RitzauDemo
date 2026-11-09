@@ -47,10 +47,6 @@ class DotnetCoverageValidationTests(unittest.TestCase):
         self.assertEqual(result["reportCount"], 1)
         self.assertEqual(result["coveredProductionSources"], ["GrumPlates.Client/Components/Books/Book.razor.cs"])
 
-    def test_accepts_react_host_coverage(self) -> None:
-        self.write_report("GrumPlates/Hosting/OpenApiMetadataHosting.cs", "GrumPlates.dll")
-        self.assertTrue(validate_reports(self.tests, self.repo, "React")["valid"])
-
     def test_ignores_deeper_duplicate_collector_copy(self) -> None:
         self.write_report("GrumPlates.Client/Components/Books/Book.cs")
         deeper = self.tests / next(self.tests.iterdir()).name / "In"

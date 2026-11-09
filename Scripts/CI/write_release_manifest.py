@@ -11,7 +11,8 @@ import re
 import sys
 from typing import Mapping
 
-from migration_staging_artifact import validate_staging_artifact
+sys.path.insert(0, str(Path(__file__).resolve().parent))
+from migration_staging_artifact import validate_staging_artifact  # noqa: E402
 
 sys.path.insert(0, str(Path(__file__).resolve().parents[2] / "Scripts/Frontend"))
 from resolve_frontend_profile import acceptance_profile_for_frontend  # noqa: E402

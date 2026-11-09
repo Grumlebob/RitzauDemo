@@ -4,9 +4,9 @@ using GrumPlates.Test.TestSupport.Integration;
 namespace GrumPlates.Test.E2E.AppShell;
 
 [Collection(TestCollectionNames.E2E)]
-public sealed class RenderModeE2ETests : BlazorE2ETestBase
+public sealed class RenderModeE2ETests : PackagedBlazorSmokeBase
 {
-    [Fact(Skip = "Set RUN_E2E=1 to run Playwright E2E tests.", SkipUnless = nameof(E2ETestGuard.IsEnabled), SkipType = typeof(E2ETestGuard))]
+    [Fact(Skip = "Set RUN_E2E=1 to run the packaged Blazor render smoke.", SkipUnless = nameof(E2ETestGuard.IsEnabled), SkipType = typeof(E2ETestGuard))]
     [Trait("Category", "E2E")]
     public async Task HomePage_ReportsAssignedAutoAndHydratedRenderer()
     {

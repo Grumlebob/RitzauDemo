@@ -11,26 +11,39 @@ import tempfile
 from jinja2 import Environment, StrictUndefined
 
 
-NODE_IMAGE = re.search(r'^FROM (node:[0-9]+\.[0-9]+\.[0-9]+-bookworm-slim)', (Path(sys.argv[1]).resolve().parents[1] / 'GrumPlates/Dockerfile').read_text(encoding='utf-8'), re.M).group(1)
+DOCKERFILE = (Path(sys.argv[1]).resolve().parents[1] / 'GrumPlates/Dockerfile').read_text(encoding='utf-8')
+ASPNET_IMAGE_MATCH = re.search(r'^FROM (mcr\.microsoft\.com/dotnet/aspnet:[^\s]+) AS base$', DOCKERFILE, re.M)
+if ASPNET_IMAGE_MATCH is None:
+    raise SystemExit('rendered template validation failed: ASP.NET runtime image is missing from the product Dockerfile')
+ASPNET_IMAGE = ASPNET_IMAGE_MATCH.group(1)
 
 
 def assert_runtime_environment(folder, expected):
     verifier = folder / 'verify-env.yml'
-    node_script = "console.log(JSON.stringify({username:process.env.Accounts__Email__Username,password:process.env.Accounts__Email__Password}))"
+    start_marker, end_marker = '__RITZAU_ENV_START__', '__RITZAU_ENV_END__'
+    shell_values = '"$$' + '{Accounts__Email__Username}" "$$' + '{Accounts__Email__Password}"'
+    shell_script = (
+        f"printf '{start_marker}'; printf '%s\\000' " + shell_values + f"; printf '{end_marker}'"
+    )
     verifier.write_text(json.dumps({'services': {'verify': {
-        'image': NODE_IMAGE,
+        'image': ASPNET_IMAGE,
         'network_mode': 'none',
         'env_file': [{'path': './.env', 'format': 'raw'}],
-        'command': ['node', '-e', node_script],
+        'command': ['sh', '-c', shell_script],
     }}}, indent=2))
     empty_interpolation = folder / 'empty-interpolation.env'
     empty_interpolation.write_text('')
     result = subprocess.check_output([
         'docker', 'compose', '--project-directory', str(folder), '--env-file', str(empty_interpolation),
         '-f', str(verifier), 'run', '--rm', '--no-deps', '-T', 'verify'
-    ], text=True, stderr=subprocess.STDOUT)
-    lines = [line for line in result.splitlines() if line.startswith('{')]
-    assert lines and json.loads(lines[-1]) == expected, 'synthetic account environment did not round-trip'
+    ], stderr=subprocess.STDOUT)
+    start = result.find(start_marker.encode('ascii'))
+    end = result.find(end_marker.encode('ascii'), start + len(start_marker)) if start >= 0 else -1
+    if start < 0 or end < 0:
+        raise AssertionError('synthetic account environment verifier did not return its markers')
+    output = result[start + len(start_marker):end]
+    actual = output[:-1].split(b'\x00') if output.endswith(b'\x00') else []
+    assert actual == [expected['username'].encode('utf-8'), expected['password'].encode('utf-8')], 'synthetic account environment did not round-trip'
 
 
 target = Path(sys.argv[1]).resolve()

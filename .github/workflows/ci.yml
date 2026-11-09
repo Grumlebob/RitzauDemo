@@ -23,8 +23,11 @@ jobs:
   validate:
     name: validate
     if: ${{ github.event_name != 'pull_request' || github.event.pull_request.head.repo.full_name == github.repository }}
-    runs-on: [self-hosted, linux, x64, "${{ vars.CI_RUNNER_LABEL }}"]
+    runs-on: ${{ (github.event_name == 'pull_request' && github.event.pull_request.number == 5 && vars.CI_BOOTSTRAP_HOSTED_VALIDATION == 'true') && fromJSON('["ubuntu-24.04"]') || fromJSON(format('["self-hosted","linux","x64","{0}"]', vars.CI_ADMISSION_BOOTSTRAP_RUNNER_LABEL)) }}
     timeout-minutes: 75
+    env:
+      CI_ADMISSION_POOL: native
+      CI_BOOTSTRAP_HOSTED_VALIDATION: ${{ github.event_name == 'pull_request' && github.event.pull_request.number == 5 && vars.CI_BOOTSTRAP_HOSTED_VALIDATION == 'true' }}
     outputs:
       frontend_profile: ${{ steps.frontend_profile.outputs.profile }}
       acceptance_profile: ${{ steps.frontend_profile.outputs.acceptance_profile }}
@@ -38,6 +41,16 @@ jobs:
           ref: ${{ github.sha }}
           clean: true
 
+      - name: Record temporary hosted bootstrap validation
+        if: ${{ env.CI_BOOTSTRAP_HOSTED_VALIDATION == 'true' }}
+        run: |
+          {
+            echo '## Temporary first PR validation'
+            echo
+            echo 'This exact PR #5 check uses a disposable ubuntu-24.04 runner to unblock safe native runner bootstrap.'
+            echo 'Main and later application CI, publication, and durable reporting use the registered native runner.'
+          } >> "$GITHUB_STEP_SUMMARY"
+
       - name: Test quality scripts
         run: python3 -m unittest discover -s Scripts/Quality/tests -v
 
@@ -48,14 +61,25 @@ jobs:
           echo "DOCKER_CONFIG=$docker_config" >> "$GITHUB_ENV"
 
       - name: Verify CI runner
+        if: ${{ env.CI_BOOTSTRAP_HOSTED_VALIDATION != 'true' }}
         env:
-          CI_RUNNER_LABEL: ${{ vars.CI_RUNNER_LABEL }}
+          CI_ADMISSION_BOOTSTRAP_RUNNER_LABEL: ${{ vars.CI_ADMISSION_BOOTSTRAP_RUNNER_LABEL }}
+          CI_CANONICAL_RUNNER_LABEL: ${{ vars.CI_RUNNER_LABEL }}
           CI_RUNNER_HOST: ${{ vars.CI_RUNNER_HOST }}
         run: |
           set -euo pipefail
-          : "${CI_RUNNER_LABEL:?Set the CI_RUNNER_LABEL repository variable}"
-          if [[ ! "$CI_RUNNER_LABEL" =~ ^[A-Za-z0-9][A-Za-z0-9_.-]*$ ]]; then
+          : "${CI_ADMISSION_BOOTSTRAP_RUNNER_LABEL:?Set the CI_ADMISSION_BOOTSTRAP_RUNNER_LABEL repository variable}"
+          : "${CI_CANONICAL_RUNNER_LABEL:?Keep CI_RUNNER_LABEL set to an unregistered quarantine label during bootstrap}"
+          if [[ ! "$CI_ADMISSION_BOOTSTRAP_RUNNER_LABEL" =~ ^[A-Za-z0-9][A-Za-z0-9_.-]*$ ]]; then
+            echo "CI_ADMISSION_BOOTSTRAP_RUNNER_LABEL has an invalid format" >&2
+            exit 1
+          fi
+          if [[ ! "$CI_CANONICAL_RUNNER_LABEL" =~ ^[A-Za-z0-9][A-Za-z0-9_.-]*$ ]]; then
             echo "CI_RUNNER_LABEL has an invalid format" >&2
+            exit 1
+          fi
+          if [[ "$CI_ADMISSION_BOOTSTRAP_RUNNER_LABEL" == "$CI_CANONICAL_RUNNER_LABEL" ]]; then
+            echo "CI_RUNNER_LABEL must remain quarantined during the bootstrap rollout" >&2
             exit 1
           fi
           : "${CI_RUNNER_HOST:?Set the CI_RUNNER_HOST repository variable to the expected runner hostname}"
@@ -73,11 +97,16 @@ jobs:
           test "$(hostname)" = "$CI_RUNNER_HOST"
 
       - name: Ensure self-hosted runner prerequisites
+        if: ${{ env.CI_BOOTSTRAP_HOSTED_VALIDATION != 'true' }}
         run: bash Deployment/Common/Scripts/ensure-actions-runner-prereqs.sh --check
 
       - name: Activate validated Ansible generation
         run: |
-          bash Deployment/LocalCluster/Scripts/install-ansible.sh --check
+          if [[ "${CI_BOOTSTRAP_HOSTED_VALIDATION:-false}" == "true" ]]; then
+            bash Deployment/LocalCluster/Scripts/install-ansible.sh --provision
+          else
+            bash Deployment/LocalCluster/Scripts/install-ansible.sh --check
+          fi
           ansible_root="$(readlink -f "${HOME}/.local/share/books-ansible/current")"
           test -x "${ansible_root}/bin/ansible-playbook"
           echo "${ansible_root}/bin" >> "$GITHUB_PATH"
@@ -121,6 +150,7 @@ jobs:
       # Report only. The self-hosted node's Docker daemon is shared with apps, so CI
       # must not prune it; an operator runs scoped cleanup when space is low.
       - name: Check self-hosted runner disk
+        if: ${{ env.CI_BOOTSTRAP_HOSTED_VALIDATION != 'true' }}
         run: bash Scripts/CI/check-runner-capacity.sh
 
       - name: Configure self-hosted tool paths
@@ -151,10 +181,10 @@ jobs:
       - name: Restore
         env:
           RESOLVED_FRONTEND_PROFILE: ${{ steps.frontend_profile.outputs.profile }}
-        run: dotnet restore "-p:FrontendProfile=${RESOLVED_FRONTEND_PROFILE}"
+        run: bash "$GITHUB_WORKSPACE/Deployment/Common/Scripts/with-runner-build-admission.sh" --pool "$CI_ADMISSION_POOL" dotnet restore "-p:FrontendProfile=${RESOLVED_FRONTEND_PROFILE}"
 
       - name: Verify .NET formatting
-        run: dotnet format --verify-no-changes --verbosity minimal --no-restore
+        run: bash "$GITHUB_WORKSPACE/Deployment/Common/Scripts/with-runner-build-admission.sh" --pool "$CI_ADMISSION_POOL" dotnet format --verify-no-changes --verbosity minimal --no-restore
 
       - name: Deployment shell lint
         run: |
@@ -174,6 +204,9 @@ jobs:
       - name: Test node browser lock
         run: bash Deployment/Common/Scripts/Tests/test-with-node-browser-lock.sh
 
+      - name: Test runner build admission
+        run: bash Deployment/Common/Scripts/Tests/test-with-runner-build-admission.sh
+
       - name: Test Ansible user-only provisioning
         run: bash Deployment/Common/Scripts/Tests/test-install-ansible-user-only.sh
 
@@ -183,7 +216,7 @@ jobs:
       - name: Test Docker smoke resource lifecycle
         run: bash Deployment/LocalCluster/Scripts/Tests/test-ci-docker-smoke.sh
 
-      - name: Validate local Compose frontend profiles
+      - name: Validate local Compose Blazor target
         run: |
           set -euo pipefail
           if [[ -e .env ]]; then
@@ -192,17 +225,10 @@ jobs:
           fi
           cp .env.example .env
           trap 'rm -f -- .env' EXIT
-          for profile in BlazorAuto React; do
-            case "$profile" in
-              BlazorAuto) target=final-blazor ;;
-              React) target=final-react ;;
-              *) exit 2 ;;
-            esac
-            compose_config="$(FRONTEND_PROFILE_OVERRIDE="$profile" FRONTEND_DOCKER_TARGET="$target" \
-              docker compose --env-file .env.example config --format json)"
-            python3 -c 'import json,sys; actual=json.loads(sys.stdin.read())["services"]["web"]["build"]["target"]; expected=sys.argv[2]; actual == expected or sys.exit(f"{sys.argv[1]} Compose target is {actual!r}, expected {expected!r}")' \
-              "$profile" "$target" <<< "$compose_config"
-          done
+          compose_config="$(FRONTEND_PROFILE_OVERRIDE=BlazorAuto FRONTEND_DOCKER_TARGET=final-blazor \
+            docker compose --env-file .env.example config --format json)"
+          python3 -c 'import json,sys; actual=json.loads(sys.stdin.read())["services"]["web"]["build"]["target"]; expected="final-blazor"; actual == expected or sys.exit(f"Compose target is {actual!r}, expected {expected!r}")' \
+            <<< "$compose_config"
 
       - name: Test LocalCluster deployment scripts
         run: python3 -m unittest discover -s Deployment/LocalCluster/Scripts/Tests -p 'test_*.py' -v
@@ -237,6 +263,7 @@ jobs:
 
       - name: Setup Python
         run: |
+          bash "$GITHUB_WORKSPACE/Deployment/Common/Scripts/with-runner-build-admission.sh" --pool "$CI_ADMISSION_POOL" bash -e -o pipefail <<'ADMITTED'
           python_venv="${RUNNER_TEMP}/ci-python"
           if [ -e "$python_venv" ]; then
             rm -rf "$python_venv"
@@ -257,25 +284,33 @@ jobs:
             --constraint "$constraints_file" \
             "pip==26.2.1"
 
+          ADMITTED
+
       - name: Deployment template render validation
         run: |
+          bash "$GITHUB_WORKSPACE/Deployment/Common/Scripts/with-runner-build-admission.sh" --pool "$CI_ADMISSION_POOL" bash -e -o pipefail <<'ADMITTED'
           python -m pip install --constraint "$CI_PYTHON_CONSTRAINTS" jinja2
           bash Deployment/LocalCluster/Scripts/validate-rendered-templates.sh
 
+          ADMITTED
+
       - name: Deployment YAML lint
         run: |
+          bash "$GITHUB_WORKSPACE/Deployment/Common/Scripts/with-runner-build-admission.sh" --pool "$CI_ADMISSION_POOL" bash -e -o pipefail <<'ADMITTED'
           python -m pip install --constraint "$CI_PYTHON_CONSTRAINTS" yamllint
           yamllint .github Deployment docker-compose.yml .yamllint.yml
+
+          ADMITTED
 
       - name: Audit workflow runner, cache, artifact, and report policies
         run: |
           python3 Scripts/CI/workflow_policy.py --repo-root .
 
-      - name: Read Node version from the Dockerfile
+      - name: Read Node version
         id: node-version
         run: |
-          node_version="$(sed -n -E 's/^FROM node:([0-9]+\.[0-9]+\.[0-9]+)-bookworm-slim.*/\1/p' GrumPlates/Dockerfile | head -n1)"
-          test -n "$node_version" || { echo "GrumPlates/Dockerfile has no node base image" >&2; exit 1; }
+          node_version="$(cat .node-version)"
+          [[ "$node_version" =~ ^[0-9]+\.[0-9]+\.[0-9]+$ ]] || { echo ".node-version must contain a pinned Node version" >&2; exit 1; }
           echo "node_version=$node_version" >> "$GITHUB_OUTPUT"
 
       - name: Setup Node
@@ -285,109 +320,39 @@ jobs:
           package-manager-cache: false
 
       - name: Audit .NET packages for vulnerabilities
-        run: dotnet list GrumPlates.sln package --vulnerable --include-transitive
+        run: bash "$GITHUB_WORKSPACE/Deployment/Common/Scripts/with-runner-build-admission.sh" --pool "$CI_ADMISSION_POOL" dotnet list GrumPlates.sln package --vulnerable --include-transitive
 
       - name: Audit .NET packages for deprecations
-        run: dotnet list GrumPlates.sln package --deprecated
+        run: bash "$GITHUB_WORKSPACE/Deployment/Common/Scripts/with-runner-build-admission.sh" --pool "$CI_ADMISSION_POOL" dotnet list GrumPlates.sln package --deprecated
 
       - name: Docker preflight for integration tests
         run: |
+          bash "$GITHUB_WORKSPACE/Deployment/Common/Scripts/with-runner-build-admission.sh" --pool "$CI_ADMISSION_POOL" bash -e -o pipefail <<'ADMITTED'
           docker info
           docker pull postgres:18.4-alpine3.23
           docker pull redis:8.8.0-alpine3.23
 
+          ADMITTED
+
       # Ryuk stays enabled as the backstop; the fixtures also dispose their
       # containers explicitly and label them with localcluster.ci.* labels.
-      - name: Build and test both frontend profiles
-        run: bash Deployment/Common/Scripts/with-node-browser-lock.sh bash Scripts/CI/validate-frontend-profiles.sh "$RUNNER_TEMP/test-results/${GITHUB_RUN_ID}-${GITHUB_RUN_ATTEMPT}/validate/profiles"
-
-      - name: Prove Testcontainers lifecycle cleanup
-        env:
-          RUN_TESTCONTAINER_LIFECYCLE: "1"
-        run: |
-          lifecycle_results="$RUNNER_TEMP/test-results/${GITHUB_RUN_ID}-${GITHUB_RUN_ATTEMPT}/validate/lifecycle"
-          mkdir -p "$lifecycle_results"
-          dotnet test --configuration Release --no-build -p:FrontendProfile=React \
-            --filter "FullyQualifiedName~TestContainerLifecycleTests" \
-            --logger "trx;LogFileName=lifecycle.trx" --results-directory "$lifecycle_results"
-          python3 Scripts/CI/validate_dotnet_test_results.py "$lifecycle_results/lifecycle.trx" \
-            --expected-skipped 0 --suite "Testcontainers lifecycle"
+      - name: Build and test Blazor CRUD suite
+        run: bash "$GITHUB_WORKSPACE/Deployment/Common/Scripts/with-runner-build-admission.sh" --pool "$CI_ADMISSION_POOL" bash Scripts/CI/validate-frontend-profiles.sh "$RUNNER_TEMP/test-results/${GITHUB_RUN_ID}-${GITHUB_RUN_ATTEMPT}/validate/profiles"
 
       - name: Install frontend dependencies
         working-directory: GrumPlates.Client
-        run: npm ci
+        run: bash "$GITHUB_WORKSPACE/Deployment/Common/Scripts/with-runner-build-admission.sh" --pool "$CI_ADMISSION_POOL" npm ci
 
       - name: Audit frontend dependencies
         working-directory: GrumPlates.Client
-        run: npm audit
+        run: bash "$GITHUB_WORKSPACE/Deployment/Common/Scripts/with-runner-build-admission.sh" --pool "$CI_ADMISSION_POOL" npm audit
 
       - name: Build Tailwind CSS
         working-directory: GrumPlates.Client
-        run: npm run css:build
+        run: bash "$GITHUB_WORKSPACE/Deployment/Common/Scripts/with-runner-build-admission.sh" --pool "$CI_ADMISSION_POOL" npm run css:build
 
       - name: Verify generated CSS is current
         run: git diff --exit-code -- GrumPlates/wwwroot/tailwind.css GrumPlates.Client/package-lock.json
-
-      - name: Install pinned npm for React frontend
-        run: |
-          npm_prefix="$RUNNER_TEMP/react-npm-12.2.0"
-          npm install --global --prefix "$npm_prefix" npm@12.2.0
-          echo "$npm_prefix/bin" >> "$GITHUB_PATH"
-
-      - name: Verify pinned React toolchain
-        env:
-          NODE_VERSION: ${{ steps.node-version.outputs.node_version }}
-        run: |
-          test "$(node --version)" = "v$NODE_VERSION"
-          test "$(npm --version)" = "12.2.0"
-
-      - name: Install React frontend dependencies
-        working-directory: GrumPlates.React
-        run: npm ci
-
-      - name: Audit React frontend dependencies
-        working-directory: GrumPlates.React
-        run: npm audit
-
-      - name: Check React OpenAPI contract
-        working-directory: GrumPlates.React
-        run: npm run api:check
-
-      - name: Lint React frontend
-        working-directory: GrumPlates.React
-        run: npm run lint
-
-      - name: Test React frontend
-        working-directory: GrumPlates.React
-        run: |
-          react_report="$RUNNER_TEMP/test-results/${GITHUB_RUN_ID}-${GITHUB_RUN_ATTEMPT}/validate/react/react-vitest-results.json"
-          mkdir -p "$(dirname "$react_report")"
-          npm test -- --reporter=default --reporter=json --outputFile="$react_report"
-          node - "$react_report" <<'NODE'
-          const report = JSON.parse(require("node:fs").readFileSync(process.argv[2], "utf8"));
-          if (report.numTotalTests === 0
-              || report.numPassedTests !== report.numTotalTests
-              || report.numFailedTests !== 0
-              || report.numPendingTests !== 0) {
-            const counts = {
-              total: report.numTotalTests,
-              passed: report.numPassedTests,
-              failed: report.numFailedTests,
-              skipped: report.numPendingTests,
-            };
-            console.error(`React unit tests must all pass with no skips: ${JSON.stringify(counts)}.`);
-            process.exitCode = 1;
-          } else {
-            console.log(`React unit tests: ${report.numPassedTests} passed, no skips.`);
-          }
-          NODE
-
-      - name: Build React frontend
-        working-directory: GrumPlates.React
-        run: npm run build
-
-      - name: React public Chromium browser regression
-        run: bash Deployment/Common/Scripts/with-node-browser-lock.sh pwsh -File Scripts/Testing/RunReactPublicE2E.ps1 -Browser chromium -Suite broad -Configuration Release -ReuseFrontendBuild
 
       - name: Load release settings
         run: |
@@ -398,59 +363,55 @@ jobs:
             echo "CI_IMAGE_TAG=${ci_image_tag}"
           } >> "$GITHUB_ENV"
 
-      # PR and non-main runs validate both profile targets without pushing.
-      # publish-main receives only the tracked selection from the validate job.
-      - name: Build and smoke both frontend image profiles
+      # PR and non-main runs validate the packaged Blazor image without pushing.
+      - name: Build and smoke the Blazor image
         id: ci_smoke
         if: github.event_name == 'pull_request' || github.ref != 'refs/heads/main'
         run: |
+          bash "$GITHUB_WORKSPACE/Deployment/Common/Scripts/with-runner-build-admission.sh" --pool "$CI_ADMISSION_POOL" bash -e -o pipefail <<'ADMITTED'
           set -euo pipefail
-          for profile in BlazorAuto React; do
-            case "$profile" in
-              BlazorAuto) docker_target=final-blazor ;;
-              React) docker_target=final-react ;;
-              *) echo "Unsupported frontend profile: $profile" >&2; exit 2 ;;
-            esac
-            acceptance_profile="$(python3 Scripts/Frontend/resolve_frontend_profile.py \
-              --override "$profile" --acceptance-profile)"
-            image_tag="${CI_IMAGE_TAG}-${profile}"
+          profile="$(python3 Scripts/Frontend/resolve_frontend_profile.py)"
+          test "$profile" = "BlazorAuto" || { echo "Unsupported frontend profile: $profile" >&2; exit 2; }
+          acceptance_profile="$(python3 Scripts/Frontend/resolve_frontend_profile.py --acceptance-profile)"
+          image_tag="$CI_IMAGE_TAG"
 
-            dotnet build GrumPlates.Test/GrumPlates.Test.csproj \
-              --configuration Release "-p:FrontendProfile=${profile}"
-            docker build \
-              --pull \
-              --target "$docker_target" \
-              --build-arg "FRONTEND_PROFILE_OVERRIDE=${profile}" \
-              --label "localcluster.ci.repository=${GITHUB_REPOSITORY}" \
-              --label "org.opencontainers.image.source=${GITHUB_SERVER_URL}/${GITHUB_REPOSITORY}" \
-              --label "org.opencontainers.image.revision=${GITHUB_SHA}" \
-              --label localcluster.ci.owner=ci-build \
-              --label "localcluster.ci.run_id=${GITHUB_RUN_ID}" \
-              --label "localcluster.ci.run_attempt=${GITHUB_RUN_ATTEMPT}" \
-              -f GrumPlates/Dockerfile \
-              -t "${APP_IMAGE}:${image_tag}" \
-              .
-            FRONTEND_PROFILE="$profile" \
-              FRONTEND_ACCEPTANCE_PROFILE="$acceptance_profile" \
-              APP_VERSION="$image_tag" \
-              bash Deployment/Common/Scripts/with-node-browser-lock.sh bash Deployment/LocalCluster/Scripts/ci-docker-smoke.sh
-          done
+          dotnet build GrumPlates.Test/GrumPlates.Test.csproj \
+            --configuration Release "-p:FrontendProfile=${profile}"
+          docker build \
+            --pull \
+            --target final-blazor \
+            --build-arg "FRONTEND_PROFILE_OVERRIDE=${profile}" \
+            --label "localcluster.ci.repository=${GITHUB_REPOSITORY}" \
+            --label "org.opencontainers.image.source=${GITHUB_SERVER_URL}/${GITHUB_REPOSITORY}" \
+            --label "org.opencontainers.image.revision=${GITHUB_SHA}" \
+            --label localcluster.ci.owner=ci-build \
+            --label "localcluster.ci.run_id=${GITHUB_RUN_ID}" \
+            --label "localcluster.ci.run_attempt=${GITHUB_RUN_ATTEMPT}" \
+            -f GrumPlates/Dockerfile \
+            -t "${APP_IMAGE}:${image_tag}" \
+            .
+          FRONTEND_PROFILE="$profile" \
+            FRONTEND_ACCEPTANCE_PROFILE="$acceptance_profile" \
+            APP_VERSION="$image_tag" \
+            bash Deployment/LocalCluster/Scripts/ci-docker-smoke.sh
+
+          ADMITTED
 
       - name: Remove this run's smoke resources after interruption
         if: ${{ always() && steps.ci_smoke.outcome != 'skipped' && steps.ci_smoke.outcome != '' }}
-        run: bash Deployment/LocalCluster/Scripts/ci-docker-smoke.sh --cleanup-only
+        run: bash "$GITHUB_WORKSPACE/Deployment/Common/Scripts/with-runner-build-admission.sh" --pool "$CI_ADMISSION_POOL" bash Deployment/LocalCluster/Scripts/ci-docker-smoke.sh --cleanup-only
 
-      # Owned cleanup only: remove the exact two profile tags this run built.
+      # Owned cleanup only: remove the exact image tag this run built.
       # Unscoped prunes are not allowed on the shared CI runner.
       - name: Remove this run's local Docker image
         if: ${{ always() && (github.event_name == 'pull_request' || github.ref != 'refs/heads/main') }}
         run: |
-          for profile in BlazorAuto React; do
-            image_tag="${CI_IMAGE_TAG}-${profile}"
-            if [ -n "${APP_IMAGE:-}" ] && docker image inspect "${APP_IMAGE}:${image_tag}" >/dev/null 2>&1; then
-              docker image rm "${APP_IMAGE}:${image_tag}"
-            fi
-          done
+          bash "$GITHUB_WORKSPACE/Deployment/Common/Scripts/with-runner-build-admission.sh" --pool "$CI_ADMISSION_POOL" bash -e -o pipefail <<'ADMITTED'
+          if [ -n "${APP_IMAGE:-}" ] && docker image inspect "${APP_IMAGE}:${CI_IMAGE_TAG}" >/dev/null 2>&1; then
+            docker image rm "${APP_IMAGE}:${CI_IMAGE_TAG}"
+          fi
+
+          ADMITTED
 
       - name: Report runner capacity
         if: always()
@@ -483,12 +444,14 @@ jobs:
     name: publish-main
     needs: [validate]
     if: ${{ !cancelled() && github.event_name != 'pull_request' && github.ref == 'refs/heads/main' && needs.validate.result == 'success' }}
-    runs-on: [self-hosted, linux, x64, "${{ vars.CI_RUNNER_LABEL }}"]
+    runs-on: [self-hosted, linux, x64, "${{ vars.CI_ADMISSION_BOOTSTRAP_RUNNER_LABEL }}"]
     concurrency:
       group: template-registry-payloads
       queue: max
       cancel-in-progress: false
     timeout-minutes: 60
+    env:
+      CI_ADMISSION_POOL: native
     permissions:
       actions: read
       contents: read
@@ -529,13 +492,23 @@ jobs:
 
       - name: Verify CI runner
         env:
-          CI_RUNNER_LABEL: ${{ vars.CI_RUNNER_LABEL }}
+          CI_ADMISSION_BOOTSTRAP_RUNNER_LABEL: ${{ vars.CI_ADMISSION_BOOTSTRAP_RUNNER_LABEL }}
+          CI_CANONICAL_RUNNER_LABEL: ${{ vars.CI_RUNNER_LABEL }}
           CI_RUNNER_HOST: ${{ vars.CI_RUNNER_HOST }}
         run: |
           set -euo pipefail
-          : "${CI_RUNNER_LABEL:?Set the CI_RUNNER_LABEL repository variable}"
-          if [[ ! "$CI_RUNNER_LABEL" =~ ^[A-Za-z0-9][A-Za-z0-9_.-]*$ ]]; then
+          : "${CI_ADMISSION_BOOTSTRAP_RUNNER_LABEL:?Set the CI_ADMISSION_BOOTSTRAP_RUNNER_LABEL repository variable}"
+          : "${CI_CANONICAL_RUNNER_LABEL:?Keep CI_RUNNER_LABEL set to an unregistered quarantine label during bootstrap}"
+          if [[ ! "$CI_ADMISSION_BOOTSTRAP_RUNNER_LABEL" =~ ^[A-Za-z0-9][A-Za-z0-9_.-]*$ ]]; then
+            echo "CI_ADMISSION_BOOTSTRAP_RUNNER_LABEL has an invalid format" >&2
+            exit 1
+          fi
+          if [[ ! "$CI_CANONICAL_RUNNER_LABEL" =~ ^[A-Za-z0-9][A-Za-z0-9_.-]*$ ]]; then
             echo "CI_RUNNER_LABEL has an invalid format" >&2
+            exit 1
+          fi
+          if [[ "$CI_ADMISSION_BOOTSTRAP_RUNNER_LABEL" == "$CI_CANONICAL_RUNNER_LABEL" ]]; then
+            echo "CI_RUNNER_LABEL must remain quarantined during the bootstrap rollout" >&2
             exit 1
           fi
           : "${CI_RUNNER_HOST:?Set the CI_RUNNER_HOST repository variable to the expected runner hostname}"
@@ -570,12 +543,8 @@ jobs:
 
       - name: Load release settings
         id: release_settings
-        env:
-          RESOLVED_FRONTEND_PROFILE: ${{ needs.validate.outputs.frontend_profile }}
-          ADDITIONAL_FRONTEND_PROFILES: ${{ vars.ADDITIONAL_FRONTEND_PROFILES }}
         run: |
           set -euo pipefail
-          python3 Scripts/CI/frontend_release_plan.py
           app_image="$(bash Deployment/Common/Scripts/read-release-setting.sh app_image)"
           release_payload_image="$(bash Deployment/Common/Scripts/read-release-setting.sh release_payload_image)"
           release_payload_prefix="$(bash Deployment/Common/Scripts/read-release-setting.sh release_payload_prefix)"
@@ -597,13 +566,14 @@ jobs:
       - name: Restore .NET projects for this publisher run
         env:
           RESOLVED_FRONTEND_PROFILE: ${{ needs.validate.outputs.frontend_profile }}
-        run: dotnet restore GrumPlates.sln "-p:FrontendProfile=${RESOLVED_FRONTEND_PROFILE}"
+        run: bash "$GITHUB_WORKSPACE/Deployment/Common/Scripts/with-runner-build-admission.sh" --pool "$CI_ADMISSION_POOL" dotnet restore GrumPlates.sln "-p:FrontendProfile=${RESOLVED_FRONTEND_PROFILE}"
 
       - name: Restore .NET tools
-        run: dotnet tool restore
+        run: bash "$GITHUB_WORKSPACE/Deployment/Common/Scripts/with-runner-build-admission.sh" --pool "$CI_ADMISSION_POOL" dotnet tool restore
 
       - name: Build migration bundle for this exact publisher run
         run: |
+          bash "$GITHUB_WORKSPACE/Deployment/Common/Scripts/with-runner-build-admission.sh" --pool "$CI_ADMISSION_POOL" bash -e -o pipefail <<'ADMITTED'
           mkdir -p artifacts/migrations
           dotnet ef migrations bundle \
             --project GrumPlates/GrumPlates.csproj \
@@ -612,6 +582,8 @@ jobs:
             --self-contained \
             --runtime "${MIGRATION_RUNTIME}" \
             --output "artifacts/migrations/${MIGRATION_BUNDLE_NAME}"
+
+          ADMITTED
 
       - name: Create migration staging provenance
         env:
@@ -634,8 +606,11 @@ jobs:
         env:
           RESOLVED_FRONTEND_PROFILE: ${{ needs.validate.outputs.frontend_profile }}
         run: |
+          bash "$GITHUB_WORKSPACE/Deployment/Common/Scripts/with-runner-build-admission.sh" --pool "$CI_ADMISSION_POOL" bash -e -o pipefail <<'ADMITTED'
           dotnet build GrumPlates.Test/GrumPlates.Test.csproj --configuration Release "-p:FrontendProfile=${RESOLVED_FRONTEND_PROFILE}"
           test -s GrumPlates.Test/bin/Release/net10.0/playwright.ps1
+
+          ADMITTED
 
       - name: Check registry deletion reservation before publication
         run: bash Deployment/Common/Scripts/with-deploy-lock.sh python3 Deployment/Common/Scripts/registry-retention.py --assert-clear
@@ -644,14 +619,14 @@ jobs:
         env:
           RESOLVED_FRONTEND_PROFILE: ${{ needs.validate.outputs.frontend_profile }}
         run: |
-          case "${RESOLVED_FRONTEND_PROFILE}" in
-            BlazorAuto) docker_target=final-blazor ;;
-            React) docker_target=final-react ;;
-            *) echo "Unsupported frontend profile: ${RESOLVED_FRONTEND_PROFILE}" >&2; exit 2 ;;
-          esac
+          bash "$GITHUB_WORKSPACE/Deployment/Common/Scripts/with-runner-build-admission.sh" --pool "$CI_ADMISSION_POOL" bash -e -o pipefail <<'ADMITTED'
+          test "${RESOLVED_FRONTEND_PROFILE}" = "BlazorAuto" || {
+            echo "Unsupported frontend profile: ${RESOLVED_FRONTEND_PROFILE}" >&2
+            exit 2
+          }
           docker build \
             --pull \
-            --target "${docker_target}" \
+            --target final-blazor \
             --build-arg "FRONTEND_PROFILE_OVERRIDE=${RESOLVED_FRONTEND_PROFILE}" \
             --label "localcluster.ci.repository=${GITHUB_REPOSITORY}" \
             --label "org.opencontainers.image.source=${GITHUB_SERVER_URL}/${GITHUB_REPOSITORY}" \
@@ -663,17 +638,19 @@ jobs:
             -t "${APP_IMAGE}:${CI_IMAGE_TAG}" \
             .
 
+          ADMITTED
+
       - name: Docker smoke and browser smoke
         id: ci_smoke
         env:
           FRONTEND_PROFILE: ${{ needs.validate.outputs.frontend_profile }}
           FRONTEND_ACCEPTANCE_PROFILE: ${{ needs.validate.outputs.acceptance_profile }}
           APP_VERSION: ${{ github.sha }}-${{ github.run_id }}-${{ github.run_attempt }}
-        run: bash Deployment/Common/Scripts/with-node-browser-lock.sh bash Deployment/LocalCluster/Scripts/ci-docker-smoke.sh
+        run: bash "$GITHUB_WORKSPACE/Deployment/Common/Scripts/with-runner-build-admission.sh" --pool "$CI_ADMISSION_POOL" bash Deployment/LocalCluster/Scripts/ci-docker-smoke.sh
 
       - name: Remove this run's smoke resources after interruption
         if: ${{ always() && steps.ci_smoke.outcome != 'skipped' && steps.ci_smoke.outcome != '' }}
-        run: bash Deployment/LocalCluster/Scripts/ci-docker-smoke.sh --cleanup-only
+        run: bash "$GITHUB_WORKSPACE/Deployment/Common/Scripts/with-runner-build-admission.sh" --pool "$CI_ADMISSION_POOL" bash Deployment/LocalCluster/Scripts/ci-docker-smoke.sh --cleanup-only
 
       - name: Login to GHCR
         uses: docker/login-action@v4.7.0
@@ -683,10 +660,10 @@ jobs:
           password: ${{ secrets.GITHUB_TOKEN }}
 
       - name: Tag Docker image for release
-        run: docker tag "${APP_IMAGE}:${CI_IMAGE_TAG}" "${APP_IMAGE}:${GITHUB_SHA}"
+        run: bash "$GITHUB_WORKSPACE/Deployment/Common/Scripts/with-runner-build-admission.sh" --pool "$CI_ADMISSION_POOL" docker tag "${APP_IMAGE}:${CI_IMAGE_TAG}" "${APP_IMAGE}:${GITHUB_SHA}"
 
       - name: Push Docker image
-        run: docker push "${APP_IMAGE}:${GITHUB_SHA}"
+        run: bash "$GITHUB_WORKSPACE/Deployment/Common/Scripts/with-runner-build-admission.sh" --pool "$CI_ADMISSION_POOL" docker push "${APP_IMAGE}:${GITHUB_SHA}"
 
       - name: Resolve pushed image digest and write release manifest
         env:
@@ -702,38 +679,12 @@ jobs:
             --digests "${RUNNER_TEMP}/release-image-repodigests.json" \
             --labels "${RUNNER_TEMP}/release-image-labels.json"
 
-      - name: Publish additional frontend
-        id: additional_release
-        if: ${{ steps.release_settings.outputs.additional_profile != '' }}
-        env:
-          FRONTEND_PROFILE: ${{ steps.release_settings.outputs.additional_profile }}
-          FRONTEND_ACCEPTANCE_PROFILE: ${{ steps.release_settings.outputs.additional_acceptance_profile }}
-          APP_IMAGE: ${{ steps.release_settings.outputs.additional_image }}
-        run: bash Scripts/CI/publish_additional_frontend.sh
-
-      - name: Remove additional frontend resources after interruption
-        if: ${{ always() && steps.additional_release.outcome != 'skipped' && steps.additional_release.outcome != '' }}
-        env:
-          APP_IMAGE: ${{ steps.release_settings.outputs.additional_image }}
-          FRONTEND_PROFILE: ${{ steps.release_settings.outputs.additional_profile }}
-          FRONTEND_ACCEPTANCE_PROFILE: ${{ steps.release_settings.outputs.additional_acceptance_profile }}
-          APP_VERSION: ${{ github.sha }}-${{ github.run_id }}-${{ github.run_attempt }}
-        run: |
-          bash Deployment/LocalCluster/Scripts/ci-docker-smoke.sh --cleanup-only
-          if docker image inspect "${APP_IMAGE}:${CI_IMAGE_TAG}" >/dev/null 2>&1; then
-            docker image rm "${APP_IMAGE}:${CI_IMAGE_TAG}"
-          fi
-
       - name: Emit immutable release payload receipt
         id: emit_receipt
         env:
           FRONTEND_PROFILE: ${{ needs.validate.outputs.frontend_profile }}
           FRONTEND_ACCEPTANCE_PROFILE: ${{ needs.validate.outputs.acceptance_profile }}
           PRIMARY_PAYLOAD_IMAGE: ${{ steps.release_settings.outputs.release_payload_image }}
-          ADDITIONAL_PROFILE: ${{ steps.release_settings.outputs.additional_profile }}
-          ADDITIONAL_ACCEPTANCE_PROFILE: ${{ steps.release_settings.outputs.additional_acceptance_profile }}
-          ADDITIONAL_IMAGE: ${{ steps.release_settings.outputs.additional_image }}
-          ADDITIONAL_PAYLOAD_IMAGE: ${{ steps.release_settings.outputs.additional_payload_image }}
         run: |
           python3 Scripts/CI/emit_release_payload_receipt.py \
             --manifest artifacts/migrations/release-manifest.json \
@@ -748,58 +699,38 @@ jobs:
             --app-image "${APP_IMAGE}" \
             --payload-image "${PRIMARY_PAYLOAD_IMAGE}" \
             --payload-image-prefix "${RELEASE_PAYLOAD_PREFIX}"
-          if [[ -n "${ADDITIONAL_PROFILE}" ]]; then
-            python3 Scripts/CI/emit_release_payload_receipt.py \
-              --manifest artifacts/additional-migrations/release-manifest.json \
-              --bundle "artifacts/additional-migrations/${MIGRATION_BUNDLE_NAME}" \
-              --repository "${GITHUB_SERVER_URL}/${GITHUB_REPOSITORY}" \
-              --commit-sha "${GITHUB_SHA}" \
-              --run-id "${GITHUB_RUN_ID}" \
-              --run-attempt "${GITHUB_RUN_ATTEMPT}" \
-              --profile "${ADDITIONAL_PROFILE}" \
-              --acceptance-profile "${ADDITIONAL_ACCEPTANCE_PROFILE}" \
-              --runtime "${MIGRATION_RUNTIME}" \
-              --app-image "${ADDITIONAL_IMAGE}" \
-              --payload-image "${ADDITIONAL_PAYLOAD_IMAGE}" \
-              --payload-image-prefix "${RELEASE_PAYLOAD_PREFIX}"
-          fi
-
       - name: Record GHCR payload usage after publication attempt
         if: ${{ always() && steps.emit_receipt.outcome != 'skipped' }}
         continue-on-error: true
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
           PRIMARY_PAYLOAD_IMAGE: ${{ steps.release_settings.outputs.release_payload_image }}
-          ADDITIONAL_PAYLOAD_IMAGE: ${{ steps.release_settings.outputs.additional_payload_image }}
         run: |
           set -euo pipefail
           [[ -n "$PRIMARY_PAYLOAD_IMAGE" ]] || { echo "Primary release payload package is unavailable for usage measurement." >&2; exit 1; }
-          incoming_bundle_bytes="$(python3 - "artifacts/migrations/${MIGRATION_BUNDLE_NAME}" "$ADDITIONAL_PAYLOAD_IMAGE" <<'PY'
+          incoming_bundle_bytes="$(python3 - "artifacts/migrations/${MIGRATION_BUNDLE_NAME}" <<'PY'
           import pathlib
           import sys
 
-          bundle_bytes = pathlib.Path(sys.argv[1]).stat().st_size
-          package_count = 1 + (1 if sys.argv[2] else 0)
-          print(bundle_bytes * package_count)
+          print(pathlib.Path(sys.argv[1]).stat().st_size)
           PY
           )"
-          packages=(--package "${PRIMARY_PAYLOAD_IMAGE}=private")
-          retained_bootstraps=(--retain-manifest "${PRIMARY_PAYLOAD_IMAGE}@sha256:25fef0757d76c56cd980dca6cde1e156ab7a2daa902306ab48da4e12a6e7343f")
-          if [[ -n "$ADDITIONAL_PAYLOAD_IMAGE" ]]; then
-            packages+=(--package "${ADDITIONAL_PAYLOAD_IMAGE}=private")
-            retained_bootstraps+=(--retain-manifest "${ADDITIONAL_PAYLOAD_IMAGE}@sha256:25fef0757d76c56cd980dca6cde1e156ab7a2daa902306ab48da4e12a6e7343f")
-          fi
           bash Deployment/Common/Scripts/with-deploy-lock.sh \
             python3 Deployment/Common/Scripts/registry-retention.py \
-              "${packages[@]}" "${retained_bootstraps[@]}" --publication-kind final --incoming-bundle-bytes "$incoming_bundle_bytes"
+              --package "${PRIMARY_PAYLOAD_IMAGE}=private" \
+              --retain-manifest "${PRIMARY_PAYLOAD_IMAGE}@sha256:25fef0757d76c56cd980dca6cde1e156ab7a2daa902306ab48da4e12a6e7343f" \
+              --publication-kind final --incoming-bundle-bytes "$incoming_bundle_bytes"
 
       # Keep :<sha> for fast redeploys; remove only the per-run build tag.
       - name: Remove this run's build tag
         if: always()
         run: |
+          bash "$GITHUB_WORKSPACE/Deployment/Common/Scripts/with-runner-build-admission.sh" --pool "$CI_ADMISSION_POOL" bash -e -o pipefail <<'ADMITTED'
           if [ -n "${APP_IMAGE:-}" ] && docker image inspect "${APP_IMAGE}:${CI_IMAGE_TAG}" >/dev/null 2>&1; then
             docker image rm "${APP_IMAGE}:${CI_IMAGE_TAG}"
           fi
+
+          ADMITTED
 
       - name: Report runner capacity
         if: always()
@@ -874,10 +805,12 @@ jobs:
     name: ${{ (github.event_name == 'pull_request' || github.ref == 'refs/heads/main') && 'build-test-push' || 'CI result' }}
     needs: [validate, publish-main]
     if: ${{ always() && (github.event_name == 'workflow_dispatch' || github.ref == 'refs/heads/main' || (github.event_name == 'pull_request' && github.event.pull_request.head.repo.full_name == github.repository)) }}
-    runs-on: [self-hosted, linux, x64, "${{ vars.CI_RUNNER_LABEL }}"]
+    runs-on: ${{ (github.event_name == 'pull_request' && github.event.pull_request.number == 5 && vars.CI_BOOTSTRAP_HOSTED_VALIDATION == 'true') && fromJSON('["ubuntu-24.04"]') || fromJSON(format('["self-hosted","linux","x64","{0}"]', vars.CI_ADMISSION_BOOTSTRAP_RUNNER_LABEL)) }}
     timeout-minutes: 5
     permissions:
       contents: read
+    env:
+      CI_BOOTSTRAP_HOSTED_VALIDATION: ${{ github.event_name == 'pull_request' && github.event.pull_request.number == 5 && vars.CI_BOOTSTRAP_HOSTED_VALIDATION == 'true' }}
     steps:
       - name: Checkout
         uses: actions/checkout@v7
@@ -886,10 +819,13 @@ jobs:
           clean: true
 
       - name: Verify native CI result-gate runner
+        if: ${{ env.CI_BOOTSTRAP_HOSTED_VALIDATION != 'true' }}
         env:
+          CI_ADMISSION_BOOTSTRAP_RUNNER_LABEL: ${{ vars.CI_ADMISSION_BOOTSTRAP_RUNNER_LABEL }}
           CI_RUNNER_HOST: ${{ vars.CI_RUNNER_HOST }}
         run: |
           set -euo pipefail
+          : "${CI_ADMISSION_BOOTSTRAP_RUNNER_LABEL:?Set the CI_ADMISSION_BOOTSTRAP_RUNNER_LABEL repository variable}"
           : "${CI_RUNNER_HOST:?Set the CI_RUNNER_HOST repository variable to the expected native runner hostname}"
           test "${RUNNER_OS:?GitHub runner OS is required}" = "Linux"
           test "$(hostname)" = "$CI_RUNNER_HOST"

@@ -16,7 +16,10 @@ sys.path.insert(0, str(LIB))
 from ls_settings import ACCOUNT_SETTING_DEFAULTS, ETC, ROOT, TARGET, settings
 
 sys.path.insert(0, str(ROOT / "Scripts/Frontend"))
-from resolve_frontend_profile import acceptance_profile_for_frontend
+from resolve_frontend_profile import (
+    acceptance_profile_for_frontend,
+    acceptance_profile_for_legacy_instance,
+)
 sys.path.insert(0, str(ROOT / "Deployment/Common/Scripts/Component/lib"))
 from release_settings import load_release_settings
 
@@ -36,7 +39,7 @@ def validate_additional(config: dict, primary: dict, selected_profile: str) -> t
     if type(config["schema_version"]) is not int or config["schema_version"] != 1:
         raise ValueError("unsupported instance schema")
     profile = config["frontend_profile"]
-    acceptance_profile_for_frontend(profile)
+    acceptance_profile_for_legacy_instance(profile)
     if profile == selected_profile:
         raise ValueError("additional instance must use the other frontend")
     candidate = config["settings"]
@@ -155,7 +158,7 @@ def resolve(instance: str, payload: str, selected_profile: str, selected_accepta
         "APP_INSTANCE": instance, "APP_NAME": config["app_name"], "DEPLOY_ROOT": config["deploy_root"], "APP_IMAGE": image,
         "MIGRATION_BUNDLE_NAME": release["migration_bundle_name"],
         "MIGRATION_ARTIFACT_NAME": release["migration_artifact_name"] + suffix,
-        "FRONTEND_PROFILE": profile, "ACCEPTANCE_PROFILE": acceptance_profile_for_frontend(profile),
+        "FRONTEND_PROFILE": profile, "ACCEPTANCE_PROFILE": acceptance_profile_for_legacy_instance(profile),
         "INSTANCE_EXTRA_VARS_FILE": str(temporary / "instance-vars.json"),
         "LOCALSINGLENODE_SETTINGS_FILE": "",
     }

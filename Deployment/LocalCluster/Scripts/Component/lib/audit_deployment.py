@@ -53,6 +53,13 @@ def workflow_step_text(workflow: str, step_name: str) -> str:
     return match.group(0) if match else ""
 
 
+def workflow_job_text(workflow: str, job_id: str) -> str:
+    match = re.search(
+        rf"(?ms)^  {re.escape(job_id)}:\r?\n(.*?)(?=^  [A-Za-z0-9_-]+:\r?\n|\Z)", workflow,
+    )
+    return match.group(1) if match else ""
+
+
 def tracked_files() -> set[str]:
     try:
         result = subprocess.run(
@@ -786,33 +793,20 @@ for needle, why in [
     ("pip==26.2.1", "pinned pip bootstrap"),
     ("yamllint .github Deployment docker-compose.yml .yamllint.yml", "deployment YAML lint step"),
     ("bash Scripts/CI/run-actionlint.sh", "pinned queue-aware actionlint runner"),
-    ("GrumPlates/Dockerfile | head -n1", "React Node.js version read from the Dockerfile base image"),
+    ("cat .node-version", "pinned Node version read from the tracked version file"),
     ("node-version: ${{ steps.node-version.outputs.node_version }}", "Setup Node uses the Dockerfile Node version"),
     ("bash Deployment/Common/Scripts/read-release-setting.sh app_image", "shared release image setting"),
     ("bash Deployment/Common/Scripts/read-release-setting.sh migration_bundle_name", "shared migration bundle setting"),
     ("bash Deployment/Common/Scripts/read-release-setting.sh migration_runtime", "shared migration runtime setting"),
     ("bash Deployment/Common/Scripts/read-release-setting.sh release_payload_prefix", "configured GHCR release payload package prefix"),
-    ("Build and test both frontend profiles", "both-profile .NET validation gate"),
-    ("bash Scripts/CI/validate-frontend-profiles.sh", "sequential build and test of both frontend profiles"),
+    ("Build and test Blazor CRUD suite", "single-profile Books CRUD validation gate"),
+    ("bash Scripts/CI/validate-frontend-profiles.sh", "focused Blazor unit/integration suite and optional browser smoke"),
     ("python3 -m unittest discover -s Scripts/Quality/tests -v", "quality script tests"),
     ("python3 -m unittest discover -s Scripts/CI/tests -v", "CI script tests, including result gates, provenance and acceptance"),
     ("python3 -m unittest discover -s Deployment/Common/Scripts/Tests -v", "common deployment tests, including release contracts, target gates and retention"),
     ("python3 -m unittest discover -s Deployment/LocalCluster/Scripts/Tests -p 'test_*.py' -v", "LocalCluster tests, including release status, residue and runner identity"),
     ("python3 -m unittest discover -s Deployment/LocalSingleNode/Scripts/Tests -v", "LocalSingleNode tests, including release status"),
-    ('--expected-skipped 0 --suite "Testcontainers lifecycle"', "Testcontainers lifecycle rejects skipped tests"),
-    ("Validate local Compose frontend profiles", "local Compose target validation for both profiles"),
-    ("Install pinned npm for React frontend", "pinned React npm is installed in runner temporary storage"),
-    ('npm_prefix="$RUNNER_TEMP/react-npm-12.2.0"', "React npm install uses an isolated temporary prefix"),
-    ('echo "$npm_prefix/bin" >> "$GITHUB_PATH"', "pinned React npm is used by subsequent CI steps"),
-    ('test "$(npm --version)" = "12.2.0"', "CI verifies the exact React npm version"),
-    ("Install React frontend dependencies", "locked React frontend dependency install"),
-    ("Audit React frontend dependencies", "React frontend dependency audit"),
-    ("Check React OpenAPI contract", "generated React OpenAPI contract validation"),
-    ("Lint React frontend", "React frontend lint validation"),
-    ("Test React frontend", "React unit tests that must all pass without skips"),
-    ("report.numPassedTests !== report.numTotalTests", "React unit tests must all pass"),
-    ("report.numPendingTests !== 0", "React unit tests must not pass with skips"),
-    ("Build React frontend", "React frontend production build"),
+    ("Validate local Compose Blazor target", "local Compose uses the single Blazor image target"),
     ("dotnet ef migrations bundle", "migration bundle build"),
     ('--runtime "${MIGRATION_RUNTIME}"', "shared migration runtime usage"),
     ("docker build", "Docker image build"),
@@ -827,8 +821,7 @@ for needle, why in [
     ("Remove this run's local Docker image", "owned CI image cleanup step"),
     ("bash Deployment/LocalCluster/Scripts/ci-docker-smoke.sh --cleanup-only", "interrupted-run smoke cleanup"),
     ("always() && steps.ci_smoke.outcome != 'skipped'", "always-run interrupted smoke cleanup guard"),
-    ('docker image rm "${APP_IMAGE}:${image_tag}"', "exact profile-tag CI image removal"),
-    ('image_tag="${CI_IMAGE_TAG}-${profile}"', "separate exact image tag for each frontend profile"),
+    ('docker image rm "${APP_IMAGE}:${CI_IMAGE_TAG}"', "exact per-run CI image removal"),
     ('ci_image_tag="${GITHUB_SHA}-${GITHUB_RUN_ID}-${GITHUB_RUN_ATTEMPT}"', "per-run CI image tag"),
     ("bash Scripts/CI/check-runner-capacity.sh", "report-only runner capacity check"),
     ("bash Deployment/LocalCluster/Scripts/ci-docker-smoke.sh", "Docker and browser smoke"),
@@ -837,9 +830,7 @@ for needle, why in [
     ("frontend_profile: ${{ steps.frontend_profile.outputs.profile }}", "validated profile passed from CI validation to release"),
     ("-p:FrontendProfile=${RESOLVED_FRONTEND_PROFILE}", "resolved frontend profile passed to MSBuild"),
     ('--build-arg "FRONTEND_PROFILE_OVERRIDE=${RESOLVED_FRONTEND_PROFILE}"', "resolved frontend profile passed to Docker builds"),
-    ('--target "${docker_target}"', "selected profile Docker target passed to image build"),
-    ("BlazorAuto) docker_target=final-blazor ;;", "Blazor profile selects its isolated image target"),
-    ("React) docker_target=final-react ;;", "React profile selects its isolated image target"),
+    ('--target final-blazor', "single Blazor Docker target selected for release"),
     ("needs.validate.outputs.frontend_profile", "main release uses the validated profile"),
     ("bash Deployment/LocalCluster/Scripts/Tests/test-verify-release-identity.sh", "release identity fixture test"),
     ("bash Deployment/LocalSingleNode/Scripts/Tests/test-verify-release-identity.sh", "single-node release identity fixture test"),
@@ -847,7 +838,6 @@ for needle, why in [
     ("bash Deployment/LocalCluster/Scripts/Tests/test-prune-docker-residue-low-disk.sh", "Docker cleanup fixture test"),
     ("bash Deployment/Common/Scripts/Tests/test-prune-actions-runner-residue.sh", "runner residue fixture test"),
     ("python3 -m unittest discover -s Deployment/LocalSingleNode/Scripts/Tests -v", "single-node and deployed release acceptance tests"),
-    ("RUN_TESTCONTAINER_LIFECYCLE: \"1\"", "Testcontainers lifecycle proof"),
     ("DOTNET_SDK_VERSION: '10.0.402'", "explicitly pinned CI SDK version"),
     ("dotnet-version: ${{ env.DOTNET_SDK_VERSION }}", "explicitly pinned setup-dotnet version"),
     ("ansible-playbook", "LocalCluster playbook syntax check"),
@@ -866,59 +856,30 @@ for pin in ("--expected-passed", "expectedTestCount"):
 
 profile_gate = read("Scripts/CI/validate-frontend-profiles.sh")
 for needle, why in [
-    ("validate_dotnet_test_results.py", "both profile suites validate their TRX results"),
-    ("non_account_filter='FullyQualifiedName!~GrumPlates.Test.Features.Accounts'", "the non-account invocation excludes account tests before the dedicated account run"),
-    ("non_account_filter+='&FrontendProfile!=BlazorAuto'", "React non-account tests exclude only Blazor Auto-specific cases"),
-    ('test_arguments+=(--filter "$non_account_filter")', "both profiles execute the explicit non-account filter"),
-    ('--logger "trx;LogFileName=non-accounts.trx"', "non-account results use a separate TRX file"),
-    ('"$profile_results/non-accounts.trx"', "the non-account TRX file is validated separately"),
-    ("account_filter='FullyQualifiedName~GrumPlates.Test.Features.Accounts'", "both profiles run the account integration tests explicitly"),
-    ("account_filter+='&FrontendProfile!=BlazorAuto'", "React excludes only account tests tagged for Blazor Auto"),
-    ('--filter "$account_filter"', "account integration gate uses its profile-aware filter"),
-    ("--expected-skipped 0", "account integration tests cannot silently skip"),
-    ('--suite "$profile account integration tests"', "account integration results have a distinct required suite label"),
+    ('dotnet test "$REPO_ROOT/GrumPlates.Test/GrumPlates.Test.csproj"', "one unfiltered Books CRUD test discovery run"),
+    ("books-crud.trx", "one TRX result for the lean CRUD suite"),
+    ("validate_dotnet_test_results.py", "TRX result validation rejects failures and unexplained skips"),
+    ('--suite "Books CRUD $profile unit/integration and optional browser smoke"', "the report names the actual demo test scope"),
 ]:
     if needle not in profile_gate:
         fail(f"Scripts/CI/validate-frontend-profiles.sh: missing {why}: {needle}")
-if any(pin in profile_gate for pin in ("expected_passed", "--expected-passed")) or re.search(r"--expected-skipped(?!\s+0)", profile_gate):
-    fail("Scripts/CI/validate-frontend-profiles.sh: profile suites must not pin test counts; "
-         "the validator rejects failures and skips that are not explicit opt-ins; only the account suite pins zero skips")
+if "--filter" in profile_gate or "--expected-passed" in profile_gate:
+    fail("Scripts/CI/validate-frontend-profiles.sh: focused test scope must use default discovery without count pins")
 
 dockerfile = read("GrumPlates/Dockerfile")
-if not re.search(
-    r"^FROM node:26\.\d+\.\d+-bookworm-slim AS react-dependencies$",
-    dockerfile,
-    re.MULTILINE,
-):
-    fail("GrumPlates/Dockerfile: pinned Node 26 toolchain is isolated in React dependency stage")
 for needle, why in [
-    ("npm install --global npm@12.2.0 && npm ci", "pinned npm install from the React lockfile"),
-    ("FROM react-dependencies AS react-assets", "React asset build reuses its isolated dependency stage"),
-    ("npm run build && test -s build/client/index.html", "React build must produce its shell"),
     ("COPY Directory.Build.targets ./", "MSBuild profile validation target copied into Docker source"),
     ("COPY frontend-profile.txt ./", "tracked frontend profile copied into Docker source"),
-    ("FROM source AS publish-blazor", "Blazor publish is isolated from Node assets"),
-    ("FROM source AS publish-react", "React publish has its own selected asset stage"),
+    ("FROM source AS publish-blazor", "Blazor publish stage"),
     ('test "$profile" = "BlazorAuto"', "Blazor target rejects a mismatched profile"),
-    ('test "$profile" = "React"', "React target rejects a mismatched profile"),
-    ("rm -rf ./GrumPlates/Frontend/React/wwwroot", "React publish starts from a clean selected asset root"),
-    ("test -s /tmp/react-client/index.html", "React publish fails when its bundle is missing"),
     ('"-p:FrontendProfile=$profile"', "same resolved profile passed to the selected Docker publish"),
     ("FROM base AS final-blazor", "Blazor final image target"),
-    ("FROM base AS final-react", "React final image target"),
     ('ENTRYPOINT ["dotnet", "GrumPlates.dll"]', "final images run the ASP.NET Core host"),
 ]:
     if needle not in dockerfile:
         fail(f"GrumPlates/Dockerfile: missing {why}")
-
-blazor_publish_stage = dockerfile.split("FROM source AS publish-blazor", 1)[1].split("FROM source AS publish-react", 1)[0]
-if "react-assets" in blazor_publish_stage:
-    fail("Blazor Docker target must not depend on the React npm stage")
-if dockerfile.count("COPY --from=react-assets") != 1:
-    fail("React bundle must be copied only into the React publish stage")
-final_image_stages = dockerfile.split("FROM base AS final-blazor", 1)[1]
-if "node:" in final_image_stages or "COPY --from=react-assets" in final_image_stages:
-    fail("final runtime images must not copy Node or the Node build stage")
+if "final-react" in dockerfile or "FROM node:" in dockerfile:
+    fail("GrumPlates/Dockerfile: only Blazor image target and runtime may remain")
 
 compose = read("docker-compose.yml")
 for needle, why in [
@@ -950,8 +911,6 @@ for path, checks in {
 for forbidden in ("prune-docker-residue.sh --force", "docker system prune", "docker container prune", "docker builder prune", "docker network prune", "docker volume prune"):
     if forbidden in ci:
         fail(f".github/workflows/ci.yml: CI must not run host-wide Docker cleanup: {forbidden}")
-if ci.count("run: bash Deployment/LocalCluster/Scripts/ci-docker-smoke.sh --cleanup-only") != 2:
-    fail(".github/workflows/ci.yml: both smoke jobs must recover their own interrupted resources")
 if ci.index("ci-docker-smoke.sh --cleanup-only") > ci.index("name: Remove this run's local Docker image"):
     fail(".github/workflows/ci.yml: owned smoke resources must be removed before their exact image tag")
 for needle in ("Cleanup-only requires the exact GitHub repository, run ID and attempt.", "expected_identity", "Owned smoke container remains", "Owned smoke network remains"):
@@ -1152,6 +1111,45 @@ ci_jobs = {
     ]
     for index, match in enumerate(ci_job_matches)
 }
+
+def is_pr5_bootstrap_route(job_id: str, job_body: str) -> bool:
+    if job_id not in {"validate", "ci-result-gate"}:
+        return False
+    runner_line = re.search(r"(?m)^    runs-on:.*$", job_body)
+    if runner_line is None:
+        return False
+    compact = re.sub(r"\s+", "", runner_line.group(0)).lower()
+    guard = "github.event_name=='pull_request'&&github.event.pull_request.number==5&&vars.ci_bootstrap_hosted_validation=='true'"
+    native_fallback = "fromjson(format('[\"self-hosted\",\"linux\",\"x64\",\"{0}\"]',vars.ci_admission_bootstrap_runner_label))"
+    expected_env = "CI_BOOTSTRAP_HOSTED_VALIDATION: ${{ github.event_name == 'pull_request' && github.event.pull_request.number == 5 && vars.CI_BOOTSTRAP_HOSTED_VALIDATION == 'true' }}"
+    return (
+        guard in compact
+        and "fromjson('[\"ubuntu-24.04\"]')" in compact
+        and native_fallback in compact
+        and expected_env in job_body
+    )
+
+
+def approved_ci_runner_route(job_id: str, job_body: str) -> bool:
+    if is_pr5_bootstrap_route(job_id, job_body):
+        return True
+    runner_line = re.search(r"(?m)^    runs-on:.*$", job_body)
+    if runner_line is None:
+        return False
+    expected_label = ("${{ vars.CI_RUNNER_LABEL }}" if job_id == "notify-dependabot-automerge"
+                      else "${{ vars.CI_ADMISSION_BOOTSTRAP_RUNNER_LABEL }}")
+    return runner_line.group(0).strip() == f'runs-on: [self-hosted, linux, x64, "{expected_label}"]'
+
+
+bootstrap_routes = {
+    job_id for job_id, body in ci_jobs.items()
+    if "ci_bootstrap_hosted_validation" in body.lower()
+}
+if bootstrap_routes and bootstrap_routes != {"validate", "ci-result-gate"}:
+    fail(".github/workflows/ci.yml: temporary hosted bootstrap routing is limited to validate and ci-result-gate")
+if bootstrap_routes and any(not is_pr5_bootstrap_route(job_id, ci_jobs[job_id]) for job_id in bootstrap_routes):
+    fail(".github/workflows/ci.yml: temporary hosted bootstrap routing must match first-party PR #5 and native fallback exactly")
+
 allowed_ci_jobs = {
     "validate", "publish-main",
     "notify-dependabot-automerge", "ci-result-gate",
@@ -1207,10 +1205,10 @@ if "validate" in ci_jobs and "publish-main" in ci_jobs:
     if (
         "    name: validate" not in validate_job
         or "    needs:" in validate_job
-        or 'runs-on: [self-hosted, linux, x64, "${{ vars.CI_RUNNER_LABEL }}"]' not in validate_job
+        or not approved_ci_runner_route("validate", validate_job)
         or "    name: publish-main" not in publisher_job
         or "needs: [validate]" not in publisher_job
-        or 'runs-on: [self-hosted, linux, x64, "${{ vars.CI_RUNNER_LABEL }}"]' not in publisher_job
+        or not approved_ci_runner_route("publish-main", publisher_job)
         or "!cancelled()" not in publisher_job
         or "needs.validate.result == 'success'" not in publisher_job
         or publisher_job.find("Validate required CI results") > publisher_job.find("- name: Checkout")
@@ -1220,17 +1218,41 @@ if "validate" in ci_jobs and "publish-main" in ci_jobs:
         or "needs: [validate, publish-main]" not in result_gate_job
         or "always()" not in result_gate_job
         or "'build-test-push'" not in result_gate_job
+        or not approved_ci_runner_route("ci-result-gate", result_gate_job)
         or "python3 Scripts/CI/require_ci_results.py" not in result_gate_job
     ):
         fail(".github/workflows/ci.yml: validation, publication and the stable result gate must fail closed")
     for job_id in ("validate", "publish-main"):
         runner_step = workflow_step(job_id, "Verify CI runner")
         if (
-            "CI_RUNNER_LABEL: ${{ vars.CI_RUNNER_LABEL }}" not in runner_step
-            or "${CI_RUNNER_LABEL:?Set the CI_RUNNER_LABEL repository variable}" not in runner_step
+            "CI_ADMISSION_BOOTSTRAP_RUNNER_LABEL: ${{ vars.CI_ADMISSION_BOOTSTRAP_RUNNER_LABEL }}" not in runner_step
+            or "CI_CANONICAL_RUNNER_LABEL: ${{ vars.CI_RUNNER_LABEL }}" not in runner_step
+            or "${CI_ADMISSION_BOOTSTRAP_RUNNER_LABEL:?Set the CI_ADMISSION_BOOTSTRAP_RUNNER_LABEL repository variable}" not in runner_step
+            or "${CI_CANONICAL_RUNNER_LABEL:?Keep CI_RUNNER_LABEL set to an unregistered quarantine label during bootstrap}" not in runner_step
+            or "CI_RUNNER_LABEL must remain quarantined during the bootstrap rollout" not in runner_step
             or "^[A-Za-z0-9][A-Za-z0-9_.-]*$" not in runner_step
         ):
-            fail(f".github/workflows/ci.yml: {job_id} must check the CI_RUNNER_LABEL value before it runs")
+            fail(f".github/workflows/ci.yml: {job_id} must check the bootstrap and quarantined canonical runner labels before it runs")
+    for job_id, step_names in {
+        "validate": ("Verify CI runner", "Ensure self-hosted runner prerequisites", "Check self-hosted runner disk"),
+        "ci-result-gate": ("Verify native CI result-gate runner",),
+    }.items():
+        if is_pr5_bootstrap_route(job_id, ci_jobs.get(job_id, "")):
+            native_only = "if: ${{ env.CI_BOOTSTRAP_HOSTED_VALIDATION != 'true' }}"
+            for step_name in step_names:
+                if native_only not in workflow_step(job_id, step_name):
+                    fail(f".github/workflows/ci.yml: {step_name} must run only on the native bootstrap path")
+            if job_id == "validate":
+                summary = workflow_step(job_id, "Record temporary hosted bootstrap validation")
+                ansible = workflow_step(job_id, "Activate validated Ansible generation")
+                if (
+                    "if: ${{ env.CI_BOOTSTRAP_HOSTED_VALIDATION == 'true' }}" not in summary
+                    or "$GITHUB_STEP_SUMMARY" not in summary
+                    or "CI_BOOTSTRAP_HOSTED_VALIDATION" not in ansible
+                    or "--provision" not in ansible
+                    or "--check" not in ansible
+                ):
+                    fail(".github/workflows/ci.yml: temporary hosted validation must be documented and provision its pinned Ansible generation")
     if "docker/login-action@" in validate_job or "docker push" in validate_job:
         fail(".github/workflows/ci.yml: validate must not log into GHCR or push images")
     if "dotnet ef migrations bundle" not in publisher_job:
@@ -1287,38 +1309,17 @@ if "validate" in ci_jobs and "publish-main" in ci_jobs:
     for needle in ("validate_staging_artifact(", "acceptance_profile_for_frontend(profile)", 'output.open("x"'):
         if needle not in manifest_writer:
             fail(f"Scripts/CI/write_release_manifest.py: missing release validation {needle}")
-    release_plan = read("Scripts/CI/frontend_release_plan.py")
-    additional_publisher = read("Scripts/CI/publish_additional_frontend.sh")
-    settings_step = workflow_step("publish-main", "Load release settings")
-    if "ADDITIONAL_FRONTEND_PROFILES: ${{ vars.ADDITIONAL_FRONTEND_PROFILES }}" not in settings_step or "python3 Scripts/CI/frontend_release_plan.py" not in settings_step:
-        fail(".github/workflows/ci.yml: optional publication must use the validated release plan")
-    for needle in ('if not additional.strip():', 'seen = {selected}', 'acceptance_profile_for_frontend(profile)',
-                   "{settings['app_image']}-{profile.lower()}", 'settings.get("release_payload_prefix", "")'):
-        if needle not in release_plan:
-            fail(f"Scripts/CI/frontend_release_plan.py: missing default isolation or validation {needle}")
-    additional_step = workflow_step("publish-main", "Publish additional frontend")
-    if ("if: ${{ steps.release_settings.outputs.additional_profile != '' }}" not in additional_step
-            or "bash Scripts/CI/publish_additional_frontend.sh" not in additional_step
-            or "APP_IMAGE: ${{ steps.release_settings.outputs.additional_image }}" not in additional_step):
-        fail(".github/workflows/ci.yml: additional publication must be opt-in with its own image")
-    for needle in ('"${primary_image}-${suffix}"', '"$FRONTEND_PROFILE" != "$primary_profile"',
-                   "--directory artifacts/additional-migrations", "trap cleanup EXIT", "--cleanup-only",
-                   "Scripts/CI/write_release_manifest.py", 'docker image rm "${APP_IMAGE}:${CI_IMAGE_TAG}"'):
-        if needle not in additional_publisher:
-            fail(f"Scripts/CI/publish_additional_frontend.sh: missing isolated publication check {needle}")
-    if (additional_publisher.find("migration_staging_artifact.py validate") > additional_publisher.find("docker build")
-            or "bash Deployment/LocalCluster/Scripts/ci-docker-smoke.sh\ndocker tag" not in additional_publisher):
-        fail("Scripts/CI/publish_additional_frontend.sh: staging validation and image smoke must precede push")
-    additional_cleanup = workflow_step("publish-main", "Remove additional frontend resources after interruption")
-    if "always()" not in additional_cleanup or "--cleanup-only" not in additional_cleanup or "outputs.additional_image" not in additional_cleanup:
-        fail(".github/workflows/ci.yml: interrupted additional releases require scoped cleanup")
+    for obsolete in ("Scripts/CI/frontend_release_plan.py", "Scripts/CI/publish_additional_frontend.sh"):
+        if (ROOT / obsolete).exists():
+            fail(f"{obsolete}: one-profile release must not retain additional-profile publication")
+    if "ADDITIONAL_FRONTEND_PROFILES" in ci or "Publish additional frontend" in ci:
+        fail(".github/workflows/ci.yml: only the selected Blazor image may be published")
     additional_receipt = workflow_step("publish-main", "Emit immutable release payload receipt")
-    for needle in ("ADDITIONAL_PAYLOAD_IMAGE", '--payload-image "${ADDITIONAL_PAYLOAD_IMAGE}"',
-                   '--payload-image-prefix "${RELEASE_PAYLOAD_PREFIX}"',
-                   "artifacts/additional-migrations/release-manifest.json"):
+    for needle in ('--payload-image-prefix "${RELEASE_PAYLOAD_PREFIX}"',
+                   "artifacts/migrations/release-manifest.json"):
         if needle not in additional_receipt:
-            fail(f".github/workflows/ci.yml: missing additional GHCR payload receipt check {needle}")
-    if "Upload additional migration bundle" in publisher_job or "Upload migration bundle" in publisher_job:
+            fail(f".github/workflows/ci.yml: missing selected GHCR payload receipt check {needle}")
+    if "Upload migration bundle" in publisher_job:
         fail(".github/workflows/ci.yml: final migration payloads must not be uploaded as Actions artifacts")
 
 release_validator = read("Deployment/Common/Scripts/validate_release_manifest.py")
@@ -1475,11 +1476,9 @@ for needle, why in [
     ("continue-on-error: true", "usage observation cannot replace the GHCR publish result"),
     ("--publication-kind final", "final payload usage is measured"),
     ("--incoming-bundle-bytes", "incoming migration bundle bytes are reported"),
-    ("print(bundle_bytes * package_count)", "incoming bundle bytes are counted for configured packages"),
+    ("pathlib.Path(sys.argv[1]).stat().st_size", "incoming migration bundle bytes are measured once"),
     ("--package \"${PRIMARY_PAYLOAD_IMAGE}=private\"", "private package visibility is measured"),
-    ('retained_bootstraps=(--retain-manifest "${PRIMARY_PAYLOAD_IMAGE}@sha256:25fef0757d76c56cd980dca6cde1e156ab7a2daa902306ab48da4e12a6e7343f")', "reviewed primary bootstrap is measured by exact digest"),
-    ('retained_bootstraps+=(--retain-manifest "${ADDITIONAL_PAYLOAD_IMAGE}@sha256:25fef0757d76c56cd980dca6cde1e156ab7a2daa902306ab48da4e12a6e7343f")', "reviewed React bootstrap is measured by exact digest"),
-    ('"${retained_bootstraps[@]}"', "usage measurement verifies reviewed bootstrap manifests"),
+    ('--retain-manifest "${PRIMARY_PAYLOAD_IMAGE}@sha256:25fef0757d76c56cd980dca6cde1e156ab7a2daa902306ab48da4e12a6e7343f"', "reviewed primary bootstrap is measured by exact digest"),
 ]:
     if needle not in publish_main:
         fail(f".github/workflows/ci.yml: missing {why}")
@@ -1512,7 +1511,6 @@ for needle, why in [
     ("schedule:", "scheduled registry retention"),
     ('cron: "37 3 * * *"', "daily bounded registry retention"),
     ('retained_bootstraps=(--retain-manifest "${{ steps.packages.outputs.primary }}@sha256:25fef0757d76c56cd980dca6cde1e156ab7a2daa902306ab48da4e12a6e7343f")', "reviewed primary bootstrap is retained by exact digest during registry maintenance"),
-    ('retained_bootstraps+=(--retain-manifest "${{ steps.packages.outputs.additional_payload_image }}@sha256:25fef0757d76c56cd980dca6cde1e156ab7a2daa902306ab48da4e12a6e7343f")', "reviewed React bootstrap is retained by exact digest during registry maintenance"),
     ('"${retained_bootstraps[@]}"', "registry maintenance verifies reviewed bootstrap manifests"),
     ("REGISTRY_RETENTION_APPLY: ${{ github.event_name == 'schedule' || inputs.apply_registry == true }}", "scheduled or explicitly opted-in manual registry deletion"),
     ('if [[ "$REGISTRY_RETENTION_APPLY" == "true" ]]; then apply+=(--apply); fi', "manual registry preview unless apply_registry is true"),
@@ -2170,15 +2168,23 @@ for workflow in workflow_paths:
     if workflow == CODEQL_WORKFLOW:
         continue
     has_runs_on = False
+    temporary_runner_lines = {
+        re.search(r"(?m)^    runs-on:.*$", ci_jobs[job_id]).group(0).strip()
+        for job_id in ("validate", "ci-result-gate")
+        if workflow == ".github/workflows/ci.yml"
+        and is_pr5_bootstrap_route(job_id, ci_jobs.get(job_id, ""))
+        and re.search(r"(?m)^    runs-on:.*$", ci_jobs[job_id]) is not None
+    }
     for line_number, line in enumerate(read(workflow).splitlines(), start=1):
         stripped = line.strip()
         if not stripped.startswith("runs-on:"):
             continue
         has_runs_on = True
-        if "self-hosted" not in stripped:
+        temporary_runner = workflow == ".github/workflows/ci.yml" and stripped in temporary_runner_lines
+        if "self-hosted" not in stripped and not temporary_runner:
             fail(f"{workflow}:{line_number}: runs-on must target the node-main self-hosted runner: {stripped}")
         for hosted_runner in ["ubuntu-", "ubuntu-latest", "windows-", "macos-"]:
-            if hosted_runner in stripped:
+            if hosted_runner in stripped and not temporary_runner:
                 fail(f"{workflow}:{line_number}: contains forbidden GitHub-hosted runner label: {stripped}")
     if has_runs_on:
         single_node_workflow = "localsinglenode" in Path(workflow).name
@@ -2192,8 +2198,8 @@ for workflow in workflow_paths:
                                       ("ci-result-gate", "Verify native CI result-gate runner")):
                 body = ci_jobs.get(job_id, "")
                 runner_line = re.search(r"(?m)^    runs-on:.*$", body)
-                if runner_line is None or runner_line.group(0).strip() != 'runs-on: [self-hosted, linux, x64, "${{ vars.CI_RUNNER_LABEL }}"]':
-                    fail(f"{workflow}: {job_id} must run on the configured CI runner label")
+                if runner_line is None or not approved_ci_runner_route(job_id, body):
+                    fail(f"{workflow}: {job_id} must run on its approved CI runner label")
                 profile = re.search(rf"(?ms)^      - name: {re.escape(step_name)}\n.*?(?=^      - name: |\Z)", body)
                 if profile is None or any(needle not in profile.group(0) for needle in (
                     "CI_RUNNER_HOST: ${{ vars.CI_RUNNER_HOST }}",
@@ -2201,6 +2207,14 @@ for workflow in workflow_paths:
                     'test "$(hostname)" = "$CI_RUNNER_HOST"',
                 )):
                     fail(f"{workflow}: {job_id} must verify the configured native CI host")
+                if job_id in ("validate", "publish-main") and any(needle not in profile.group(0) for needle in (
+                    "CI_ADMISSION_BOOTSTRAP_RUNNER_LABEL: ${{ vars.CI_ADMISSION_BOOTSTRAP_RUNNER_LABEL }}",
+                    "CI_CANONICAL_RUNNER_LABEL: ${{ vars.CI_RUNNER_LABEL }}",
+                    "CI_RUNNER_LABEL must remain quarantined during the bootstrap rollout",
+                )):
+                    fail(f"{workflow}: {job_id} must keep legacy CI routing quarantined during bootstrap")
+                if job_id == "ci-result-gate" and "CI_ADMISSION_BOOTSTRAP_RUNNER_LABEL: ${{ vars.CI_ADMISSION_BOOTSTRAP_RUNNER_LABEL }}" not in profile.group(0):
+                    fail(f"{workflow}: the stable result gate must use the bootstrap runner variable")
             if ("always()" not in ci_jobs.get("ci-result-gate", "")
                     or "python3 Scripts/CI/require_ci_results.py" not in ci_jobs.get("ci-result-gate", "")):
                 fail(f"{workflow}: the stable result gate must run after skipped or failed prerequisites")
@@ -2648,78 +2662,34 @@ require_contains("Deployment/Common/Scripts/install-ansible.sh", "USER_ONLY", "u
 require_contains("Deployment/LocalCluster/Scripts/ci-docker-smoke.sh", "Scripts/Test-DeployedSite.ps1", "profile-aware HTTP acceptance in CI")
 smoke = read("Deployment/LocalCluster/Scripts/ci-docker-smoke.sh")
 for needle, why in [
-    ('FRONTEND_PROFILE="${FRONTEND_PROFILE:-BlazorAuto}"', "container smoke defaults to the persisted template profile"),
-    ('if [[ "$FRONTEND_PROFILE" == "React" ]]; then', "React image has a separate public-only smoke path"),
+    ('FRONTEND_PROFILE="${FRONTEND_PROFILE:-BlazorAuto}"', "container smoke defaults to the single tracked frontend"),
+    ('[[ "$FRONTEND_PROFILE" == "BlazorAuto" ]] ||', "unsupported frontend profiles fail closed"),
+    ('BROWSER_SMOKE_FILTER="FullyQualifiedName~RenderModeE2ETests"', "one packaged Blazor browser smoke filter"),
     ("command -v node", "final image smoke rejects a Node runtime"),
-    ('/books/author/example', "React image smoke covers direct detail navigation"),
-    ('/api/author-books', "React image smoke reads the public seeded catalog"),
-    ('^Cache-Control:[[:space:]]*public, ?max-age=31536000, ?immutable', "React image smoke verifies immutable fingerprinted assets"),
-    ('^Cache-Control:[[:space:]]*private, ?no-store', "React image smoke verifies private API cache denial"),
-    ('/api/client-config', "React image smoke reads explicit capability before account-route expectations"),
-    ("client config application ID is invalid", "React image smoke validates the client configuration"),
-    ("GET /api/auth/login did not return 405", "React image smoke checks that account routes are POST-only"),
-    ("Allow:[[:space:]]*POST", "React image smoke verifies enabled POST-only reads return 405"),
-    ('/api/auth/not-a-real-operation', "React image smoke verifies unknown enabled routes remain 404"),
-    ('inactive_paths=(/Account /api/auth/not-a-real-operation /assets/missing.js)', "React image smoke verifies unknown API, React-only and missing paths stay 404"),
-    ('test ! -e /app/wwwroot/_framework && test ! -e /app/wwwroot/_content', "React image smoke rejects inactive Blazor assets"),
-    ('test ! -e /app/wwwroot/index.html && test ! -e /app/wwwroot/assets', "Blazor image smoke rejects inactive React assets"),
+    ("/api/books", "anonymous Books API remains private"),
+    ("_framework/blazor.web", "packaged app serves the Blazor shell"),
+    ("Test-DeployedSite.ps1", "independent read-only deployed-site acceptance"),
+    ("RenderModeE2ETests", "one optional packaged browser smoke"),
+    ("blazor-browser-smoke.trx", "packaged browser smoke has a validated result"),
+    ("validate_dotnet_test_results.py", "packaged browser smoke rejects failures and skips"),
 ]:
     if needle not in smoke:
         fail(f"Deployment/LocalCluster/Scripts/ci-docker-smoke.sh: missing {why}")
-react_smoke_start = smoke.index('if [[ "$FRONTEND_PROFILE" == "React" ]]; then')
-react_smoke_end = smoke.index("\nelse\n", react_smoke_start)
-react_smoke = smoke[react_smoke_start:react_smoke_end]
-if "Test-DeployedSite.ps1" not in react_smoke or '-AcceptanceProfile "$FRONTEND_ACCEPTANCE_PROFILE"' not in react_smoke:
-    fail("React Docker smoke must run ReactPublicV1 HTTP acceptance")
-for needle, why in [
-    ("Category=ReactPackagedEnabled", "enabled packaged React account browser filter"),
-]:
-    if needle not in smoke:
-        fail(f"React Docker smoke: missing {why}")
-for needle, why in [
-    ("$REACT_ENABLED_BROWSER_FILTER", "React Docker smoke runs enabled packaged account browser acceptance"),
-    ("Packaged React enabled account browser journey", "enabled packaged account browser suite rejects skipped tests"),
-    ("--expected-skipped 0", "React packaged browser suites reject skipped tests"),
-]:
-    if needle not in react_smoke:
-        fail(f"React Docker smoke: missing {why}")
-if any(needle in react_smoke for needle in ("BROWSER_SMOKE_FILTER", "Category=BlazorAuto", "Category=Blazor")):
-    fail("React Docker smoke must not run Blazor browser/account acceptance")
+if "React" in smoke or "ReactPublicV1" in smoke:
+    fail("Deployment/LocalCluster/Scripts/ci-docker-smoke.sh: unsupported frontend remnants remain")
 deployed_site_acceptance = read("Scripts/Test-DeployedSite.ps1")
 for needle, why in [
-    ("[ValidateSet('BlazorAuto', 'React')]", "validated frontend acceptance input"),
-    ("[ValidateSet('BlazorAutoV1', 'ReactPublicV1')]", "validated acceptance contract input"),
+    ("[ValidateSet('BlazorAuto')]", "validated frontend acceptance input"),
+    ("[ValidateSet('BlazorAutoV1')]", "validated acceptance contract input"),
     ("FrontendProfile and AcceptanceProfile do not match", "mismatched profile pair fails before network access"),
-    ("function Invoke-ReactPublicAcceptance", "separate React public-only acceptance branch"),
-    ("function Get-ReactCapability", "explicit React capability discovery"),
-    ("/api/client-config", "capability endpoint checked before profile acceptance"),
-    ("function Invoke-ReactAccountSessionAcceptance", "enabled React anonymous session acceptance"),
-    ("function Invoke-BlazorAccountAcceptance", "preserved Blazor account acceptance branch"),
-    ("React-no-cookie", "React acceptance proves no session cookie was created"),
-    ("RequestMethod 'HEAD'", "React acceptance includes safe HEAD checks"),
-    ("React-enabled-session-cache", "enabled account session is private and no-store"),
-    ("React-enabled-session-cookie", "enabled anonymous session does not issue an authentication cookie"),
+    ("function Invoke-BlazorAccountAcceptance", "Blazor account safety acceptance"),
+    ("function Invoke-CommonAcceptance", "health and anonymous API checks"),
+    ("/api/books", "deployed Books API remains private"),
 ]:
     if needle not in deployed_site_acceptance:
         fail(f"Scripts/Test-DeployedSite.ps1: missing {why}")
-react_acceptance_start = deployed_site_acceptance.index("function Invoke-ReactPublicAcceptance")
-react_acceptance_end = deployed_site_acceptance.index("function Invoke-BlazorAccountAcceptance", react_acceptance_start)
-react_acceptance = deployed_site_acceptance[react_acceptance_start:react_acceptance_end]
-for needle, why in [
-    ("React-enabled-post-only-GET", "enabled POST-only GET rejection"),
-    ("React-enabled-post-only-HEAD", "enabled POST-only HEAD rejection"),
-    ("React-enabled-unknown-api", "unknown enabled API route remains a 404"),
-    ("/api/auth/not-a-real-operation", "explicit unknown API route probe"),
-    ("/assets/missing.js", "missing React asset remains a 404"),
-]:
-    if needle not in react_acceptance:
-        fail(f"Scripts/Test-DeployedSite.ps1: React acceptance lacks {why}")
-capability_request = deployed_site_acceptance.index("Get-ReactCapability $capabilitySession $uri")
-common_request = deployed_site_acceptance.index("Invoke-CommonAcceptance $anonymous $FrontendProfile", capability_request)
-if capability_request > common_request:
-    fail("React acceptance must read the client configuration before common or profile checks")
-if "Form " in react_acceptance or "Login " in react_acceptance or "RequestMethod 'POST'" in react_acceptance:
-    fail("React public HTTP acceptance must not submit forms or credentials")
+if "React" in deployed_site_acceptance or "ReactPublicV1" in deployed_site_acceptance:
+    fail("Scripts/Test-DeployedSite.ps1: unsupported frontend acceptance remnants remain")
 require_contains(single + "/Scripts/lib/platform_check.py", '"WSL_DISTRO_NAME"', "native deployment boundary")
 require_contains(single + "/Scripts/lib/doctor.py", '"ip", "-j", "-4", "address", "show"', "mDNS check discovers the interface owning the deployment IPv4")
 require_contains(single + "/Scripts/lib/doctor.py", '"ResolveHostName", "iisiu", str(index), "0", name, "0", "0"', "mDNS check resolves the deployment name on its LAN interface")
@@ -2810,18 +2780,25 @@ for binding in ("GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}", "LOCALSINGLENODE_HO
     if binding not in maintenance_step:
         fail("Scoped maintenance must pass protected release-status inputs: " + binding.split(":", 1)[0])
 
-# Chromium and Docker smoke stages share the node with the other repository, so each runs under the node browser lock.
+# Resource-heavy workflow commands use runner admission. Native admission delegates to the shared node browser lock.
 require_file("Deployment/Common/Scripts/with-node-browser-lock.sh")
 require_file("Deployment/Common/Scripts/Tests/test-with-node-browser-lock.sh")
+require_file("Deployment/Common/Scripts/with-runner-build-admission.sh")
+require_file("Deployment/Common/Scripts/Tests/test-with-runner-build-admission.sh")
 for needle, why in [
-    ("with-node-browser-lock.sh pwsh -File Scripts/Testing/RunReactPublicE2E.ps1 -Browser chromium", "Chromium regression under the node browser lock"),
-    ("with-node-browser-lock.sh bash Deployment/LocalCluster/Scripts/ci-docker-smoke.sh", "Docker and browser smoke under the node browser lock"),
+    ("bash Deployment/Common/Scripts/Tests/test-with-runner-build-admission.sh", "runner build admission behaviour tests"),
 ]:
     require_contains(".github/workflows/ci.yml", needle, why)
-for line in read(".github/workflows/ci.yml").splitlines():
-    runs_browser_or_smoke = "RunReactPublicE2E.ps1" in line or re.search(r"Deployment/LocalCluster/Scripts/ci-docker-smoke\.sh", line)
-    if runs_browser_or_smoke and "--cleanup-only" not in line and "with-node-browser-lock.sh" not in line:
-        fail(f".github/workflows/ci.yml: browser and Docker smoke commands must run under the node browser lock: {line.strip()}")
+ci = read(".github/workflows/ci.yml")
+for job_id, step_name, expected_command in [
+    ("validate", "Build and smoke the Blazor image", "Deployment/LocalCluster/Scripts/ci-docker-smoke.sh"),
+    ("validate", "Remove this run's smoke resources after interruption", "--cleanup-only"),
+    ("publish-main", "Docker smoke and browser smoke", "Deployment/LocalCluster/Scripts/ci-docker-smoke.sh"),
+    ("publish-main", "Remove this run's smoke resources after interruption", "--cleanup-only"),
+]:
+    step = workflow_step_text(workflow_job_text(ci, job_id), step_name)
+    if not step or "with-runner-build-admission.sh" not in step or expected_command not in step:
+        fail(f".github/workflows/ci.yml: {job_id}/{step_name} must use runner admission")
 
 if failures:
     print("Deployment audit failed:")

@@ -7,9 +7,12 @@ import argparse
 import sys
 from pathlib import Path
 
-SUPPORTED_PROFILES = ("BlazorAuto", "React")
+SUPPORTED_PROFILES = ("BlazorAuto",)
 ACCEPTANCE_PROFILE_BY_FRONTEND = {
     "BlazorAuto": "BlazorAutoV1",
+}
+LEGACY_INSTANCE_ACCEPTANCE_PROFILE_BY_FRONTEND = {
+    # Existing shared-host React instances keep their acceptance contract during this product cleanup.
     "React": "ReactPublicV1",
 }
 
@@ -29,9 +32,9 @@ def resolve_frontend_profile(profile_file: Path | str, override: str | None = No
 
     profile = raw_value.strip()
     if not profile:
-        raise ValueError(f"{source} is empty; expected exactly BlazorAuto or React")
+        raise ValueError(f"{source} is empty; expected exactly BlazorAuto")
     if profile not in SUPPORTED_PROFILES:
-        raise ValueError(f"{source} must be exactly BlazorAuto or React after trimming whitespace")
+        raise ValueError(f"{source} must be exactly BlazorAuto after trimming whitespace")
     return profile
 
 
@@ -41,6 +44,13 @@ def acceptance_profile_for_frontend(frontend_profile: str) -> str:
         return ACCEPTANCE_PROFILE_BY_FRONTEND[frontend_profile]
     except KeyError as exc:
         raise ValueError(f"unsupported frontend profile for acceptance: {frontend_profile!r}") from exc
+
+
+def acceptance_profile_for_legacy_instance(frontend_profile: str) -> str:
+    """Resolve legacy acceptance contracts used by existing independent deployment instances."""
+    if frontend_profile in LEGACY_INSTANCE_ACCEPTANCE_PROFILE_BY_FRONTEND:
+        return LEGACY_INSTANCE_ACCEPTANCE_PROFILE_BY_FRONTEND[frontend_profile]
+    return acceptance_profile_for_frontend(frontend_profile)
 
 
 def main(argv: list[str] | None = None) -> int:

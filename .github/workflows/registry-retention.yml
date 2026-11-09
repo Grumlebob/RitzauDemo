@@ -424,15 +424,10 @@ jobs:
 
       - name: Resolve configured payload packages
         id: packages
-        env:
-          ADDITIONAL_FRONTEND_PROFILES: ${{ vars.ADDITIONAL_FRONTEND_PROFILES }}
         run: |
           set -euo pipefail
-          profile="$(python3 Scripts/Frontend/resolve_frontend_profile.py)"
-          output="$RUNNER_TEMP/registry-release-plan.env"
-          RESOLVED_FRONTEND_PROFILE="$profile" GITHUB_OUTPUT="$output" python3 Scripts/CI/frontend_release_plan.py
+          python3 Scripts/Frontend/resolve_frontend_profile.py >/dev/null
           printf 'primary=%s\n' "$(bash Deployment/Common/Scripts/read-release-setting.sh release_payload_image)" >> "$GITHUB_OUTPUT"
-          cat "$output" >> "$GITHUB_OUTPUT"
 
       - name: Prune bounded GHCR payload roots under the shared deployment lock
         env:
@@ -452,10 +447,6 @@ jobs:
           if [[ "$REGISTRY_RETENTION_APPLY" == "true" ]]; then apply+=(--apply); fi
           packages=(--package "${{ steps.packages.outputs.primary }}=private")
           retained_bootstraps=(--retain-manifest "${{ steps.packages.outputs.primary }}@sha256:25fef0757d76c56cd980dca6cde1e156ab7a2daa902306ab48da4e12a6e7343f")
-          if [[ -n "${{ steps.packages.outputs.additional_payload_image }}" ]]; then
-            packages+=(--package "${{ steps.packages.outputs.additional_payload_image }}=private")
-            retained_bootstraps+=(--retain-manifest "${{ steps.packages.outputs.additional_payload_image }}@sha256:25fef0757d76c56cd980dca6cde1e156ab7a2daa902306ab48da4e12a6e7343f")
-          fi
           decode_protection() {
             local encoded="$1"
             if (( ${#encoded} == 0 || ${#encoded} > 8192 )) || \

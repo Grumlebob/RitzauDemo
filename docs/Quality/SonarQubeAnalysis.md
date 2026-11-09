@@ -1,14 +1,14 @@
 # On-demand source quality audit
 
-SonarQube reviews source, test results, and coverage. Lighthouse measures a running page; see [Lighthouse](../Test.md#lighthouse-performance). Audits run only when invoked. They do not run in builds, CI, pull requests, app startup, deployment, or schedules. The quality gate is informational; normal build and test checks remain authoritative.
+SonarQube reviews Blazor source, .NET test results, and coverage. Audits run only when invoked. They do not run in builds, CI, pull requests, app startup, deployment, or schedules. The quality gate is informational; normal build and test checks remain authoritative.
 
 ## Requirements and modes
 
-Full mode is supported on Windows with PowerShell 7, Docker Desktop using Linux containers, Git, the .NET SDK, Python, and the pinned Node/npm runtime when React is included. It provisions a repository-scoped local SonarQube stack. The first free port in `9200`–`9299` is selected and saved in ignored local settings; another port owner is never stopped. Pinned versions are in [`tool-versions.json`](../../Scripts/Quality/tool-versions.json).
+Full mode is supported on Windows with PowerShell 7, Docker Desktop using Linux containers, Git, the .NET SDK, and Python. It provisions a repository-scoped local SonarQube stack. The first free port in `9200`–`9299` is selected and saved in ignored local settings; another port owner is never stopped. Pinned versions are in [`tool-versions.json`](../../Scripts/Quality/tool-versions.json).
 
-Quick mode runs the opt-in `SonarAnalyzer.CSharp` build analyzer. It needs no SonarQube server or Node/npm, accepts dirty source, and restores the normal selected-profile NuGet graph before it exits. Quick mode does not upload analysis or provide Full-mode coverage and server reports.
+Quick mode runs the opt-in `SonarAnalyzer.CSharp` build analyzer. It needs no SonarQube server, accepts dirty source, and restores the normal selected-profile NuGet graph before it exits. Quick mode does not upload analysis or provide Full-mode coverage and server reports.
 
-Full mode fetches `origin/main` and analyzes that commit in detached worktrees by default. Use `-Candidate` for a clean, committed tooling candidate; candidate projects do not count as trusted baselines. Both modes run `BlazorAuto` and `React` sequentially by default. Choose one with `-FrontendProfile BlazorAuto` or `-FrontendProfile React`.
+Full mode fetches `origin/main` and analyzes that commit in a detached worktree by default. Use `-Candidate` for a clean, committed tooling candidate; candidate projects do not count as trusted baselines. The audit analyzes the single `BlazorAuto` profile.
 
 ## Run an audit
 
@@ -18,7 +18,7 @@ Run PowerShell commands from the repository root. Quick mode is the fast analyze
 pwsh -NoProfile -File Scripts/Quality/Invoke-CodeQualityAudit.ps1 -Mode Quick
 ```
 
-Run Full mode for both profiles:
+Run Full mode:
 
 ```powershell
 pwsh -NoProfile -File Scripts/Quality/Invoke-CodeQualityAudit.ps1
@@ -49,9 +49,9 @@ Open the loopback URL reported by the command. Stop only this repository's stack
 
 Full reports are in the private per-user `reports/<runId>/` directory. `summary.json` and `batch.md` link to profile summaries, reports, and logs. Quick reports are in ignored `artifacts/quality/quick/`.
 
-Each Full profile report binds results to one analysis, source SHA, project, profile, version, and settings digest. The Markdown report summarizes findings; `report.json` contains validated issue and measure data. The batch report compares profiles; do not add their shared LOC or average their coverage.
+The Full report binds results to one analysis, source SHA, project, version, and settings digest. The Markdown report summarizes findings; `report.json` contains validated issue and measure data.
 
-Reports state source scope, exclusions, test counts, coverage evidence, security-hotspot status, and gate result. C# tests use Microsoft XML coverage. React runs `npm ci`, API contract validation, typecheck, and ordinary Vitest coverage tests before analysis. Both .NET profiles validate approved suite counts and direct collector reports. Missing or unresolved coverage fails the scan instead of appearing as zero or passing.
+Reports state source scope, exclusions, .NET test counts, coverage evidence, security-hotspot status, and gate result. Tests use Microsoft XML coverage. Missing or unresolved coverage fails the scan instead of appearing as zero or passing.
 
 File risk is a ranking heuristic based on cognitive complexity, 180-day churn, uncovered lines, and reliability/security issues. It is not a defect probability. A failed SonarQube gate remains an observation; inspect source before planning a change.
 
@@ -81,4 +81,4 @@ For a personal MCP client, register a stdio command that invokes `pwsh -NoProfil
 
 ## Local settings
 
-Copy [`quality-settings.example.json`](../../Scripts/Quality/quality-settings.example.json) to the ignored `Scripts/Quality/quality-settings.local.json` to set a private port override or explicit Node/Python executable. `-SettingsPath` accepts another file with the same schema. Remote server URLs and project-key overrides are rejected. For repository identity, encrypted credentials, backup, and upgrade procedures, use [SonarQube maintenance](SonarQubeMaintenance.md).
+Copy [`quality-settings.example.json`](../../Scripts/Quality/quality-settings.example.json) to the ignored `Scripts/Quality/quality-settings.local.json` to set a private port override or Python executable. `-SettingsPath` accepts another file with the same schema. Remote server URLs and project-key overrides are rejected. For repository identity, encrypted credentials, backup, and upgrade procedures, use [SonarQube maintenance](SonarQubeMaintenance.md).

@@ -508,42 +508,21 @@ def _check_path_alignment(
 
 
 def build_scope_evidence(profile: str, tree: list[dict[str, Any]]) -> dict[str, Any]:
+    if profile != "BlazorAuto":
+        raise ValueError(f"Unsupported frontend profile: {profile}.")
     by_path = {normalize_component_path(item.get("path", ""), ""): item for item in tree}
     paths = set(by_path)
-    if profile == "BlazorAuto":
-        expected = {
-            "bookGeometry": "GrumPlates.Client/Features/Books/Shared/BookCoverGeometry.cs",
-            "bookRazor": "GrumPlates.Client/Features/Books/Shared/BookCoverRenderer.razor",
-            "sharedCore": next((path for path in sorted(paths) if path.startswith("GrumPlates.Core/")), ""),
-            "handwrittenCss": "GrumPlates.Client/Styles/input.css",
-        }
-        evidence = {name: bool(path and path in paths) for name, path in expected.items()}
-        unexpected_excluded_paths = sorted(path for path in paths if path.startswith("GrumPlates.React/"))
-        evidence["reactImplementationExcluded"] = not unexpected_excluded_paths
-        evidence["details"] = {name: path or None for name, path in expected.items()}
-        evidence["unexpectedReactFiles"] = unexpected_excluded_paths[:10]
-        return evidence
-
-    catalog = "GrumPlates.React/app/features/books/catalog-page.tsx"
-    api_client = "GrumPlates.React/app/api/client.ts"
-    api_item = by_path.get(api_client, {})
-    api_metrics = {measure.get("metric"): measure.get("value") for measure in api_item.get("measures", [])}
-    coverage_value = api_metrics.get("coverage")
-    covered_api_client = coverage_value is not None and float(coverage_value) > 0
     expected = {
-        "reactComposition": "GrumPlates/Frontend/FrontendComposition.React.cs",
-        "openApiHosting": "GrumPlates/Frontend/OpenApi/OpenApiMetadataHosting.cs",
-        "catalogPage": catalog,
-        "testedApiModule": api_client,
+        "bookGeometry": "GrumPlates.Client/Features/Books/Shared/BookCoverGeometry.cs",
+        "bookRazor": "GrumPlates.Client/Features/Books/Shared/BookCoverRenderer.razor",
+        "sharedCore": next((path for path in sorted(paths) if path.startswith("GrumPlates.Core/")), ""),
+        "handwrittenCss": "GrumPlates.Client/Styles/input.css",
     }
-    evidence = {name: path in paths for name, path in expected.items()}
-    evidence["testedApiModuleHasCoverage"] = covered_api_client
-    unexpected_excluded_paths = sorted(path for path in paths if path.startswith("GrumPlates.Client/") or
-                                       (path.startswith("GrumPlates/") and path.lower().endswith((".razor", ".razor.js"))))
-    evidence["blazorImplementationExcluded"] = not unexpected_excluded_paths
-    evidence["details"] = dict(expected)
-    evidence["apiModuleCoverage"] = coverage_value
-    evidence["unexpectedBlazorFiles"] = unexpected_excluded_paths[:10]
+    evidence = {name: bool(path and path in paths) for name, path in expected.items()}
+    unexpected_legacy_paths = sorted(path for path in paths if path.startswith("GrumPlates.React/"))
+    evidence["legacyFrontendAbsent"] = not unexpected_legacy_paths
+    evidence["details"] = {name: path or None for name, path in expected.items()}
+    evidence["unexpectedLegacyFrontendFiles"] = unexpected_legacy_paths[:10]
     return evidence
 
 
@@ -693,9 +672,7 @@ def _has_test_counts(value: Any, skipped: int | None) -> bool:
 
 
 def _frontend_evidence_valid(profile: str, tests: dict[str, Any]) -> bool:
-    if profile == "React":
-        return _has_test_counts(tests.get("frontendTests"), 0)
-    return tests.get("frontendTests") == {"status": "not-applicable"}
+    return profile == "BlazorAuto" and tests.get("frontendTests") == {"status": "not-applicable"}
 
 
 def _coverage_evidence_valid(profile: str, evidence: dict[str, Any]) -> bool:
@@ -708,14 +685,14 @@ def _coverage_evidence_valid(profile: str, evidence: dict[str, Any]) -> bool:
     direct_reports = dotnet.get("directReportCount")
     if type(direct_reports) is not int or direct_reports <= 0:
         return False
-    return profile != "React" or coverage.get("reactLcov") == "validated"
+    return profile == "BlazorAuto"
 
 
 def validate_run_evidence(profile: str, evidence: dict[str, Any]) -> tuple[bool, list[str]]:
     warnings: list[str] = []
     if not isinstance(evidence, dict):
         return False, ["Run evidence is missing or invalid."]
-    if profile not in {"BlazorAuto", "React"}:
+    if profile != "BlazorAuto":
         return False, [f"Unsupported frontend profile: {profile}."]
     tests = evidence.get("tests")
     if not isinstance(tests, dict):
@@ -725,10 +702,7 @@ def validate_run_evidence(profile: str, evidence: dict[str, Any]) -> tuple[bool,
         warnings.append("The approved .NET suite result counts are missing or invalid.")
     valid_frontend = _frontend_evidence_valid(profile, tests)
     if not valid_frontend:
-        if profile == "React":
-            warnings.append("The approved React unit-test result counts are missing or invalid.")
-        else:
-            warnings.append("BlazorAuto run evidence must mark React unit tests as not applicable.")
+        warnings.append("BlazorAuto run evidence must mark frontend-specific test counts as not applicable.")
     valid_coverage = _coverage_evidence_valid(profile, evidence)
     if not valid_coverage:
         warnings.append("Required production coverage evidence is missing or invalid.")
@@ -822,7 +796,6 @@ def _render_report_overview(report: dict[str, Any]) -> list[str]:
     test_counts = _mapping(evidence.get("tests"))
     coverage_evidence = _mapping(evidence.get("coverage"))
     dotnet_tests = _mapping(test_counts.get("dotnet"))
-    frontend_tests = _mapping(test_counts.get("frontendTests"))
     dotnet_coverage = _mapping(coverage_evidence.get("dotnet"))
     hotspot_data = _mapping(report.get("hotspots"))
     lines.extend((
@@ -830,7 +803,6 @@ def _render_report_overview(report: dict[str, Any]) -> list[str]:
         "## Run evidence",
         "",
         f"- .NET tests: {dotnet_tests.get('passed', 'n/a')} passed, {dotnet_tests.get('skipped', 'n/a')} expected skips; TRX `{dotnet_tests.get('result', 'n/a')}`.",
-        f"- React tests: {frontend_tests.get('passed', 'n/a')} passed, {frontend_tests.get('skipped', 'n/a')} skipped; {coverage_evidence.get('reactLcov', 'not applicable')}.",
         f"- .NET coverage: {'validated' if dotnet_coverage.get('valid') else 'incomplete'}; production files with hits: {len(dotnet_coverage.get('coveredProductionSources', []))}.",
         f"- Indexed files: {len(report['files'])}; open issues: {len(issues)}; security hotspots: {len(hotspot_data.get('items', []))} ({hotspot_data.get('status', 'unavailable')}).",
     ))
@@ -963,7 +935,7 @@ def parse_args(argv: list[str] | None) -> argparse.Namespace:
     parser.add_argument("--repo-root", required=True)
     parser.add_argument("--out-dir", required=True)
     parser.add_argument("--repository-identity", required=True)
-    parser.add_argument("--frontend-profile", choices=("BlazorAuto", "React"), required=True)
+    parser.add_argument("--frontend-profile", choices=("BlazorAuto",), required=True)
     parser.add_argument("--sha", required=True)
     parser.add_argument("--analysis-id", required=True)
     parser.add_argument("--project-version", required=True)

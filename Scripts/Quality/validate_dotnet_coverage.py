@@ -135,7 +135,7 @@ def _production_modules(modules_by_name: dict[str, dict[str, int]]) -> dict[str,
 
 
 def validate_reports(tests_directory: Path, repo_root: Path, profile: str) -> dict[str, Any]:
-    if profile not in {"BlazorAuto", "React"}:
+    if profile != "BlazorAuto":
         raise ValueError(f"Unsupported frontend profile: {profile}")
 
     reports = _coverage_reports(tests_directory)
@@ -158,7 +158,7 @@ def validate_reports(tests_directory: Path, repo_root: Path, profile: str) -> di
     if not any(counts["coveredLines"] > 0 for counts in production.values()):
         raise ValueError("Coverage report has no covered production source lines.")
 
-    expected_root = "GrumPlates.Client/" if profile == "BlazorAuto" else "GrumPlates/"
+    expected_root = "GrumPlates.Client/"
     expected_sources = sorted(source for source in covered_sources if source.startswith(expected_root))
     if not expected_sources:
         raise ValueError(f"Coverage contains no covered source in the {profile} production composition.")
@@ -185,7 +185,7 @@ def main(argv: list[str] | None = None) -> int:
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("--tests-directory", type=Path, required=True)
     parser.add_argument("--repo-root", type=Path, required=True)
-    parser.add_argument("--frontend-profile", choices=("BlazorAuto", "React"), required=True)
+    parser.add_argument("--frontend-profile", choices=("BlazorAuto",), required=True)
     parser.add_argument("--output-json", type=Path, required=True)
     args = parser.parse_args(argv)
 

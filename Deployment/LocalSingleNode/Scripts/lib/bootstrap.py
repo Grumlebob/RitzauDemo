@@ -79,7 +79,7 @@ def main():
     try:
         begin(1, "OS packages and approved node name")
         packages = ["git", "gh", "curl", "openssh-server", "avahi-daemon", "libnss-mdns", "python3-venv", "python3-pip", "sshpass", "iproute2", "ca-certificates"]
-        for action in (["update"], ["install", "-y", "--no-install-recommends", *packages]):
+        for action in (["update"], ["install", "-y", "--no-install-recommends", "--no-upgrade", *packages]):
             for attempt in range(3):
                 try:
                     run("timeout", "--foreground", "600", "apt-get", *action, stdin=subprocess.DEVNULL, env={**os.environ, "DEBIAN_FRONTEND": "noninteractive"})

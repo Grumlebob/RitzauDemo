@@ -172,74 +172,6 @@ function Test-QualityPortAvailable {
     finally { $listener.Stop() }
 }
 
-function Get-QualityNodeRuntime {
-    [CmdletBinding()]
-    param([Parameter(Mandatory)]$ToolVersions, [string]$ConfiguredDirectory)
-
-    $version = [string]$ToolVersions.node.version
-    $candidates = [Collections.Generic.List[string]]::new()
-    if (-not [string]::IsNullOrWhiteSpace($ConfiguredDirectory)) {
-        $configured = [IO.Path]::GetFullPath($ConfiguredDirectory)
-        $candidates.Add((Join-Path $configured 'node.exe'))
-        $candidates.Add((Join-Path $configured 'bin/node.exe'))
-    }
-    foreach ($command in @(Get-Command node.exe, node -CommandType Application -ErrorAction SilentlyContinue)) {
-        if ($command.Source) { $candidates.Add($command.Source) }
-    }
-    if (-not [string]::IsNullOrWhiteSpace($env:LOCALAPPDATA)) {
-        $candidates.Add((Join-Path $env:LOCALAPPDATA "Programs/nodejs/v$version/node.exe"))
-    }
-    $seen = [Collections.Generic.HashSet[string]]::new([StringComparer]::OrdinalIgnoreCase)
-    foreach ($node in $candidates) {
-        if (-not $seen.Add($node) -or -not (Test-Path -LiteralPath $node -PathType Leaf)) { continue }
-        $nodeDirectory = Split-Path -Parent $node
-        $npmCli = Join-Path $nodeDirectory 'node_modules/npm/bin/npm-cli.js'
-        if (-not (Test-Path -LiteralPath $npmCli -PathType Leaf)) { continue }
-        $probe = [Diagnostics.ProcessStartInfo]::new()
-        $probe.FileName = $node
-        $probe.UseShellExecute = $false
-        $probe.RedirectStandardOutput = $true
-        $probe.RedirectStandardError = $true
-        $probe.ArgumentList.Add('--version')
-        $process = [Diagnostics.Process]::new()
-        $process.StartInfo = $probe
-        try {
-            if (-not $process.Start()) { continue }
-            $stdoutTask = $process.StandardOutput.ReadToEndAsync()
-            $stderrTask = $process.StandardError.ReadToEndAsync()
-            if (-not $process.WaitForExit(10000)) { $process.Kill($true); continue }
-            $actual = $stdoutTask.GetAwaiter().GetResult().Trim().TrimStart('v')
-            $null = $stderrTask.GetAwaiter().GetResult()
-            if ($process.ExitCode -eq 0 -and $actual -eq $version) {
-                $npmProbe = [Diagnostics.ProcessStartInfo]::new()
-                $npmProbe.FileName = $node
-                $npmProbe.UseShellExecute = $false
-                $npmProbe.RedirectStandardOutput = $true
-                $npmProbe.RedirectStandardError = $true
-                $npmProbe.ArgumentList.Add($npmCli)
-                $npmProbe.ArgumentList.Add('--version')
-                $npmProcess = [Diagnostics.Process]::new()
-                $npmProcess.StartInfo = $npmProbe
-                try {
-                    if (-not $npmProcess.Start()) { continue }
-                    $npmOut = $npmProcess.StandardOutput.ReadToEndAsync()
-                    $npmErr = $npmProcess.StandardError.ReadToEndAsync()
-                    if (-not $npmProcess.WaitForExit(15000)) { $npmProcess.Kill($true); continue }
-                    $npmVersion = $npmOut.GetAwaiter().GetResult().Trim()
-                    $null = $npmErr.GetAwaiter().GetResult()
-                    if ($npmProcess.ExitCode -eq 0 -and $npmVersion -eq [string]$ToolVersions.node.npmVersion) {
-                        return [pscustomobject]@{ NodeExecutable = [IO.Path]::GetFullPath($node); NpmCli = [IO.Path]::GetFullPath($npmCli); NodeVersion = $actual; NpmVersion = $npmVersion }
-                    }
-                }
-                finally { $npmProcess.Dispose() }
-            }
-        }
-        catch { }
-        finally { $process.Dispose() }
-    }
-    throw "Pinned Node $version and npm $($ToolVersions.node.npmVersion) were not found. Run the documented user-local tool setup or set nodeToolchainDirectory in ignored quality settings."
-}
-
 function Get-QualityPythonExecutable {
     [CmdletBinding()]
     param([string]$ConfiguredExecutable)
@@ -306,7 +238,7 @@ function Get-QualityContext {
     $settingsSources.Add($defaults)
 
     $settingValues = @{}
-    foreach ($name in @('hostPort', 'nodeToolchainDirectory', 'pythonExecutable')) {
+    foreach ($name in @('hostPort', 'pythonExecutable')) {
         $settingValues[$name] = $null
         foreach ($source in $settingsSources) {
             if ($source.ContainsKey($name) -and $null -ne $source[$name]) { $settingValues[$name] = $source[$name]; break }
@@ -335,7 +267,6 @@ function Get-QualityContext {
     $effectiveSettings = [ordered]@{
         schema = 'grumplates.sonar-settings/1'
         hostPort = $hostPort
-        nodeToolchainConfigured = [bool]$settingValues.nodeToolchainDirectory
         pythonExecutableConfigured = [bool]$settingValues.pythonExecutable
     }
     $effectiveJson = $effectiveSettings | ConvertTo-Json -Depth 4 -Compress
@@ -349,7 +280,7 @@ function Get-QualityContext {
         RepositorySlug = $slug
         ComposeProject = $composeProject
         ComposeNetwork = "$composeProject-network"
-        ProjectKeys = [pscustomobject]@{ BlazorAuto = "$slug-$hash8-BlazorAuto"; React = "$slug-$hash8-React" }
+        ProjectKeys = [pscustomobject]@{ BlazorAuto = "$slug-$hash8-BlazorAuto" }
         BaseDirectory = $baseDirectory
         PrivateSettingsPath = $privateSettingsPath
         SecretsDirectory = Join-Path $baseDirectory 'secrets'
@@ -365,11 +296,6 @@ function Get-QualityContext {
         GitExecutable = [IO.Path]::GetFullPath($gitCommand.Source)
         DockerExecutable = if ($dockerCommand -and $dockerCommand.Source) { [IO.Path]::GetFullPath($dockerCommand.Source) } else { $null }
         PythonExecutable = $python
-        NodeToolchainDirectory = $settingValues.nodeToolchainDirectory
-        NodeExecutable = $null
-        NpmCli = $null
-        NodeVersion = $null
-        NpmVersion = $null
         SettingsSnapshot = $effectiveJson
         SettingsDigest = $settingsDigest
         PrivateSettings = $privateSettings
@@ -772,7 +698,7 @@ function Wait-QualityServer {
 Export-ModuleMember -Function @(
     'Get-QualityToolVersions', 'ConvertTo-RepositoryIdentity', 'Get-QualityRepositoryIdentity',
     'Get-QualityBaseDirectory', 'Get-QualitySettingsDocument', 'Get-QualityPrivateSettings',
-    'Test-QualityPortAvailable', 'Get-QualityNodeRuntime', 'Get-QualityPythonExecutable',
+    'Test-QualityPortAvailable', 'Get-QualityPythonExecutable',
     'Get-QualityContext', 'Resolve-QualityHostPort', 'Save-QualityPrivateSettings', 'Enter-QualityLock', 'Exit-QualityLock',
     'Protect-QualityText', 'ConvertTo-QualityDisplayArguments', 'Invoke-QualityProcess',
     'Test-QualityPathWithinRoot', 'Assert-QualitySafeChildPath', 'Remove-QualityScannerState',

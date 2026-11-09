@@ -22,16 +22,6 @@ internal static class E2EArtifactPaths
         return Path.Combine(pathParts);
     }
 
-    public static string VisualBaselinePath(params string[] segments)
-    {
-        var pathParts = new string[segments.Length + 3];
-        pathParts[0] = RepositoryRoot;
-        pathParts[1] = "artifacts";
-        pathParts[2] = "visual-baseline";
-        Array.Copy(segments, 0, pathParts, 3, segments.Length);
-        return Path.Combine(pathParts);
-    }
-
     private static string FindRepositoryRoot()
     {
         var current = new DirectoryInfo(AppContext.BaseDirectory);

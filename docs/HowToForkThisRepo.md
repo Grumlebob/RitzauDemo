@@ -30,16 +30,9 @@ Choose these values once and use them consistently:
 
 Update the first README paragraph and the local settings in `.env.example`, `GrumPlates/appsettings.json`, and `GrumPlates/appsettings.Docker.json`. Keep internal project and namespace names unless you are doing a planned rebrand. See [running locally](HowToRunLocally.md) for creating the ignored `.env` file.
 
-## Choose the frontend and sample feature
+## Frontend and sample feature
 
-The template selects Blazor Auto in `frontend-profile.txt`. For a public-only React product, set `React` and run the profile resolver:
-
-```bash
-printf 'React\n' > frontend-profile.txt
-python3 Scripts/Frontend/resolve_frontend_profile.py
-```
-
-The sample Books feature can stay while the fork is deployed, then be replaced in small slices using [How to add a feature](HowToAddANewFeature.md). Remove sample data and update the feature's server, client, tests, documentation, and observability together when replacing it.
+RitzauDemo supports one frontend: Blazor Auto. Keep `frontend-profile.txt` set to `BlazorAuto`. The Books CRUD example can stay while the fork is deployed, then be replaced in small slices using [How to add a feature](HowToAddANewFeature.md). Update the server, Blazor client, focused tests and documentation together when replacing it.
 
 ## Set shared release settings
 
@@ -57,4 +50,4 @@ Make customization changes on a branch. Run the [local gate](Test.md#local-gate)
 
 ## Make a standalone product
 
-When the fork becomes a product of its own rather than a configured copy, follow [Standalone product](StandaloneProduct.md). It orders the seed, the [React-only clone](Frontend/ReactOnlyClone.md), target removal, the rename and the template-material cleanup. If the clone keeps the template as an `upstream` remote, run `gh repo set-default <owner>/<repo>` first; otherwise `gh` acts on the template.
+When the fork becomes a product of its own rather than a configured copy, follow [Standalone product](StandaloneProduct.md). It orders target removal, the rename and template-material cleanup. If the clone keeps the template as an `upstream` remote, run `gh repo set-default <owner>/<repo>` first; otherwise `gh` acts on the template.

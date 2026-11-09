@@ -82,7 +82,7 @@ class McpProbeArgumentTests(unittest.TestCase):
     def test_project_default_removes_project_key_from_measures_schema(self):
         schema = {"properties": {"metricKeys": {"type": "array"}}}
         self.assertEqual(
-            probe.build_tool_arguments("get_component_measures", schema, "repo-React"),
+            probe.build_tool_arguments("get_component_measures", schema, "repo-BlazorAuto"),
             {"metricKeys": ["ncloc", "coverage"]},
         )
 

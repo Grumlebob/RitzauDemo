@@ -27,25 +27,23 @@ class FrontendProfileResolverTests(unittest.TestCase):
     def tearDown(self) -> None:
         self.temp.cleanup()
 
-    def test_tracked_profile_is_supported_and_template_keeps_blazor_auto(self) -> None:
+    def test_tracked_profile_is_the_only_supported_profile(self) -> None:
         tracked = resolver.resolve_frontend_profile(REPOSITORY_ROOT / "frontend-profile.txt")
         self.assertIn(tracked, resolver.SUPPORTED_PROFILES)
-        # The template itself ships BlazorAuto. A clone with its own release identity
-        # may select React (docs/HowToForkThisRepo.md) without editing this test.
+        self.assertEqual(tracked, "BlazorAuto")
         release = (REPOSITORY_ROOT / "Deployment" / "Common" / "release.yml").read_text(encoding="utf-8")
         if re.search(r"(?m)^app_image:\s*ghcr\.io/grumlebob/books\s*$", release):
             self.assertEqual(tracked, "BlazorAuto")
 
     def test_acceptance_profile_is_paired_with_frontend(self) -> None:
         self.assertEqual(resolver.acceptance_profile_for_frontend("BlazorAuto"), "BlazorAutoV1")
-        self.assertEqual(resolver.acceptance_profile_for_frontend("React"), "ReactPublicV1")
         with self.assertRaisesRegex(ValueError, "unsupported frontend profile"):
-            resolver.acceptance_profile_for_frontend("unknown")
+            resolver.acceptance_profile_for_frontend("React")
 
     def test_file_value_is_trimmed(self) -> None:
-        self.profile_file.write_text(" \tReact \r\n", encoding="utf-8")
+        self.profile_file.write_text(" \tBlazorAuto \r\n", encoding="utf-8")
 
-        self.assertEqual(resolver.resolve_frontend_profile(self.profile_file), "React")
+        self.assertEqual(resolver.resolve_frontend_profile(self.profile_file), "BlazorAuto")
 
     def test_missing_file_is_rejected(self) -> None:
         with self.assertRaisesRegex(ValueError, "cannot read frontend profile file"):
@@ -58,36 +56,36 @@ class FrontendProfileResolverTests(unittest.TestCase):
             resolver.resolve_frontend_profile(self.profile_file)
 
     def test_unknown_or_multiple_values_are_rejected(self) -> None:
-        for value in ("react\n", "BlazorAuto\nReact\n"):
+        for value in ("React\n", "BlazorAuto\nReact\n"):
             with self.subTest(value=value):
                 self.profile_file.write_text(value, encoding="utf-8")
                 with self.assertRaisesRegex(ValueError, "must be exactly"):
                     resolver.resolve_frontend_profile(self.profile_file)
 
     def test_explicit_override_is_trimmed_and_does_not_require_a_file(self) -> None:
-        self.assertEqual(resolver.resolve_frontend_profile(self.profile_file, " React "), "React")
+        self.assertEqual(resolver.resolve_frontend_profile(self.profile_file, " BlazorAuto "), "BlazorAuto")
 
     def test_invalid_override_is_rejected(self) -> None:
         self.profile_file.write_text("BlazorAuto", encoding="utf-8")
 
         with self.assertRaisesRegex(ValueError, "must be exactly"):
-            resolver.resolve_frontend_profile(self.profile_file, "react")
+            resolver.resolve_frontend_profile(self.profile_file, "React")
 
     def test_cli_emits_only_the_canonical_profile(self) -> None:
         self.profile_file.write_text("BlazorAuto\n", encoding="utf-8")
         result = subprocess.run(
-            [sys.executable, str(RESOLVER_PATH), "--profile-file", str(self.profile_file), "--override", " React "],
+            [sys.executable, str(RESOLVER_PATH), "--profile-file", str(self.profile_file), "--override", " BlazorAuto "],
             check=False,
             capture_output=True,
             text=True,
         )
 
         self.assertEqual(result.returncode, 0, result.stderr)
-        self.assertEqual(result.stdout, "React\n")
+        self.assertEqual(result.stdout, "BlazorAuto\n")
         self.assertEqual(result.stderr, "")
 
     def test_cli_emits_acceptance_profile_for_selected_frontend(self) -> None:
-        self.profile_file.write_text("React\n", encoding="utf-8")
+        self.profile_file.write_text("BlazorAuto\n", encoding="utf-8")
         result = subprocess.run(
             [sys.executable, str(RESOLVER_PATH), "--profile-file", str(self.profile_file), "--acceptance-profile"],
             check=False,
@@ -96,7 +94,7 @@ class FrontendProfileResolverTests(unittest.TestCase):
         )
 
         self.assertEqual(result.returncode, 0, result.stderr)
-        self.assertEqual(result.stdout, "ReactPublicV1\n")
+        self.assertEqual(result.stdout, "BlazorAutoV1\n")
         self.assertEqual(result.stderr, "")
 
     def test_missing_selected_profile_file_fails(self) -> None:
@@ -149,8 +147,8 @@ class MsBuildFrontendProfileTests(unittest.TestCase):
                 env=environment,
             )
 
-    def test_msbuild_accepts_react_from_the_profile_file(self) -> None:
-        result = self.run_profile_target(" React \n")
+    def test_msbuild_accepts_blazor_auto_from_the_profile_file(self) -> None:
+        result = self.run_profile_target(" BlazorAuto \n")
 
         self.assertEqual(result.returncode, 0, result.stdout + result.stderr)
 
@@ -161,17 +159,18 @@ class MsBuildFrontendProfileTests(unittest.TestCase):
         self.assertIn("missing or empty", result.stdout + result.stderr)
 
     def test_msbuild_rejects_empty_and_invalid_files(self) -> None:
-        for content, message in ((" \n", "missing or empty"), ("react\n", "Invalid frontend profile")):
+        for content, message in ((" \n", "missing or empty"), ("React\n", "Invalid frontend profile")):
             with self.subTest(content=content):
                 result = self.run_profile_target(content)
 
                 self.assertNotEqual(result.returncode, 0)
                 self.assertIn(message, result.stdout + result.stderr)
 
-    def test_explicit_msbuild_override_is_validated(self) -> None:
+    def test_msbuild_rejects_react_override(self) -> None:
         result = self.run_profile_target("BlazorAuto\n", override="React")
 
-        self.assertEqual(result.returncode, 0, result.stdout + result.stderr)
+        self.assertNotEqual(result.returncode, 0)
+        self.assertIn("Invalid frontend profile", result.stdout + result.stderr)
 
     def test_msbuild_does_not_select_from_environment(self) -> None:
         for variable_name in ("FrontendProfile", "FRONTENDPROFILE", "frontendprofile"):

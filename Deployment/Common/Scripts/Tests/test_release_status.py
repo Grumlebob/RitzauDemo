@@ -66,8 +66,8 @@ class ReleaseStatusTests(TestCase):
             "source_repo_url": self.repository_url,
             "image": "ghcr.io/grumlebob/books",
             "digest": "sha256:" + "b" * 64,
-            "frontend_profile": "React",
-            "acceptance_profile": "ReactPublicV1",
+            "frontend_profile": "BlazorAuto",
+            "acceptance_profile": "BlazorAutoV1",
             "manifest_schema_version": 2,
             "ci_run_id": "12345",
             "ci_run_attempt": "2",
@@ -78,14 +78,14 @@ class ReleaseStatusTests(TestCase):
     def test_summarizes_supported_release_marker_without_returning_extra_fields(self):
         result = summarize_marker(self.marker, repository_url=self.repository_url, app_image=self.marker["image"])
         self.assertEqual(result["source_sha"], self.marker["source_sha"])
-        self.assertEqual(result["frontend_profile"], "React")
+        self.assertEqual(result["frontend_profile"], "BlazorAuto")
         self.assertEqual(result["release_payload_pin_key"], self.marker["release_payload_pin_key"])
         self.assertNotIn("source_repo_url", result)
 
     def test_rejects_wrong_repository_profile_transport_and_missing_registry_pin(self):
         for update in (
             {"source_repo_url": "https://github.com/other/repo"},
-            {"frontend_profile": "React", "acceptance_profile": "BlazorAutoV1"},
+            {"frontend_profile": "React", "acceptance_profile": "ReactPublicV1"},
             {"payload_transport": "ghcr-container", "release_payload_pin_key": ""},
             {"payload_transport": "unknown"},
         ):

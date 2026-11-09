@@ -26,7 +26,7 @@ def run_main(extra: list[str], out_dir: str, sarif_dir: Path = FIXTURES) -> tupl
     argv = [
         "--sarif-dir", str(sarif_dir), "--repo-root", FAKE_ROOT, "--out-dir", out_dir,
         "--repository-identity", "github.com/example/grumplates",
-        "--frontend-profile", "React", "--configuration", "Release",
+        "--frontend-profile", "BlazorAuto", "--configuration", "Release",
         "--configuration-digest", "a" * 64,
         "--analyzer-version", "10.35.0.4138", "--run-id", "fixture-run", *extra,
     ]
@@ -123,7 +123,7 @@ class SummaryOutputTests(unittest.TestCase):
         self.assertEqual(code, 0)
         self.assertEqual(summary["schema"], SCHEMA)
         self.assertEqual(summary["repositoryIdentity"], "github.com/example/grumplates")
-        self.assertEqual(summary["frontendProfile"], "React")
+        self.assertEqual(summary["frontendProfile"], "BlazorAuto")
         self.assertEqual(summary["sha"], "abc1234")
         self.assertFalse(summary["dirty"])
         self.assertEqual(summary["configuration"], "Release")

@@ -1,48 +1,18 @@
-# Browser and performance tests
+# Browser smoke
 
-Browser checks are separate from the ordinary test run. Blazor Playwright E2E is opt-in and headed by default. React public browser suites use a dedicated runner and only read public data.
+RitzauDemo keeps one opt-in Playwright E2E. It starts the packaged Blazor app, waits for interactivity, and confirms the hydrated renderer. The Books CRUD integration test covers the create/list/read/update/delete API path; there is no signed-in CRUD browser journey.
 
-## Blazor Playwright E2E
+The CI image smoke starts PostgreSQL, Redis and the built app with run-owned disposable resources. It checks readiness, rendered Blazor HTML, and anonymous `/api/books` authorization before running the browser smoke. A separate deployed-site acceptance checks health and account-route behavior without creating users or writing data.
 
-For the Docker app, start the stack without opening a second browser. Blazor E2E signs in as the local seeded User; it does not register accounts. It reads `Accounts__UserSeed__Email` and `Accounts__UserSeed__Password` from the repository `.env` that `docker/setup-local.ps1` writes, or `E2E_USER_EMAIL` and `E2E_USER_PASSWORD` when both are set. Tests must not change that account. Clear `RUN_E2E` after the run so later test commands do not start browsers unexpectedly.
+Run the local app, then run the single browser test:
 
 ```powershell
 .\Scripts\RunLocal.ps1 -NoBrowser
-dotnet build .\GrumPlates.Test\GrumPlates.Test.csproj
 pwsh .\GrumPlates.Test\bin\Debug\net10.0\playwright.ps1 install chromium
 $env:RUN_E2E='1'
 $env:E2E_BASE_URL='https://localhost:7186'
-dotnet test .\GrumPlates.Test\GrumPlates.Test.csproj --filter "Category=E2E"
+dotnet test .\GrumPlates.Test\GrumPlates.Test.csproj --filter "FullyQualifiedName~RenderModeE2ETests"
 Remove-Item Env:\RUN_E2E,Env:\E2E_BASE_URL -ErrorAction SilentlyContinue
 ```
 
-The browser is visible by default. Set `E2E_HEADLESS=1` only for a CI-style run. `E2E_BASE_URL` defaults to `https://localhost:7186`. For a direct .NET run, use its URL and follow [the local service setup](../HowToRunLocally.md#run-without-docker).
-
-Important settings: `E2E_SLOW_MO_MS` controls visible delay; `E2E_NAVIGATION_TIMEOUT_MS` and `E2E_ACTION_TIMEOUT_MS` set timeouts; `E2E_VIEWPORT_WIDTH` and `E2E_VIEWPORT_HEIGHT` set the viewport. `E2E_CLEANUP_CONNECTION_STRING` is an optional PostgreSQL connection for cleanup; without it, cleanup uses the app connection or local Docker values. For a direct run with several visible desktop and mobile flows, raise `RateLimiting__Global__PermitLimit` to `10000`, `RateLimiting__Api__PermitLimit` to `1000`, and `Accounts__WriteLimit__PermitLimit` to `1000` for that app process only.
-
-Current examples: [Books flows](../../GrumPlates.Test/E2E/Features/Books/BooksE2ETests.cs), [Identity flows](../../GrumPlates.Test/E2E/Features/Accounts/IdentityE2ETests.cs), and [pre-hydration controls](../../GrumPlates.Test/E2E/AppShell/PreHydrationControlsE2ETests.cs). Test files are the coverage inventory. Use shared cleanup for created data; tests must clean up after failures. Failure screenshots and traces are under `TestResults/Playwright`; videos are under `TestResults/Playwright/Videos`. Paths are defined in [E2EArtifactPaths](../../GrumPlates.Test/E2E/Support/E2EArtifactPaths.cs). `TestResults` is generated output and can be deleted.
-
-## React public browser checks
-
-The broad Chromium suite is run by CI. Firefox and WebKit smoke checks are useful before release:
-
-```powershell
-pwsh .\Scripts\Testing\RunReactPublicE2E.ps1 -Browser chromium -Suite broad -Configuration Release
-pwsh .\Scripts\Testing\RunReactPublicE2E.ps1 -Browser firefox -Suite smoke -Configuration Release -ReuseFrontendBuild
-pwsh .\Scripts\Testing\RunReactPublicE2E.ps1 -Browser webkit -Suite smoke -Configuration Release -ReuseFrontendBuild
-```
-
-The React runner builds a React-profile host and its own disposable services. The public browser checks do not create accounts or send writes. Each suite validates its expected discovery and result count. Install the matching Playwright browsers if the runner reports a missing binary. React package unit checks are in [Frontend/React](../Frontend/React.md).
-
-## Lighthouse Performance
-
-The client npm lockfile pins Lighthouse. Reports are generated under `TestResults/Lighthouse`. Start the Docker app, then run:
-
-```powershell
-.\Scripts\RunLocal.ps1 -NoBrowser
-.\Scripts\RunLighthouse.ps1 -BaseUrl https://127.0.0.1:7186 -Paths "/", "/books" -Profile both -IgnoreCertificateErrors
-```
-
-For production, omit `-IgnoreCertificateErrors` and set `-BaseUrl` to the deployed origin. A fixture proxy can be passed with `-BrowserProxy`; it must be a loopback proxy and enforce the public-route allowlist. See `Scripts/RunLighthouse.ps1` for current options.
-
-Add `-Minimum "performance=90,accessibility=100,best-practices=100,seo=100"` to fail the run when a median score is below a minimum, or summarize earlier runs with `Scripts/Quality/summarize_lighthouse.py` ([details](../Quality/QualityTools.md#summarize-lighthouse-runs)).
+The browser is headed by default. Set `E2E_HEADLESS=1` for a headless run. `E2E_BASE_URL` defaults to `https://localhost:7186`. Failure screenshots and traces are written under `TestResults/Playwright`.

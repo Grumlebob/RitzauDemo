@@ -7,6 +7,7 @@
     - ../../../Common/release.yml
   vars:
     mint_base_install_deploy_key: false
+    mint_base_upgrade_packages: false
     mint_base_reboot_after_upgrade: false
   pre_tasks:
     - name: Require this machine's native identity
@@ -49,7 +50,7 @@
       ansible.builtin.systemd:
         name: avahi-daemon
         enabled: true
-        state: restarted
+        state: started
     - name: Enable Caddy
       ansible.builtin.systemd:
         name: caddy

@@ -1,26 +1,28 @@
 # Test
 
-Use the full local gate for code, configuration, and other non-Markdown changes. Tests require Docker for PostgreSQL and Redis Testcontainers. Browser suites are opt-in; see [Browser testing](Testing/Browser.md). Fixture and architecture details live in [Infrastructure testing](Testing/Infrastructure.md). React package checks and contract generation live in [Frontend/React](Frontend/React.md).
+Use the full local gate for code, configuration, and other non-Markdown changes. The product test suite covers Books CRUD request validation and one database-backed CRUD path. Tests require Docker for PostgreSQL and Redis Testcontainers. One packaged browser smoke is opt-in; see [Browser testing](Testing/Browser.md). Integration fixture details live in [Infrastructure testing](Testing/Infrastructure.md).
 
 ## Normal run
 
-Run `dotnet test` for the selected frontend profile; E2E tests stay skipped unless `RUN_E2E=1`. To validate both frontend compositions, run the profile script below. It restores separate profile inputs and verifies test result categories (no failures, no unexpected outcomes, and skips only for explicit `Set RUN_…=1` opt-ins); no test count is pinned:
+Run `dotnet test` for the single `BlazorAuto` profile. The packaged render smoke stays skipped unless `RUN_E2E=1`. The retained validation script builds and tests the one product suite, then validates its TRX result. It rejects failures, empty discovery and unexplained skips; it does not pin a test count:
 
 ```bash
 bash Scripts/CI/validate-frontend-profiles.sh /tmp/frontend-profile-results
 ```
 
-Run this when validating both compositions. It needs Docker. CI also builds and smoke-tests both profile images; the current workflow stages are in [ci.yml](../.github/workflows/ci.yml). Do not run build and test concurrently in the same checkout.
+Run this before changing product code. It needs Docker. CI builds and smoke-tests one Blazor image; the current workflow stages are in [ci.yml](../.github/workflows/ci.yml). Do not run build and test concurrently in the same checkout.
 
 ## GitHub Actions reports
 
-The workflow policy requires an explicit `self-hosted` runner label; a runner group name does not establish runner type. Each `actions/setup-node` step must set `package-manager-cache: false`. Each CodeQL initialization step must set `env.CODEQL_OVERLAY_DATABASE_MODE: none` to preserve full scans without overlay caches. The audit also follows local reusable workflows and composite actions.
+The workflow policy requires an explicit `self-hosted` runner label for application and maintenance jobs; a runner group name does not establish runner type. Its only bootstrap exception is the guarded first-party PR #5 validation and result gate on fixed `ubuntu-24.04`; it is enabled by a repository variable and cannot route publication or main pushes to a hosted runner. Each `actions/setup-node` step must set `package-manager-cache: false`. Each CodeQL initialization step must set `env.CODEQL_OVERLAY_DATABASE_MODE: none` to preserve full scans without overlay caches. The audit also follows local reusable workflows and composite actions.
 
 Publication, deployment and registry retention share a non-cancelling `queue: max` group, which retains up to 100 pending requests. The policy checks every workflow or job using the publisher's group, including case-insensitive matches. The local gate uses the pinned queue-aware actionlint runner below.
 
-CI stores full TRX and React unit-test reports, plus available browser screenshots and traces, on the self-hosted runner. Packaged smoke TRX files use the same terminal job directory. Routine reports do not use GitHub artifact storage. Each terminal job summary reports test totals, the runner name, a retrieval command, and observed report-store size. Run that command on the same runner after checking out the reported commit. Reports expire after 3 days for successful jobs and 7 days for failed jobs; pins and active-reader locks protect selected reports. The LocalSingleNode maintenance workflow reports store usage and prunes expired reports under the shared deployment lock.
+CI stores TRX results and available browser screenshots and traces on the self-hosted runner. Packaged smoke TRX files use the same terminal job directory. Routine reports do not use GitHub artifact storage. The temporary PR #5 hosted report disappears with its ephemeral runner and is not durable evidence. Each native terminal job summary reports test totals, the runner name, a retrieval command, and observed report-store size. Run that command on the same runner after checking out the reported commit. Reports expire after 3 days for successful jobs and 7 days for failed jobs; pins and active-reader locks protect selected reports. The LocalSingleNode maintenance workflow reports store usage and prunes expired reports under the shared deployment lock.
 
-CI jobs run on the runner labelled by the `CI_RUNNER_LABEL` repository variable. Each job first checks that label's format and that the runner's hostname matches `CI_RUNNER_HOST`. The stable `build-test-push` result gate rejects skipped or failed validation, and skipped or failed publication on `main`.
+During the guarded first-runner rollout, `publish-main` and all main-push jobs use `CI_ADMISSION_BOOTSTRAP_RUNNER_LABEL` and verify the native host. Only PR #5's `validate` and result gate can use the fixed hosted runner, and only while `CI_BOOTSTRAP_HOSTED_VALIDATION=true`; those jobs otherwise use native admission and host verification. Keep `CI_RUNNER_LABEL` on a distinct, unregistered quarantine label until stale branches and queued jobs are reconciled. Retire the hosted flag after exact-head CI and remove the temporary route through a checked follow-up PR. The stable `build-test-push` result gate rejects skipped or failed validation, and skipped or failed publication on `main`.
+
+Resource-heavy validation and publication steps use `with-runner-build-admission.sh` and the existing shared node browser lock. Keep one wrapper around each heavy step or full shell block, including owned cleanup. Do not nest the lock inside an admitted block; its contention test runs outside admission.
 
 ## Local Gate
 
@@ -50,8 +52,4 @@ find Deployment Scripts/CI -type f -name '*.sh' -print0 | xargs -0 shellcheck --
 bash Scripts/CI/run-actionlint.sh
 ```
 
-If `GrumPlates.Client/Styles` or Razor classes change, run `npm ci && npm run css:build` from the client project and commit the generated `GrumPlates/wwwroot/tailwind.css` when it changes. The `discover` commands run the same Python suites as CI's `validate` job; the shell suites are listed there.
-
-## Lighthouse Performance
-
-See [browser performance checks](Testing/Browser.md#lighthouse-performance). Optional static/source audits are in [Quality tools](Quality/QualityTools.md) and [SonarQube](Quality/SonarQubeAnalysis.md); they are not merge gates.
+If `GrumPlates.Client/Styles` or Razor classes change, run `npm ci && npm run css:build` from the client project and commit generated `GrumPlates/wwwroot/tailwind.css` when it changes. The `discover` commands run the same Python suites as CI's `validate` job; the shell suites are listed there. Optional static/source audits are in [Quality tools](Quality/QualityTools.md) and [SonarQube](Quality/SonarQubeAnalysis.md); they are not merge gates.
