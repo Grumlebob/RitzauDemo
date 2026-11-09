@@ -285,7 +285,7 @@ def main(argv: list[str] | None = None) -> int:
     parser.add_argument("--repo-root", required=True)
     parser.add_argument("--out-dir", required=True)
     parser.add_argument("--repository-identity", required=True)
-    parser.add_argument("--frontend-profile", choices=("BlazorAuto", "React"), required=True)
+    parser.add_argument("--frontend-profile", choices=("BlazorAuto",), required=True)
     parser.add_argument("--sha")
     parser.add_argument("--dirty", action="store_true")
     parser.add_argument("--configuration", choices=("Debug", "Release"), default="Release")

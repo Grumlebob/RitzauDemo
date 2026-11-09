@@ -17,7 +17,7 @@ if len(sys.argv) != 11:
 root, image, digest, frontend, acceptance, source_sha, schema, run_id, run_attempt, source_repo = sys.argv[1:]
 if not re.fullmatch(r'sha256:[0-9a-f]{64}', digest):
     raise SystemExit('Release digest is malformed')
-if frontend not in ('BlazorAuto', 'React') or acceptance != {'BlazorAuto': 'BlazorAutoV1', 'React': 'ReactPublicV1'}.get(frontend):
+if frontend != 'BlazorAuto' or acceptance != 'BlazorAutoV1':
     raise SystemExit('Frontend and acceptance profiles do not match')
 if schema != '2' or not re.fullmatch(r'[0-9a-f]{40}', source_sha):
     raise SystemExit('Release source or manifest schema is malformed')

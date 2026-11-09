@@ -7,10 +7,9 @@ import argparse
 import sys
 from pathlib import Path
 
-SUPPORTED_PROFILES = ("BlazorAuto", "React")
+SUPPORTED_PROFILES = ("BlazorAuto",)
 ACCEPTANCE_PROFILE_BY_FRONTEND = {
     "BlazorAuto": "BlazorAutoV1",
-    "React": "ReactPublicV1",
 }
 
 
@@ -29,9 +28,9 @@ def resolve_frontend_profile(profile_file: Path | str, override: str | None = No
 
     profile = raw_value.strip()
     if not profile:
-        raise ValueError(f"{source} is empty; expected exactly BlazorAuto or React")
+        raise ValueError(f"{source} is empty; expected exactly BlazorAuto")
     if profile not in SUPPORTED_PROFILES:
-        raise ValueError(f"{source} must be exactly BlazorAuto or React after trimming whitespace")
+        raise ValueError(f"{source} must be exactly BlazorAuto after trimming whitespace")
     return profile
 
 

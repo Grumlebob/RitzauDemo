@@ -1,16 +1,16 @@
 # Test
 
-Use the full local gate for code, configuration, and other non-Markdown changes. Tests require Docker for PostgreSQL and Redis Testcontainers. Browser suites are opt-in; see [Browser testing](Testing/Browser.md). Fixture and architecture details live in [Infrastructure testing](Testing/Infrastructure.md). React package checks and contract generation live in [Frontend/React](Frontend/React.md).
+Use the full local gate for code, configuration, and other non-Markdown changes. The product test suite covers Books CRUD request validation and one database-backed CRUD path. Tests require Docker for PostgreSQL and Redis Testcontainers. One packaged browser smoke is opt-in; see [Browser testing](Testing/Browser.md). Integration fixture details live in [Infrastructure testing](Testing/Infrastructure.md).
 
 ## Normal run
 
-Run `dotnet test` for the selected frontend profile; E2E tests stay skipped unless `RUN_E2E=1`. To validate both frontend compositions, run the profile script below. It restores separate profile inputs and verifies test result categories (no failures, no unexpected outcomes, and skips only for explicit `Set RUN_…=1` opt-ins); no test count is pinned:
+Run `dotnet test` for the single `BlazorAuto` profile. The packaged render smoke stays skipped unless `RUN_E2E=1`. The retained validation script builds and tests the one product suite, then validates its TRX result. It rejects failures, empty discovery and unexplained skips; it does not pin a test count:
 
 ```bash
 bash Scripts/CI/validate-frontend-profiles.sh /tmp/frontend-profile-results
 ```
 
-Run this when validating both compositions. It needs Docker. CI also builds and smoke-tests both profile images; the current workflow stages are in [ci.yml](../.github/workflows/ci.yml). Do not run build and test concurrently in the same checkout.
+Run this before changing product code. It needs Docker. CI builds and smoke-tests one Blazor image; the current workflow stages are in [ci.yml](../.github/workflows/ci.yml). Do not run build and test concurrently in the same checkout.
 
 ## GitHub Actions reports
 
@@ -18,7 +18,7 @@ The workflow policy requires an explicit `self-hosted` runner label; a runner gr
 
 Publication, deployment and registry retention share a non-cancelling `queue: max` group, which retains up to 100 pending requests. The policy checks every workflow or job using the publisher's group, including case-insensitive matches. The local gate uses the pinned queue-aware actionlint runner below.
 
-CI stores full TRX and React unit-test reports, plus available browser screenshots and traces, on the self-hosted runner. Packaged smoke TRX files use the same terminal job directory. Routine reports do not use GitHub artifact storage. Each terminal job summary reports test totals, the runner name, a retrieval command, and observed report-store size. Run that command on the same runner after checking out the reported commit. Reports expire after 3 days for successful jobs and 7 days for failed jobs; pins and active-reader locks protect selected reports. The LocalSingleNode maintenance workflow reports store usage and prunes expired reports under the shared deployment lock.
+CI stores TRX results and available browser screenshots and traces on the self-hosted runner. Packaged smoke TRX files use the same terminal job directory. Routine reports do not use GitHub artifact storage. Each terminal job summary reports test totals, the runner name, a retrieval command, and observed report-store size. Run that command on the same runner after checking out the reported commit. Reports expire after 3 days for successful jobs and 7 days for failed jobs; pins and active-reader locks protect selected reports. The LocalSingleNode maintenance workflow reports store usage and prunes expired reports under the shared deployment lock.
 
 During the guarded first-runner rollout, `validate`, `publish-main`, and the result gate use `CI_ADMISSION_BOOTSTRAP_RUNNER_LABEL` and verify the native host. Keep `CI_RUNNER_LABEL` on a distinct, unregistered quarantine label until stale branches and queued jobs are reconciled. The stable `build-test-push` result gate rejects skipped or failed validation, and skipped or failed publication on `main`.
 
@@ -52,8 +52,4 @@ find Deployment Scripts/CI -type f -name '*.sh' -print0 | xargs -0 shellcheck --
 bash Scripts/CI/run-actionlint.sh
 ```
 
-If `GrumPlates.Client/Styles` or Razor classes change, run `npm ci && npm run css:build` from the client project and commit the generated `GrumPlates/wwwroot/tailwind.css` when it changes. The `discover` commands run the same Python suites as CI's `validate` job; the shell suites are listed there.
-
-## Lighthouse Performance
-
-See [browser performance checks](Testing/Browser.md#lighthouse-performance). Optional static/source audits are in [Quality tools](Quality/QualityTools.md) and [SonarQube](Quality/SonarQubeAnalysis.md); they are not merge gates.
+If `GrumPlates.Client/Styles` or Razor classes change, run `npm ci && npm run css:build` from the client project and commit generated `GrumPlates/wwwroot/tailwind.css` when it changes. The `discover` commands run the same Python suites as CI's `validate` job; the shell suites are listed there. Optional static/source audits are in [Quality tools](Quality/QualityTools.md) and [SonarQube](Quality/SonarQubeAnalysis.md); they are not merge gates.

@@ -27,18 +27,17 @@ Use this when a fork becomes a product of its own instead of a configured copy o
 Each step is its own pull request with the [local gate](Test.md#local-gate) and an exact-head `build-test-push`. When PRs are stacked, retarget the dependent PR to `main` before merging the lower one.
 
 1. **Seed** (above), with green CI.
-2. **One frontend:** follow [React-only clone](Frontend/ReactOnlyClone.md) when Blazor is not needed.
+2. **One frontend:** keep `BlazorAuto` and remove unsupported frontend code and release paths through reviewed changes.
 3. **One deployment target:** follow [single-node-only clone](../Deployment/LocalSingleNode/SingleNodeOnlyClone.md) or the equivalent for the kept target.
 4. **Rename** after the deletions, so deleted code is never renamed first:
 
    | Template name | Product name |
    | --- | --- |
    | `GrumPlates.sln`, `GrumPlates`, `.Core` and `.Test` projects, folders and root namespaces | `<Product>.sln`, `<Product>`, `<Product>.Core`, `<Product>.Test` |
-   | `GrumPlates.React`, npm package `grumplates-react` | `<Product>.React`, `<product>-react` |
    | Image labels `com.grumplates.*` | A product label namespace. Change the Dockerfile, manifest writer and validator, release verifiers, smoke test, tests and deployment audit together |
    | Alloy container filter `grumplates` in `docker/observability/alloy/config.alloy` | The product's Compose project name |
 
-   Keep shared host names unchanged: the deployment lock `/tmp/localcluster-deploy.lockdir` and the CI resource labels are shared with other apps on the same machine. Run `api:check` afterwards; the generated contract should not change.
+   Keep shared host names unchanged: the deployment lock `/tmp/localcluster-deploy.lockdir` and the CI resource labels are shared with other apps on the same machine. Preserve the Books API and migration history.
 5. **Remove template material** (next section).
 6. **Replace the sample feature** with the product's first use case. Use the [feature guide](HowToAddANewFeature.md), and remove the sample's data, tests, docs and observability with it.
 
@@ -47,9 +46,8 @@ Each step is its own pull request with the [local gate](Test.md#local-gate) and 
 | Material | Action |
 | --- | --- |
 | `Plans/` template plans and `Plans/Support/` | Remove. Start the product's own plans and keep `Plans/README.md`. Git history and the template keep the old plans |
-| Fork guide, this page, [React-only clone](Frontend/ReactOnlyClone.md), `SingleNodeOnlyClone.md` | Remove after use. The deployment audit reads the fork guide, so update the audit in the same code PR |
+| Fork guide, this page, `SingleNodeOnlyClone.md` | Remove after use. The deployment audit reads the fork guide, so update the audit in the same code PR |
 | `README.md`, `docs/Requirements.md` | Describe the product and its requirements. A one-line provenance link to the template is enough |
-| Favicon | The React app ships none, so browsers log a 404 for `/favicon.ico`. Add the product's icon under the React app's `public/` folder |
 | `AGENTS.md` | Keep the working rules; drop rules for removed parts, such as the Razor stylesheet rebuild |
 | `.claude/skills/`, `.codex/`, `.qlty/`, `.run/` | Keep what the team uses and update names and paths |
 | `Scripts/Quality`, `docker/sonarqube` | Keep deliberately or remove with their docs |
@@ -62,10 +60,6 @@ git grep -nIiE "GrumPlates|Books" -- ':!Plans'
 ```
 
 Keep only provenance links, intentional shared names and recorded follow-ups.
-
-## Public site behind Cloudflare
-
-The React host sends a strict Content Security Policy. On HTML responses it adds a fresh `'nonce-…'` to `script-src` ([frontend profiles](FrontendProfiles.md)), so Cloudflare JavaScript detections can inject their script without `'unsafe-inline'` and the browser console stays clean. While detections run, Lighthouse best practices scores about 81, because Cloudflare's script calls a deprecated browser API; Portfolio accepted that to keep the bot signal. To trade the signal for the score, exclude the hostname from JavaScript detections in the zone. The live browser tests already ignore Cloudflare's own edge cookies.
 
 ## Sharing a node with another product
 

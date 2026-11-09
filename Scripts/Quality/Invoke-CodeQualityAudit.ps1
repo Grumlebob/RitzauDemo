@@ -1,7 +1,7 @@
 [CmdletBinding()]
 param(
     [ValidateSet('Quick', 'Full')][string]$Mode = 'Full',
-    [ValidateSet('BlazorAuto', 'React', 'Both')][string]$FrontendProfile = 'Both',
+    [ValidateSet('BlazorAuto')][string]$FrontendProfile = 'BlazorAuto',
     [switch]$Candidate,
     [switch]$KeepServerRunning,
     [string]$SettingsPath
@@ -20,7 +20,7 @@ if ($Mode -eq 'Full' -and $env:RunSonarAnalyzers -eq 'true') {
 $modulePath = Join-Path $PSScriptRoot 'SonarQuality.psm1'
 Import-Module -Name $modulePath -Force -DisableNameChecking
 $invokingRoot = (Resolve-Path -LiteralPath (Join-Path $PSScriptRoot '..\..')).Path
-$profiles = if ($FrontendProfile -eq 'Both') { @('BlazorAuto', 'React') } else { @($FrontendProfile) }
+$profiles = @($FrontendProfile)
 $context = Get-QualityContext -RepoRoot $invokingRoot -SettingsPath $SettingsPath
 
 if ($Mode -eq 'Quick') {
@@ -332,11 +332,9 @@ try {
         'Scripts/Quality/SonarQubeServer.ps1', 'Scripts/Quality/sonar_report.py',
         'Scripts/Quality/summarize_sarif.py', 'Scripts/Quality/probe_sonar_mcp.py',
         'Scripts/Quality/Start-SonarQubeMcp.ps1', 'Scripts/Quality/validate_dotnet_coverage.py',
-        'Scripts/Quality/validate_vitest_results.py', 'Scripts/Quality/normalize_lcov_paths.py',
         'Scripts/Quality/tool-versions.json', 'Scripts/Quality/quality-settings.example.json',
         'Scripts/Quality/SonarQube/SonarQube.Analysis.xml', 'Scripts/Quality/SonarQube/profile-overrides.json',
-        'GrumPlates.React/package.json', 'GrumPlates.React/package-lock.json',
-        'GrumPlates.React/vitest.config.ts', 'docker/sonarqube/compose.yaml'
+        'docker/sonarqube/compose.yaml'
     )
     foreach ($relative in $requiredFiles) {
         $check = Invoke-QualityProcess -FilePath $git -ArgumentList @('-C', $invokingRoot, 'cat-file', '-e', "$($sourceSha):$relative") `
@@ -385,14 +383,6 @@ try {
     $context.ComposePath = Join-Path $sourceRoot 'docker/sonarqube/compose.yaml'
     $context.ToolVersions = Get-QualityToolVersions -RepoRoot $sourceRoot
     $batch.toolVersions = $context.ToolVersions
-    if ($profiles -contains 'React') {
-        $nodeRuntime = Get-QualityNodeRuntime -ToolVersions $context.ToolVersions -ConfiguredDirectory $context.NodeToolchainDirectory
-        $context.NodeExecutable = $nodeRuntime.NodeExecutable
-        $context.NpmCli = $nodeRuntime.NpmCli
-        $context.NodeVersion = $nodeRuntime.NodeVersion
-        $context.NpmVersion = $nodeRuntime.NpmVersion
-    }
-
     $serverScript = Join-Path $sourceRoot 'Scripts/Quality/SonarQubeServer.ps1'
     $beforeContainer = Get-OwnedSonarContainer
     $batch.server.wasRunning = -not [string]::IsNullOrWhiteSpace($beforeContainer)

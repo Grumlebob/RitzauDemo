@@ -1,6 +1,6 @@
 # RitzauDemo
 
-RitzauDemo is a .NET 10 demo application with `BlazorAuto` as its default Interactive Auto Blazor profile and an optional React profile. Both use the same ASP.NET Core backend and showcase a Books catalog, account features, PostgreSQL-backed data, and Redis caching.
+RitzauDemo is a .NET 10 demo app with one Blazor Auto frontend. Books CRUD is the product example, backed by PostgreSQL and Redis. Account registration stays disabled by default.
 
 Run the local Docker stack:
 
@@ -15,9 +15,8 @@ Run the local Docker stack:
 | Understand contributor rules and product requirements | [AGENTS.md](AGENTS.md), [Requirements](docs/Requirements.md) |
 | Run the app or change local settings | [Run locally](docs/HowToRunLocally.md) |
 | Add a Blazor feature | [Feature guide](docs/HowToAddANewFeature.md) |
-| Add a React public feature | [React feature guide](docs/Frontend/React.md#change-a-typed-public-feature) |
-| Configure React accounts | [Accounts runbook](docs/Accounts.md) |
-| Select a frontend profile | [Frontend profiles](docs/FrontendProfiles.md) |
+| Understand the Blazor frontend | [Frontend profile](docs/FrontendProfiles.md), [Blazor feature guide](docs/Features/Blazor.md) |
+| Configure account settings | [Accounts runbook](docs/Accounts.md) |
 | Run and verify checks | [Tests](docs/Test.md) |
 | Prepare a fork or a standalone product | [Fork guide](docs/HowToForkThisRepo.md), [standalone product](docs/StandaloneProduct.md) |
 | Choose and operate a deployment target | [Deployment guide](Deployment/README.md) |
@@ -31,7 +30,6 @@ Read only the guides needed for your task. The contributor rules point to requir
 - `GrumPlates.Core/Features/` contains shared feature contracts and domain types.
 - `GrumPlates/Features/` contains server behavior and endpoint mappings.
 - `GrumPlates.Client/Features/` contains Blazor client behavior and UI.
-- `GrumPlates.React/` contains the optional React client.
-- `GrumPlates.Test/` contains integration, architecture and browser tests.
+- `GrumPlates.Test/` contains Books CRUD unit/integration tests and one opt-in packaged browser smoke.
 - `Deployment/` contains the three deployment targets and shared release tooling.
 - `Plans/` contains tracked plans; `Plans.local/` is ignored scratch space.

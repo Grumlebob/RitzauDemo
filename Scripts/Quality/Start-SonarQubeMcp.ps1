@@ -1,6 +1,6 @@
 [CmdletBinding()]
 param(
-    [Parameter(Mandatory)][ValidateSet('BlazorAuto', 'React')][string]$FrontendProfile,
+    [Parameter(Mandatory)][ValidateSet('BlazorAuto')][string]$FrontendProfile,
     [string]$ProjectKey,
     [string]$SettingsPath
 )

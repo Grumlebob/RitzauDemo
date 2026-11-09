@@ -247,7 +247,6 @@ try {
   $frontendProfile = ($profileOutput | Out-String).Trim()
   switch ($frontendProfile) {
     'BlazorAuto' { $frontendDockerTarget = 'final-blazor' }
-    'React' { $frontendDockerTarget = 'final-react' }
     default { throw "Frontend profile resolver returned an unsupported value." }
   }
   $env:FRONTEND_PROFILE_OVERRIDE = $frontendProfile

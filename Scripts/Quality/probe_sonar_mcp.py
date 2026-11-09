@@ -203,7 +203,7 @@ class StdioMcpClient:
 def parse_args(argv: list[str]) -> argparse.Namespace:
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("--launcher", required=True, type=Path, help="Start-SonarQubeMcp.ps1")
-    parser.add_argument("--profile", required=True, choices=("BlazorAuto", "React"))
+    parser.add_argument("--profile", required=True, choices=("BlazorAuto",))
     parser.add_argument("--project-key", required=True, help="Derived main or SHA-specific candidate project key")
     parser.add_argument("--settings-path", type=Path, help="Optional ignored local settings file")
     parser.add_argument("--timeout-seconds", type=int, default=60)

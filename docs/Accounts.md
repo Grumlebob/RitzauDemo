@@ -1,6 +1,6 @@
 # Accounts
 
-Accounts are always on. Registration, the Admin seed and email are opt-in. React reads the client configuration before starting account requests. The server remains authoritative: hiding a link or route never replaces API authentication, authorization, antiforgery or cache policy.
+Accounts are part of the Blazor app. Registration, the Admin seed and email are opt-in. The server remains authoritative: hiding a link or route never replaces authentication, authorization, antiforgery or cache policy.
 
 Server implementation and Blazor Identity UI live under `GrumPlates/Features/Accounts`; shared DTOs live in `GrumPlates.Core/Features/Accounts/Contracts`. `ApplicationUser` lives in the feature's `Identity` folder and namespace. The shared context, design-time factory and migrations stay under `Infrastructure/Persistence`. The outbox entity and operations belong to Accounts; its EF mapping remains inline in the shared `AppDbContext`. See [architecture](Architecture.md) for composition and the deliberate Books-to-Accounts integration.
 
@@ -11,13 +11,13 @@ Server implementation and Blazor Identity UI live under `GrumPlates/Features/Acc
 | Email host empty | Login, logout, password change, export, deletion and private Books work. Registration, confirmation, recovery and email change stay unavailable. A configured Admin can be provisioned once with `Accounts:AdminSeed`. |
 | Email host and sender configured | The mail worker can send confirmation and recovery links. Registration additionally requires `Accounts:RegistrationEnabled=true`. `Accounts:PublicOrigin` must be a bare HTTPS origin. |
 
-`GET /api/client-config` returns the schema version and application ID without user data or secrets. React reads `GET /api/auth/session` for the current user, feature flags and an antiforgery token. The UI lives at `/auth/login`, `/auth/register` and related `/auth/*` routes; `/auth` redirects to login. `/my-books` is private. Account mutations use POST and the antiforgery header. API failures stay JSON responses rather than login redirects.
+The Blazor UI lives under `/Account`. Private Books API requests require an authenticated user and return JSON `401`/`403` responses rather than login redirects. Account mutations use antiforgery protection.
 
 The authentication cookie is `Secure`, `HttpOnly`, `SameSite=Lax`, host-only and fixed at eight hours, or fourteen days when “remember me” is selected. Account and private API responses use `Cache-Control: private, no-store`. Passwords must contain 15–128 Unicode characters, contain no control characters, and differ from the application name and email; common passwords are rejected. Password changes, resets and confirmed email changes rotate the security stamp; account deletion removes the user. Each action revokes existing sessions.
 
-Blazor retains its existing MFA, passkey and configured external-login capabilities. React's password-only sign-in does not bypass MFA. Blazor password recovery preserves MFA, and sensitive management still requires a valid session and current-password proof. New external users complete email-first registration, then sign in to link their provider; disabling registration also prevents external callbacks from creating accounts.
+Blazor supports MFA, passkeys and configured external login. Password recovery preserves MFA, and sensitive management requires a valid session and current-password proof. New external users complete email-first registration, then sign in to link their provider; disabling registration also prevents external callbacks from creating accounts.
 
-React hides private data while rechecking the session and clears private query caches when the account changes. Unsaved book drafts remain bound to their original application and user; another user must explicitly discard the previous draft before adding or editing a book. Deletion confirmation and account-management credentials do not carry across application or user changes. These boundaries follow [React's guidance on preserving and resetting state](https://react.dev/learn/preserving-and-resetting-state).
+Keep user-owned Books data scoped to its owner on the server. Client state must not expose one user's private data to another user after sign-in changes.
 
 ## Local seeded accounts
 
@@ -29,7 +29,7 @@ pwsh -File ./docker/setup-local.ps1
 
 Setup fills `Accounts__AdminSeed__*` with `admin@localhost.test` and `Accounts__UserSeed__*` with `user@localhost.test` in the ignored `.env`, each with a generated 24-character password. It prints the emails, never the passwords. It leaves a seed alone when its email or password is already set, so your own values are kept. Startup creates each account once, confirmed, with the `Admin` or `User` role. It never changes an existing password or email, and it refuses an email that belongs to an account without that role. Local self-registration stays off because there is no local mail server.
 
-Start the app and sign in at `https://localhost:7186/Account/Login` (Blazor) or `https://localhost:7186/auth/login` (React):
+Start the app and sign in at `https://localhost:7186/Account/Login`:
 
 ```powershell
 .\Scripts\RunLocal.ps1 -NoBrowser
@@ -44,7 +44,7 @@ Seed passwords must satisfy the account password policy and must not be common o
 
 ## Email, quotas and delivery
 
-Email requires `Accounts:Email:Host`, a valid `Accounts:Email:From`, and `Accounts:PublicOrigin`. `Accounts:Email:Security` accepts `StartTls` or `SslOnConnect`; username and password must either both be empty or both be supplied. Registration cannot be enabled without accounts and an email host. Email links use the configured HTTPS origin and keep token secrets in the URL fragment on the React routes. The exact environment keys and defaults live in [`.env.example`](../.env.example).
+Email requires `Accounts:Email:Host`, a valid `Accounts:Email:From`, and `Accounts:PublicOrigin`. `Accounts:Email:Security` accepts `StartTls` or `SslOnConnect`; username and password must either both be empty or both be supplied. Registration cannot be enabled without accounts and an email host. Email links use the configured HTTPS origin. The exact environment keys and defaults live in [`.env.example`](../.env.example).
 
 Account POSTs are limited to 20 per client IP per five minutes. JSON account requests also use the API limit of 60 requests per minute. The outbox suppresses an active duplicate, enforces a 60-second cooldown and allows at most five intents per user and purpose per hour. It has a global capacity of 1,000 active jobs. A queued job expires after 45 minutes; its Identity link expires after one hour. The worker makes at most three attempts by default, then clears the protected payload. Public email requests return the same accepted response regardless of whether an address is known.
 

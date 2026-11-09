@@ -33,7 +33,7 @@ shell_quote() { printf "'%s'" "${1//\'/\'\\\'\'}"; }
 [[ "$EXPECTED_CI_RUN_ID" =~ ^[0-9]+$ && "$EXPECTED_CI_RUN_ATTEMPT" =~ ^[1-9][0-9]*$ ]] || fail "expected CI run metadata is malformed"
 [[ "$EXPECTED_SOURCE_REPO" =~ ^https://github\.com/[A-Za-z0-9_.-]+/[A-Za-z0-9_.-]+$ ]] || fail "expected source repository URL is malformed"
 case "${EXPECTED_FRONTEND_PROFILE}:${EXPECTED_ACCEPTANCE_PROFILE}" in
-  BlazorAuto:BlazorAutoV1|React:ReactPublicV1) ;;
+  BlazorAuto:BlazorAutoV1) ;;
   *) fail "frontend and acceptance profiles do not match" ;;
 esac
 [[ "$EXPECTED_MANIFEST_SCHEMA" == 2 ]] || fail "manifest schema must be 2"
@@ -60,7 +60,7 @@ import sys
 root, app_image, expected_digest, frontend, acceptance, source_sha, schema, ci_run_id, ci_attempt, source_repo = sys.argv[1:]
 expected = f"{app_image}@{expected_digest}"
 expected_repository = source_repo.removeprefix("https://github.com/")
-if frontend not in ("BlazorAuto", "React") or acceptance != {"BlazorAuto": "BlazorAutoV1", "React": "ReactPublicV1"}.get(frontend):
+if frontend != "BlazorAuto" or acceptance != "BlazorAutoV1":
     raise SystemExit("release identity verification failed: frontend/acceptance pair is invalid")
 files = sorted(os.listdir(root))
 if not files:

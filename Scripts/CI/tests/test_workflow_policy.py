@@ -25,12 +25,8 @@ class WorkflowPolicyTests(unittest.TestCase):
                 "Setup Python", "Deployment template render validation", "Deployment YAML lint",
                 "Audit .NET packages for vulnerabilities", "Audit .NET packages for deprecations",
                 "Restore", "Verify .NET formatting", "Docker preflight for integration tests",
-                "Build and test both frontend profiles", "Prove Testcontainers lifecycle cleanup",
-                "Install frontend dependencies", "Audit frontend dependencies", "Build Tailwind CSS",
-                "Install pinned npm for React frontend", "Install React frontend dependencies",
-                "Audit React frontend dependencies", "Check React OpenAPI contract", "Lint React frontend",
-                "Test React frontend", "Build React frontend", "React public Chromium browser regression",
-                "Build and smoke both frontend image profiles",
+                "Build and test Blazor CRUD suite", "Install frontend dependencies",
+                "Audit frontend dependencies", "Build Tailwind CSS", "Build and smoke the Blazor image",
                 "Remove this run's smoke resources after interruption", "Remove this run's local Docker image",
             ],
             "publish-main": [
@@ -38,8 +34,7 @@ class WorkflowPolicyTests(unittest.TestCase):
                 "Build migration bundle for this exact publisher run", "Build browser smoke test binaries",
                 "Build Docker image", "Docker smoke and browser smoke",
                 "Remove this run's smoke resources after interruption", "Tag Docker image for release",
-                "Push Docker image", "Publish additional frontend",
-                "Remove additional frontend resources after interruption", "Remove this run's build tag",
+                "Push Docker image", "Remove this run's build tag",
             ],
         }
         for job_id in ("validate", "publish-main"):
@@ -52,7 +47,6 @@ class WorkflowPolicyTests(unittest.TestCase):
                     run = steps[name]["run"]
                     self.assertIn("with-runner-build-admission.sh", run, name)
                     self.assertIn('--pool "$CI_ADMISSION_POOL"', run, name)
-
                 runner_check = steps["Verify CI runner"]
                 self.assertEqual(
                     "${{ vars.CI_ADMISSION_BOOTSTRAP_RUNNER_LABEL }}",
@@ -60,6 +54,12 @@ class WorkflowPolicyTests(unittest.TestCase):
                 )
                 self.assertEqual("${{ vars.CI_RUNNER_LABEL }}", runner_check["env"]["CI_CANONICAL_RUNNER_LABEL"])
                 self.assertIn("CI_RUNNER_LABEL must remain quarantined", runner_check["run"])
+
+        self.assertIn("cat .node-version", workflow["jobs"]["validate"]["steps"][
+            next(index for index, step in enumerate(workflow["jobs"]["validate"]["steps"])
+                 if step.get("name") == "Read Node version")
+        ]["run"])
+        self.assertNotIn("ADDITIONAL_FRONTEND_PROFILES", (root / ".github" / "workflows" / "ci.yml").read_text())
 
         result_gate = workflow["jobs"]["ci-result-gate"]
         self.assertIn("${{ vars.CI_ADMISSION_BOOTSTRAP_RUNNER_LABEL }}", str(result_gate["runs-on"]))

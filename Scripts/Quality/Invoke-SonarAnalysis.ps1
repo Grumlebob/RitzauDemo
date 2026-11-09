@@ -1,6 +1,6 @@
 [CmdletBinding()]
 param(
-    [Parameter(Mandatory)][ValidateSet('BlazorAuto', 'React')][string]$FrontendProfile,
+    [Parameter(Mandatory)][ValidateSet('BlazorAuto')][string]$FrontendProfile,
     [Parameter(Mandatory)][string]$ProjectKey,
     [Parameter(Mandatory)][string]$AnalyzedSha,
     [Parameter(Mandatory)][string]$RunDirectory,
@@ -49,7 +49,7 @@ $summary = [ordered]@{
     serverVersion = $null
     projectVersion = $null
     tests = [ordered]@{ frontendTests = $null; dotnet = $null }
-    coverage = [ordered]@{ reactLcov = $null; reactSummary = $null; lines = $null; dotnet = $null }
+    coverage = [ordered]@{ dotnet = $null }
     ceTaskId = $null
     analysisId = $null
     qualityGate = $null
@@ -162,8 +162,7 @@ function Get-ScannerExecutable {
 }
 
 function Get-QualityChildEnvironment {
-    param([switch]$React)
-    $environment = @{
+    return @{
         RunSonarAnalyzers = 'false'
         RUN_E2E = '0'
         RUN_TESTCONTAINERS = '0'
@@ -171,11 +170,6 @@ function Get-QualityChildEnvironment {
         SONAR_HOST_URL = $null
         SONAR_REPORT_TOKEN = $null
     }
-    if ($React) {
-        $nodeDirectory = Split-Path -Parent $Context.NodeExecutable
-        $environment.PATH = "$nodeDirectory;$env:PATH"
-    }
-    return $environment
 }
 
 function Get-ProfileExclusions {
@@ -186,23 +180,6 @@ function Get-ProfileExclusions {
     $exclusions = [Collections.Generic.List[string]]::new()
     foreach ($item in ([string]$property.InnerText -split ',')) {
         if (-not [string]::IsNullOrWhiteSpace($item)) { $exclusions.Add($item.Trim()) }
-    }
-    if ($FrontendProfile -eq 'BlazorAuto') {
-        $exclusions.Add('GrumPlates.React/**')
-        $exclusions.Add('GrumPlates.React/app/**/*.test.ts')
-        $exclusions.Add('GrumPlates.React/app/**/*.test.tsx')
-    }
-    else {
-        $exclusions.Add('GrumPlates.Client/**')
-        $exclusions.Add('GrumPlates/**/*.razor')
-        $exclusions.Add('GrumPlates/**/*.razor.js')
-        $exclusions.Add('GrumPlates/Features/Accounts/Blazor/Pages/Register.razor')
-        $exclusions.Add('GrumPlates/Features/Accounts/Blazor/Pages/RegisterConfirmation.razor')
-        $exclusions.Add('GrumPlates.React/app/**/*.test.ts')
-        $exclusions.Add('GrumPlates.React/app/**/*.test.tsx')
-        $exclusions.Add('GrumPlates.React/app/test/**')
-        $exclusions.Add('GrumPlates.React/app/**/*.typecheck.ts')
-        $exclusions.Add('GrumPlates.React/app/**/*.d.ts')
     }
     return ($exclusions | Select-Object -Unique) -join ','
 }
@@ -219,7 +196,6 @@ function Get-QualityScannerArguments {
     param(
         [Parameter(Mandatory)][string]$Token,
         [Parameter(Mandatory)][string]$ProjectVersion,
-        [Parameter(Mandatory)][AllowEmptyString()][string]$ReactLcov,
         [Parameter(Mandatory)][string]$Exclusions
     )
     $settingsPath = (Resolve-Path -LiteralPath (Join-Path $repoRoot 'Scripts/Quality/SonarQube/SonarQube.Analysis.xml')).Path
@@ -238,7 +214,6 @@ function Get-QualityScannerArguments {
         "/d:sonar.cs.vscoveragexml.reportsPaths=$coverageGlob",
         "/d:sonar.cs.vstest.reportsPaths=$(Join-Path $testsDirectory 'suite.trx')"
     )
-    if ($FrontendProfile -eq 'React') { $arguments += "/d:sonar.javascript.lcov.reportPaths=$ReactLcov" }
     return $arguments
 }
 
@@ -295,9 +270,6 @@ try {
     if ($Candidate) { $expectedProjectKey = "$expectedProjectKey-candidate-$($AnalyzedSha.Substring(0, 12))" }
     if ($ProjectKey -ne $expectedProjectKey) { throw 'Project key does not match the repository identity, profile, and candidate SHA.' }
     if ($env:RunSonarAnalyzers -eq 'true') { throw 'RunSonarAnalyzers=true is active. Clear it before a Full audit.' }
-    if ($FrontendProfile -eq 'React' -and (-not $Context.NodeExecutable -or -not $Context.NpmCli)) {
-        throw 'React audit requires the exact pinned Node/npm toolchain resolved from the selected audit source.'
-    }
     if (Test-Path -LiteralPath $scannerStatePath) {
         throw 'An existing .sonarqube directory makes scanner ownership unclear. Preserve it and inspect it before running Full mode.'
     }
@@ -332,8 +304,6 @@ try {
         profileOverridesSha256 = [Convert]::ToHexString([Security.Cryptography.SHA256]::HashData([IO.File]::ReadAllBytes($profileOverridesPath))).ToLowerInvariant()
         sonarExclusions = $profileExclusions
         sonarCoverageExclusions = $coverageExclusions
-        nodeVersion = if ($FrontendProfile -eq 'React') { $Context.NodeVersion } else { $null }
-        npmVersion = if ($FrontendProfile -eq 'React') { $Context.NpmVersion } else { $null }
     }
     $settingsJson = $effectiveSettings | ConvertTo-Json -Depth 12 -Compress
     $summary.configurationDigest = [Convert]::ToHexString([Security.Cryptography.SHA256]::HashData([Text.Encoding]::UTF8.GetBytes($settingsJson))).ToLowerInvariant()
@@ -344,68 +314,17 @@ try {
     $scanner = Get-ScannerExecutable
     $testsDirectory = Join-Path $runDirectory 'tests'
     New-Item -ItemType Directory -Force -Path $testsDirectory | Out-Null
-    $reactRoot = Join-Path $repoRoot 'GrumPlates.React'
-    $reactLcov = ''
-    if ($FrontendProfile -eq 'React') {
-        $reactCoverage = Join-Path $runDirectory 'react-coverage'
-        New-Item -ItemType Directory -Force -Path $reactCoverage | Out-Null
-        $reactEnvironment = Get-QualityChildEnvironment -React
-        $node = [string]$Context.NodeExecutable
-        $npmCli = [string]$Context.NpmCli
-        $npmSteps = @(
-            [pscustomobject]@{ Name = 'npm-ci'; Args = @($npmCli, 'ci') },
-            [pscustomobject]@{ Name = 'react-api-check'; Args = @($npmCli, 'run', 'api:check') },
-            [pscustomobject]@{ Name = 'react-typecheck'; Args = @($npmCli, 'run', 'typecheck') },
-            [pscustomobject]@{ Name = 'react-coverage-tests'; Args = @($npmCli, 'run', 'test:coverage') }
-        )
-        foreach ($step in $npmSteps) {
-            $null = Invoke-QualityStep -Name $step.Name -Executable $node -Arguments $step.Args `
-                -WorkingDirectory $reactRoot -Environment $reactEnvironment -MaximumSeconds 1200
-        }
-        $vitestJson = Join-Path $reactRoot 'coverage/test-results.json'
-        $coverageSummary = Join-Path $reactRoot 'coverage/coverage-summary.json'
-        $vitestValidator = Join-Path $PSScriptRoot 'validate_vitest_results.py'
-        $validateReactTests = Invoke-QualityStep -Name 'validate-react-tests' -Executable $Context.PythonExecutable `
-            -Arguments @($vitestValidator, $vitestJson, '--expected-skipped', '0',
-                '--coverage-summary', $coverageSummary, '--react-root', $reactRoot) `
-            -WorkingDirectory $repoRoot -MaximumSeconds 60
-        $rawLcov = Join-Path $reactRoot 'coverage/lcov.info'
-        $reactLcov = Join-Path $reactCoverage 'lcov.info'
-        $normalizer = Join-Path $PSScriptRoot 'normalize_lcov_paths.py'
-        $null = Invoke-QualityStep -Name 'normalize-react-lcov' -Executable $Context.PythonExecutable `
-            -Arguments @($normalizer, '--input', $rawLcov, '--output', $reactLcov, '--repo-root', $repoRoot, '--source-root', $reactRoot) `
-            -WorkingDirectory $repoRoot -MaximumSeconds 60
-        $lcov = [IO.File]::ReadAllText($reactLcov)
-        if ($lcov -notmatch '(?m)^SF:GrumPlates\.React/app/.*\.(ts|tsx)$') { throw 'Normalized React LCOV contains no app source path.' }
-        $coverageDocument = Get-Content -LiteralPath $coverageSummary -Raw | ConvertFrom-Json
-        $frontendCounts = $validateReactTests.Stdout.Trim() | ConvertFrom-Json -AsHashtable
-        $summary.tests.frontendTests = [ordered]@{
-            passed = [int]$frontendCounts.tests.passed
-            failed = [int]$frontendCounts.tests.failed
-            skipped = [int]($frontendCounts.tests.pending + $frontendCounts.tests.todo)
-            total = [int]$frontendCounts.tests.total
-        }
-        $summary.coverage = [ordered]@{
-            reactLcov = 'react-coverage/lcov.info'
-            reactSummary = 'validated'
-            lines = $coverageDocument.total.lines
-        }
-        $afterPreparation = Get-GitValue -Arguments @('status', '--porcelain', '--untracked-files=normal')
-        if (-not [string]::IsNullOrWhiteSpace($afterPreparation)) {
-            throw 'React preparation changed tracked or non-ignored source files; scanner begin was not invoked.'
-        }
-    }
-
     $analysisSecretName = if ($Candidate) { "analysis-$($FrontendProfile.ToLowerInvariant())-candidate-$shortSha" } else { "analysis-$($FrontendProfile.ToLowerInvariant())-main" }
     $analysisToken = Get-QualitySecret -Context $Context -Name $analysisSecretName
     $readerToken = Get-QualitySecret -Context $Context -Name "reader-$($FrontendProfile.ToLowerInvariant())-token"
 
     $summary.tests.dotnet = $null
     $summary.coverage.dotnet = $null
+    $summary.tests.frontendTests = [ordered]@{ status = 'not-applicable' }
     $scannerStateOwned = $true
     $environment = Get-QualityChildEnvironment
     $beginArguments = Get-QualityScannerArguments -Token $analysisToken -ProjectVersion $summary.projectVersion `
-        -ReactLcov $reactLcov -Exclusions $profileExclusions
+        -Exclusions $profileExclusions
     $null = Invoke-QualityStep -Name 'scanner-begin' -Executable $scanner -Arguments $beginArguments `
         -WorkingDirectory $repoRoot -Environment $environment -Secrets @($analysisToken) -MaximumSeconds 1200
 
@@ -422,7 +341,6 @@ try {
         '--configuration', 'Release', '--no-build', '--no-restore', '--disable-build-servers', '-nr:false',
         "-p:FrontendProfile=$FrontendProfile", '-p:RunSonarAnalyzers=false',
         '--collect', 'Code Coverage;Format=Xml', '--logger', 'trx;LogFileName=suite.trx', '--results-directory', $testsDirectory)
-    if ($FrontendProfile -eq 'React') { $testArgs += @('--filter', 'FrontendProfile!=BlazorAuto') }
     $null = Invoke-QualityStep -Name 'dotnet-tests' -Executable $Context.DotnetExecutable -Arguments $testArgs `
         -WorkingDirectory $repoRoot -Environment $environment -MaximumSeconds 1200
 
@@ -458,16 +376,12 @@ try {
         productionModules = $coverageDocument.productionModules
         validation = 'tests/coverage-validation.json'
     }
-    if ($FrontendProfile -eq 'BlazorAuto') {
-        $summary.tests.frontendTests = [ordered]@{ status = 'not-applicable' }
-    }
     $runEvidence = [ordered]@{
         tests = [ordered]@{
             frontendTests = $summary.tests.frontendTests
             dotnet = $summary.tests.dotnet
         }
         coverage = [ordered]@{
-            reactLcov = if ($FrontendProfile -eq 'React') { 'validated' } else { 'not-applicable' }
             dotnet = $summary.coverage.dotnet
         }
     }

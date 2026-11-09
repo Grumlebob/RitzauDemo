@@ -1,13 +1,13 @@
 # Run locally
 
-Use the repository wrapper for the normal local setup. It prepares Docker, local configuration, and the HTTPS certificate, then starts the profile selected by `frontend-profile.txt`.
+Use the repository wrapper for normal local setup. It prepares Docker, local configuration and the HTTPS certificate, then starts the single Blazor app.
 
 ## Prerequisites
 
 - Docker Desktop running for the normal stack and integration tests.
 - .NET SDK selected by `global.json` for direct runs and migrations.
 - PowerShell and Python 3 for the setup/status scripts.
-- Node/npm only when changing React or rebuilding Tailwind; use each package's manifest and lockfile.
+- Node/npm only when rebuilding Tailwind; use the client manifest and lockfile.
 
 ## First setup and run
 
@@ -50,7 +50,7 @@ $env:Database__RunMigrationsAtStartup = "true"
 dotnet run --project .\GrumPlates\GrumPlates.csproj -- --urls https://localhost:7186
 ```
 
-To seed the local accounts without Docker, set the six `Accounts__AdminSeed__*` and `Accounts__UserSeed__*` keys from `.env` as environment variables in the same shell. If the HTTPS port is busy, choose another URL with `--urls` and set `E2E_BASE_URL` to the same URL for browser tests. React's Vite proxy and API setup are described in [Frontend/React](Frontend/React.md).
+To seed the local accounts without Docker, set the six `Accounts__AdminSeed__*` and `Accounts__UserSeed__*` keys from `.env` as environment variables in the same shell. If the HTTPS port is busy, choose another URL with `--urls` and set `E2E_BASE_URL` to the same URL for the packaged browser smoke.
 
 ## Tailwind
 

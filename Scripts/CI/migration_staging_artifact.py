@@ -156,8 +156,8 @@ def create_staging_artifact(
         _fail("migration runtime must not be empty")
     _require_root_directory(directory)
     frontend_profile = env.get("RESOLVED_FRONTEND_PROFILE")
-    if frontend_profile not in {"BlazorAuto", "React"}:
-        _fail("resolved frontend profile must be BlazorAuto or React")
+    if frontend_profile != "BlazorAuto":
+        _fail("resolved frontend profile must be BlazorAuto")
 
     bundle_path = directory / bundle_filename
     _require_regular_nonempty(bundle_path, "migration bundle")

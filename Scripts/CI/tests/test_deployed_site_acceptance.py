@@ -1,6 +1,5 @@
 from __future__ import annotations
 
-import json
 import shutil
 import subprocess
 import threading
@@ -15,12 +14,6 @@ POWERSHELL = shutil.which("pwsh") or shutil.which("powershell")
 
 class AcceptanceHandler(BaseHTTPRequestHandler):
     requests: list[tuple[str, str, str]] = []
-    capability_status = 200
-    capability_malformed = False
-    shell = (
-        b'<!doctype html><html><head><script type="module" '
-        b'src="/assets/app-12345678.js"></script></head><body>React</body></html>'
-    )
 
     def log_message(self, *_args):
         pass
@@ -32,60 +25,26 @@ class AcceptanceHandler(BaseHTTPRequestHandler):
         self.send_header("Content-Length", str(len(body)))
         for key, value in (headers or {}).items():
             self.send_header(key, value)
-        if self.path == "/" or self.path in ("/books", "/books/author/example"):
-            self.send_header("Cache-Control", "no-cache")
-            self.send_header("Content-Security-Policy", "default-src 'self'; script-src 'self' 'sha256-test'; object-src 'none'")
-        if self.path == "/assets/app-12345678.js":
-            self.send_header("Cache-Control", "public, max-age=31536000, immutable")
         self.end_headers()
         if self.command != "HEAD" and body:
             self.wfile.write(body)
 
     def do_GET(self):
         path = self.path.split("?", 1)[0]
-        if path == "/api/client-config":
-            payload = json.dumps({
-                "schemaVersion": 1,
-                "applicationId": (
-                    "not-an-application-id" if AcceptanceHandler.capability_malformed
-                    else "1234567890abcdef1234567890abcdef"
-                ),
-            }).encode()
-            self.respond(
-                AcceptanceHandler.capability_status,
-                payload if AcceptanceHandler.capability_status == 200 else b"Not found",
-                "application/json",
-                {"Cache-Control": "no-store"},
-            )
-        elif path == "/api/auth/session":
-            payload = json.dumps({
-                "enabled": True,
-                "registrationEnabled": False,
-                "emailEnabled": True,
-                "csrfToken": "fixture-csrf-token",
-                "user": None,
-            }).encode()
-            self.respond(
-                200,
-                payload,
-                "application/json",
-                {
-                    "Cache-Control": "private, no-store",
-                    "Set-Cookie": "__Host-CSRF-1234567890abcdef1234567890abcdef=fixture; Path=/; HttpOnly; SameSite=Strict",
-                },
-            )
-        elif path == "/api/auth/login":
-            self.respond(405, b'{"code":"MethodNotAllowed"}', "application/problem+json", {"Allow": "POST"})
-        elif path == "/health/ready":
+        if path == "/health/ready":
             self.respond(200, b"Healthy")
         elif path == "/api/books":
-            self.respond(401, b'{"error":"unauthorized"}', "application/json", {"Cache-Control": "private, no-store"})
-        elif path == "/api/author-books":
-            self.respond(200, b'{"books":[{"id":1,"title":"Public book"}]}', "application/json")
-        elif path in ("/", "/books", "/books/author/example"):
-            self.respond(200, self.shell, "text/html")
-        elif path == "/assets/app-12345678.js":
-            self.respond(200, b"console.log('public')", "text/javascript")
+            self.respond(401, b'{"error":"unauthorized"}', "application/json")
+        elif path == "/Account/Manage":
+            self.respond(302, headers={"Location": "/Account/Login"})
+        elif path == "/Account/Login":
+            self.respond(
+                200,
+                b'<form><input name="__RequestVerificationToken" value="token"><input name="Input.Email"></form>',
+                "text/html",
+            )
+        elif path == "/":
+            self.respond(200, b'<!doctype html><script src="/_framework/blazor.web.js"></script>', "text/html")
         else:
             self.respond(404, b"Not found")
 
@@ -110,22 +69,15 @@ class DeployedSiteAcceptanceTests(unittest.TestCase):
             check=False,
         )
 
-    def run_fixture(
-        self,
-        capability_status: int = 200,
-        capability_malformed: bool = False,
-        forwarded_proto: str = "https",
-    ):
+    def run_fixture(self, forwarded_proto: str = "https"):
         AcceptanceHandler.requests = []
-        AcceptanceHandler.capability_status = capability_status
-        AcceptanceHandler.capability_malformed = capability_malformed
         server = ThreadingHTTPServer(("127.0.0.1", 0), AcceptanceHandler)
         thread = threading.Thread(target=server.serve_forever, daemon=True)
         thread.start()
         try:
             result = self.run_script(
-                "-FrontendProfile", "React",
-                "-AcceptanceProfile", "ReactPublicV1",
+                "-FrontendProfile", "BlazorAuto",
+                "-AcceptanceProfile", "BlazorAutoV1",
                 "-BaseUrl", f"http://127.0.0.1:{server.server_port}",
                 *(("-ForwardedProto", forwarded_proto) if forwarded_proto else ()),
             )
@@ -136,60 +88,35 @@ class DeployedSiteAcceptanceTests(unittest.TestCase):
             server.server_close()
         return result, requests
 
-    def test_mismatched_profiles_fail_before_network_access(self):
+    def test_react_profile_is_rejected_before_network_access(self):
         result = self.run_script(
             "-FrontendProfile", "React",
-            "-AcceptanceProfile", "BlazorAutoV1",
+            "-AcceptanceProfile", "ReactPublicV1",
             "-BaseUrl", "http://127.0.0.1:1",
         )
         self.assertNotEqual(0, result.returncode, result.stdout + result.stderr)
-        self.assertIn("FrontendProfile and AcceptanceProfile do not match", result.stdout + result.stderr)
         self.assertNotIn("PASS DNS", result.stdout)
 
-    def test_react_enabled_acceptance_checks_session_post_only_and_unknown_routes(self):
+    def test_blazor_acceptance_checks_health_api_and_account_routes_without_writes(self):
         result, requests = self.run_fixture()
         self.assertEqual(0, result.returncode, result.stdout + result.stderr)
-        self.assertIn("PASS React-client-config", result.stdout)
-        self.assertIn("PASS React-enabled-session", result.stdout)
-        self.assertIn("PASS React-enabled-session-cache", result.stdout)
-        self.assertIn("PASS React-enabled-session-cookie", result.stdout)
-        self.assertIn("PASS React-enabled-post-only-GET", result.stdout)
-        self.assertIn("PASS React-enabled-post-only-HEAD", result.stdout)
-        self.assertIn("PASS React-enabled-unknown-api", result.stdout)
-        self.assertIn("PASS React-no-cookie", result.stdout)
+        self.assertIn("PASS health", result.stdout)
+        self.assertIn("PASS anonymous-API", result.stdout)
+        self.assertIn("PASS account-manage-anonymous", result.stdout)
+        self.assertIn("PASS account-login-page", result.stdout)
         self.assertIn("RESULT: PASS", result.stdout)
-        self.assertEqual(("GET", "/api/client-config"), requests[0][:2])
-        methods = {method for method, _path, _cookie in requests}
-        self.assertLessEqual(methods, {"GET", "HEAD"})
         paths = {path.split("?", 1)[0] for _method, path, _cookie in requests}
-        self.assertIn("/api/auth/session", paths)
-        self.assertIn("/api/auth/login", paths)
-        self.assertIn("/api/auth/not-a-real-operation", paths)
-        self.assertTrue(all(not cookie for _method, _path, cookie in requests))
+        self.assertTrue({"/health/ready", "/api/books", "/", "/Account/Manage", "/Account/Login"} <= paths)
+        self.assertTrue(all(method in {"GET", "HEAD"} for method, _path, _cookie in requests))
 
-    def test_react_plain_http_skips_account_session_checks(self):
+    def test_plain_http_skips_secure_login_form_check(self):
         result, requests = self.run_fixture(forwarded_proto="")
         self.assertEqual(0, result.returncode, result.stdout + result.stderr)
-        self.assertNotIn("React-enabled-session", result.stdout)
-        self.assertIn("PASS React-enabled-post-only-GET", result.stdout)
-        self.assertIn("PASS React-enabled-unknown-api", result.stdout)
+        self.assertNotIn("account-login-page", result.stdout)
+        self.assertIn("PASS account-manage-anonymous", result.stdout)
         self.assertIn("RESULT: PASS", result.stdout)
         paths = {path.split("?", 1)[0] for _method, path, _cookie in requests}
-        self.assertNotIn("/api/auth/session", paths)
-
-    def test_react_missing_or_malformed_capability_fails_before_other_requests(self):
-        for options in (
-            {"capability_status": 404},
-            {"capability_malformed": True},
-        ):
-            with self.subTest(options=options):
-                result, requests = self.run_fixture(**options)
-                self.assertNotEqual(0, result.returncode, result.stdout + result.stderr)
-                self.assertIn("React client capability document is missing or invalid", result.stdout + result.stderr)
-                self.assertNotIn("PASS health", result.stdout)
-                self.assertNotIn("Not found", result.stdout + result.stderr)
-                paths = {path.split("?", 1)[0] for _method, path, _cookie in requests}
-                self.assertEqual({"/api/client-config"}, paths)
+        self.assertNotIn("/Account/Login", paths)
 
 
 if __name__ == "__main__":

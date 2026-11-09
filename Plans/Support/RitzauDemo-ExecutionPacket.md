@@ -175,7 +175,7 @@ Use the complete inventory's `react_consumers_outside_client` list as the review
 | Packaged smoke | `Deployment/LocalCluster/Scripts/ci-docker-smoke.sh` also parses that Node stage unconditionally for the React SMTP fixture. Remove React-only SMTP/browser resources and initialization, then remove that Node Dockerfile parse. Keep one small packaged Blazor smoke for startup/rendering. Do not retain multiple browser suites; if one browser-driven CRUD path is chosen, make it the single E2E. |
 | App name in smoke | Smoke defaults through `read-deploy-setting.sh` from LocalCluster. Supply `APP_NAME` from the product LocalSingleNode parser; remove the obsolete fallback when moving the smoke helper. |
 | Tests | Remove React-only tests and apply the one-week product test scope in section 4A. Keep only focused Books CRUD unit/integration coverage and at most one optional CRUD E2E. Put any required ownership/access assertion inside CRUD integration; remove standalone account/auth suites. |
-| Quality | Sonar/audit scripts have `Both`/React modes, React path/coverage fixtures and generated-contract assumptions. Simplify supported modes and tests, preserving the Blazor/.NET checks; do not retain broken optional commands. |
+| Quality | Sonar/audit scripts had `Both`/React modes, React path/coverage fixtures and generated-contract assumptions. Simplify supported modes to Blazor, preserve .NET checks, and remove broken React/Vitest/LCOV and Lighthouse tooling. |
 | Publication | Remove `publish_additional_frontend.sh`, corresponding planning/tests and Actions variables only after all callers are adapted. Keep main image/payload receipt/provenance and report-store behavior. |
 
 ### 4A. One-week demo product test scope — approved 2026-11-08, clarified 2026-11-09
@@ -184,11 +184,11 @@ Keep RitzauDemo automated product-behavior tests limited to the Books CRUD demo:
 
 - Unit tests cover only core CRUD validation and small deterministic rules used by that path.
 - Integration tests cover one database-backed create/list/read/update/delete path. Include an ownership/access assertion within this path only where required by the existing private-book policy; do not keep separate account or authentication test suites.
-- Keep at most one opt-in Playwright E2E for a signed-in Books CRUD happy path. Omit it if it cannot be made reliable within the demo week; the deployment phase still performs independent browser acceptance.
+- Keep the one existing opt-in packaged Blazor render/hydration smoke. It does not exercise signed-in CRUD UI; the database-backed integration test covers the complete CRUD path. Do not rebuild a second browser flow for this one-week demo.
 - Remove product tests for Grafana/observability, visual snapshots, Lighthouse/performance, React, elaborate navigation/responsive behavior, cross-node cache invalidation, account/email/outbox lifecycle, deep migration edge cases, and broad architecture/layout details unrelated to CRUD.
 - Remove fixtures and dependencies used only by dropped suites. Do not retain tests to preserve inherited counts.
 
-This is the complete automated product-behavior test scope for the demo: focused CRUD unit and integration tests, plus zero or one CRUD E2E. Keep required CI admission/workflow policy, release identity/provenance, rendered settings, ownership/collision, backup/recovery, and shared-host health gates as operational gates rather than additional product test suites. Do not reduce GrumPlates or CarbonCalculator suites. Registration-disabled behavior, private API boundaries, migration identity, release provenance, and existing-site preservation remain requirements; verify each with its smallest relevant operational or acceptance check.
+This is the complete automated product-behavior test scope for the demo: focused CRUD unit and integration tests, plus one opt-in packaged render/hydration E2E smoke. There is no browser CRUD journey. Keep required CI admission/workflow policy, release identity/provenance, rendered settings, ownership/collision, backup/recovery, and shared-host health gates as operational gates rather than additional product test suites. Do not reduce GrumPlates or CarbonCalculator suites. Registration-disabled behavior, private API boundaries, migration identity, release provenance, and existing-site preservation remain requirements; verify each with its smallest relevant operational or acceptance check.
 
 ## 5. Single-node extraction map
 

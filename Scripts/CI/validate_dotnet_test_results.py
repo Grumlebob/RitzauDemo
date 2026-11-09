@@ -8,7 +8,7 @@ import re
 import sys
 import xml.etree.ElementTree as ET
 
-# A skipped test must say how to opt in, such as "Set RUN_E2E=1 to run Playwright E2E tests."
+# A skipped test must say how to opt in, such as "Set RUN_E2E=1 to run the packaged Blazor render smoke."
 OPT_IN_SKIP = re.compile(r"^Set RUN_[A-Z0-9_]+=1\b")
 
 

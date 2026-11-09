@@ -2,10 +2,10 @@
 [CmdletBinding()]
 param(
     [Parameter(Mandatory = $true)]
-    [ValidateSet('BlazorAuto', 'React')]
+    [ValidateSet('BlazorAuto')]
     [string]$FrontendProfile,
     [Parameter(Mandatory = $true)]
-    [ValidateSet('BlazorAutoV1', 'ReactPublicV1')]
+    [ValidateSet('BlazorAutoV1')]
     [string]$AcceptanceProfile,
     [string]$Node,
     [string]$Address,
@@ -147,162 +147,15 @@ function Is-Authenticated($Session) {
     return ([int]$response.StatusCode -eq 200 -and $uri.AbsolutePath -eq '/Account/Manage')
 }
 
-function Invoke-CommonAcceptance($Anonymous, [string]$FrontendProfile) {
+function Invoke-CommonAcceptance($Anonymous) {
     $script:checkName = 'health'
     $health = Request -Path '/health/ready' -Session $Anonymous
     Write-Check 'health' ([int]$health.StatusCode -eq 200 -and $health.Content.Trim() -eq 'Healthy') 'Application readiness returns Healthy'
 
     $script:checkName = 'anonymous-API'
     $api = Request -Path '/api/books' -Session $Anonymous -FollowRedirects $false
-    $cacheControl = [string]$api.Headers['Cache-Control']
     $apiDenied = [int]$api.StatusCode -eq 401 -and -not $api.Headers['Location']
-    if ($FrontendProfile -eq 'React') {
-        $privateNoStore = $cacheControl -match 'private' -and $cacheControl -match 'no-store'
-        Write-Check 'anonymous-API' ($apiDenied -and $privateNoStore) 'Protected API returns private, no-store 401 without redirect'
-    } else {
-        Write-Check 'anonymous-API' $apiDenied 'Anonymous API returns 401 without redirect'
-    }
-}
-
-function Get-ReactCapability($Session, $Uri) {
-    $script:checkName = 'React-client-config'
-    $response = Request -Path '/api/client-config' -Session $Session -FollowRedirects $false
-    $contentType = [string]$response.Headers['Content-Type']
-    $cacheControl = [string]$response.Headers['Cache-Control']
-    $setCookie = [string]$response.Headers['Set-Cookie']
-    $cookies = @($Session.Cookies.GetCookies($Uri)).Count
-    $payload = $null
-    if ([int]$response.StatusCode -eq 200 -and $contentType -match 'application/json') {
-        try { $payload = $response.Content | ConvertFrom-Json } catch { $payload = $null }
-    }
-
-    $hasShape = $false
-    if ($null -ne $payload) {
-        $properties = @($payload.PSObject.Properties.Name)
-        $schemaVersion = $payload.schemaVersion
-        $schemaVersionValid = ($schemaVersion -is [int] -or $schemaVersion -is [long]) -and $schemaVersion -eq 1
-        $hasShape = ($properties -contains 'schemaVersion') -and $schemaVersionValid -and
-            ($properties -contains 'applicationId') -and ([string]$payload.applicationId -match '\A[0-9a-fA-F]{32}\z')
-    }
-    $noStore = $cacheControl -match '(^|,)\s*no-store(\s|,|$)'
-    $credentialFree = [string]::IsNullOrWhiteSpace($setCookie) -and $cookies -eq 0
-    if ([int]$response.StatusCode -ne 200 -or -not $hasShape -or -not $noStore -or -not $credentialFree) {
-        throw 'React client capability document is missing or invalid'
-    }
-}
-
-function Invoke-ReactAccountSessionAcceptance($Uri) {
-    $session = New-Object Microsoft.PowerShell.Commands.WebRequestSession
-    $script:checkName = 'React-enabled-session'
-    $response = Request -Path '/api/auth/session' -Session $session -FollowRedirects $false
-    $contentType = [string]$response.Headers['Content-Type']
-    $cacheControl = [string]$response.Headers['Cache-Control']
-    $setCookie = [string]$response.Headers['Set-Cookie']
-    $payload = $null
-    if ([int]$response.StatusCode -eq 200 -and $contentType -match 'application/json') {
-        try { $payload = $response.Content | ConvertFrom-Json } catch { $payload = $null }
-    }
-
-    $hasShape = $false
-    if ($null -ne $payload) {
-        $properties = @($payload.PSObject.Properties.Name)
-        $csrfToken = $payload.csrfToken
-        $hasShape = ($properties -contains 'enabled') -and ($payload.enabled -is [bool]) -and $payload.enabled -and
-            ($properties -contains 'registrationEnabled') -and ($payload.registrationEnabled -is [bool]) -and
-            ($properties -contains 'emailEnabled') -and ($payload.emailEnabled -is [bool]) -and
-            ($properties -contains 'csrfToken') -and ($csrfToken -is [string]) -and -not [string]::IsNullOrWhiteSpace($csrfToken) -and
-            ($properties -contains 'user') -and ($null -eq $payload.user)
-    }
-    $privateNoStore = $cacheControl -match 'private' -and $cacheControl -match 'no-store'
-    $hasAntiforgeryCookie = $setCookie -match '__Host-CSRF-[0-9a-fA-F]{32}='
-    $hasAuthenticationCookie = $setCookie -match '__Host-Accounts-[0-9a-fA-F]{32}='
-    Write-Check 'React-enabled-session' ([int]$response.StatusCode -eq 200 -and $contentType -match 'application/json' -and $hasShape) 'Enabled anonymous session returns capability flags, a CSRF token and no user'
-    Write-Check 'React-enabled-session-cache' $privateNoStore 'Account session is private and no-store'
-    Write-Check 'React-enabled-session-cookie' ($hasAntiforgeryCookie -and -not $hasAuthenticationCookie) 'Session sets its antiforgery cookie without an authentication cookie'
-}
-
-function Invoke-ReactPublicAcceptance($Anonymous, $Uri) {
-    $script:checkName = 'React-shell'
-    $homeResponse = Request -Path '/' -Session $Anonymous -Headers @{ Accept = 'text/html' }
-    $hasModule = $homeResponse.Content -match '<script\b[^>]*type=["'']module["'']'
-    $hasBlazor = $homeResponse.Content -match '(_framework|_content|blazor)'
-    Write-Check 'React-shell' ([int]$homeResponse.StatusCode -eq 200 -and $homeResponse.Content -match '<!doctype html' -and $hasModule -and -not $hasBlazor) 'Home serves the React shell without Blazor assets'
-
-    $shellCache = [string]$homeResponse.Headers['Cache-Control']
-    Write-Check 'React-shell-cache' ($shellCache -match '(^|,)\s*no-cache(\s|,|$)') 'React shell requires revalidation'
-    $policy = [string]$homeResponse.Headers['Content-Security-Policy']
-    $policyValid = $policy -match "default-src\s+'self'" -and
-        $policy -match 'sha256-' -and
-        $policy -notmatch 'unsafe-(inline|eval)'
-    Write-Check 'React-shell-CSP' $policyValid 'React shell CSP is restrictive and authorizes exact inline hashes'
-
-    $assetPath = $null
-    foreach ($match in [regex]::Matches($homeResponse.Content, '(?:src|href)=["'']([^"'']+\.js)["'']', 'IgnoreCase')) {
-        if ($match.Groups[1].Value -match '-[A-Za-z0-9_-]{8,}\.js$') {
-            $candidate = [Uri]::new([Uri]($script:site + '/'), $match.Groups[1].Value)
-            if ($candidate.GetLeftPart([System.UriPartial]::Authority) -eq $script:site) {
-                $assetPath = $candidate.PathAndQuery
-                break
-            }
-        }
-    }
-    $script:checkName = 'React-fingerprinted-asset'
-    if ($assetPath) {
-        $asset = Request -Path $assetPath -Session $Anonymous -RequestMethod 'HEAD'
-        $assetCache = [string]$asset.Headers['Cache-Control']
-        $immutable = $assetCache -match 'public' -and $assetCache -match 'max-age=31536000' -and $assetCache -match 'immutable'
-        Write-Check 'React-fingerprinted-asset' ([int]$asset.StatusCode -eq 200 -and $immutable) 'Fingerprint asset returns 200 with immutable caching'
-    } else {
-        Write-Check 'React-fingerprinted-asset' $false 'No same-origin fingerprinted JavaScript asset was found'
-    }
-
-    foreach ($path in @('/books', '/books/author/example')) {
-        $script:checkName = 'React-public-route'
-        $route = Request -Path $path -Session $Anonymous -Headers @{ Accept = 'text/html' }
-        $routeShell = $route.Content -match '<script\b[^>]*type=["'']module["'']' -and
-            $route.Content -notmatch '(_framework|_content|blazor)'
-        Write-Check ('React-route-' + $path) ([int]$route.StatusCode -eq 200 -and $routeShell) 'Direct navigation serves the React shell'
-        $head = Request -Path $path -Session $Anonymous -RequestMethod 'HEAD' -Headers @{ Accept = 'text/html' }
-        Write-Check ('React-route-HEAD-' + $path) ([int]$head.StatusCode -eq 200) 'HEAD navigation succeeds'
-    }
-
-    $script:checkName = 'React-public-data'
-    $publicData = Request -Path '/api/author-books' -Session $Anonymous -FollowRedirects $false
-    $isJson = ([string]$publicData.Headers['Content-Type']) -match 'application/json'
-    $hasBooks = $false
-    if ($isJson) {
-        try {
-            $payload = $publicData.Content | ConvertFrom-Json
-            $hasBooks = @($payload.books).Count -gt 0
-        } catch {
-            $hasBooks = $false
-        }
-    }
-    Write-Check 'React-public-data' ([int]$publicData.StatusCode -eq 200 -and $isJson -and $hasBooks) 'Public author-book API returns JSON sample data'
-
-    $script:checkName = 'React-enabled-post-only'
-    $loginGet = Request -Path '/api/auth/login' -Session $Anonymous -FollowRedirects $false
-    $getAllowsPost = ([string]$loginGet.Headers['Allow']).Trim() -eq 'POST'
-    Write-Check 'React-enabled-post-only-GET' ([int]$loginGet.StatusCode -eq 405 -and $getAllowsPost) 'Known login route rejects GET with Allow: POST'
-
-    $loginHead = Request -Path '/api/auth/login' -Session $Anonymous -FollowRedirects $false -RequestMethod 'HEAD'
-    $headAllowsPost = ([string]$loginHead.Headers['Allow']).Trim() -eq 'POST'
-    Write-Check 'React-enabled-post-only-HEAD' ([int]$loginHead.StatusCode -eq 405 -and $headAllowsPost) 'Known login route rejects HEAD with Allow: POST'
-
-    $unknown = Request -Path '/api/auth/not-a-real-operation' -Session $Anonymous -FollowRedirects $false
-    $unknownNotShell = $unknown.Content -notmatch '<html|<script\b[^>]*type=["'']module["'']'
-    Write-Check 'React-enabled-unknown-api' ([int]$unknown.StatusCode -eq 404 -and $unknownNotShell) 'Unknown account operation remains a real 404'
-    $inactivePaths = @('/Account', '/Account/Login', '/Account/Register', '/api/auth', '/signin-google', '/signin-oidc', '/oauth/callback', '/_framework/missing', '/_content/missing', '/assets/missing.js')
-
-    foreach ($path in $inactivePaths) {
-        $script:checkName = 'React-inactive-route'
-        $inactive = Request -Path $path -Session $Anonymous -FollowRedirects $false -Headers @{ Accept = 'text/html' }
-        $notShell = $inactive.Content -notmatch '<html|<script\b[^>]*type=["'']module["'']'
-        Write-Check ('React-inactive-route-' + $path) ([int]$inactive.StatusCode -eq 404 -and $notShell) 'React-only or missing path returns a real 404'
-    }
-
-    $cookieCount = @($Anonymous.Cookies.GetCookies($Uri)).Count
-    Write-Check 'React-no-cookie' ($cookieCount -eq 0) 'Public checks created no session or antiforgery cookie'
+    Write-Check 'anonymous-API' $apiDenied 'Anonymous API returns 401 without redirect'
 }
 
 function Invoke-BlazorAccountAcceptance($Uri) {
@@ -341,7 +194,7 @@ try {
     if ($ForwardedProto -and $ForwardedProto -notin @('http', 'https')) {
         throw 'ForwardedProto must be http or https'
     }
-    $expectedAcceptance = if ($FrontendProfile -eq 'React') { 'ReactPublicV1' } else { 'BlazorAutoV1' }
+    $expectedAcceptance = 'BlazorAutoV1'
     if ($AcceptanceProfile -ne $expectedAcceptance) {
         throw 'FrontendProfile and AcceptanceProfile do not match'
     }
@@ -375,24 +228,9 @@ try {
         Write-Check 'TCP' $tcp.Connected 'HTTP port accepts connections'
     } finally { $tcp.Dispose() }
 
-    if ($FrontendProfile -eq 'React') {
-        # The client configuration is the first application request.
-        $capabilitySession = New-Object Microsoft.PowerShell.Commands.WebRequestSession
-        Get-ReactCapability $capabilitySession $uri
-        Write-Check 'React-client-config' $true 'Client configuration is versioned, no-store and cookie-free'
-        # The session's antiforgery cookie is Secure, so plain LAN HTTP cannot receive it (Q12, Q18).
-        if ($uri.Scheme -eq 'https' -or $script:forwardedProto -eq 'https') {
-            Invoke-ReactAccountSessionAcceptance $uri
-        }
-
-        $anonymous = New-Object Microsoft.PowerShell.Commands.WebRequestSession
-        Invoke-CommonAcceptance $anonymous $FrontendProfile
-        Invoke-ReactPublicAcceptance $anonymous $uri
-    } else {
-        $anonymous = New-Object Microsoft.PowerShell.Commands.WebRequestSession
-        Invoke-CommonAcceptance $anonymous $FrontendProfile
-        Invoke-BlazorAccountAcceptance $uri
-    }
+    $anonymous = New-Object Microsoft.PowerShell.Commands.WebRequestSession
+    Invoke-CommonAcceptance $anonymous
+    Invoke-BlazorAccountAcceptance $uri
 } catch {
     # Never emit request bodies, credentials or exception dumps.
     $reason = 'HTTP acceptance stopped (' + $_.Exception.GetType().Name + '); inspect server diagnostics'
@@ -400,8 +238,7 @@ try {
         'FrontendProfile and AcceptanceProfile do not match',
         'Provide -Node, -Address or -BaseUrl',
         'BaseUrl must be an HTTP or HTTPS origin without credentials, a path, query or fragment',
-        'Antiforgery input missing from account form',
-        'React client capability document is missing or invalid'
+        'Antiforgery input missing from account form'
     )) {
         $reason = $_.Exception.Message
     }

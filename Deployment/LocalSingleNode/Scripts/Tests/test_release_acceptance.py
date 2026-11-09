@@ -25,20 +25,15 @@ class ReleaseAcceptanceTests(unittest.TestCase):
                 with self.assertRaisesRegex(ValueError, "unsupported manifest schema"):
                     self.resolve(value)
 
-    def test_schema_two_accepts_both_matching_pairs(self):
-        for frontend, acceptance in (
+    def test_schema_two_accepts_blazor_release_pair(self):
+        self.assertEqual(
             ("BlazorAuto", "BlazorAutoV1"),
-            ("React", "ReactPublicV1"),
-        ):
-            with self.subTest(frontend=frontend):
-                self.assertEqual(
-                    (frontend, acceptance),
-                    self.resolve({
-                        "manifest_schema_version": 2,
-                        "frontend_profile": frontend,
-                        "acceptance_profile": acceptance,
-                    }),
-                )
+            self.resolve({
+                "manifest_schema_version": 2,
+                "frontend_profile": "BlazorAuto",
+                "acceptance_profile": "BlazorAutoV1",
+            }),
+        )
 
     def test_schema_two_rejects_missing_unknown_and_mismatched_identity(self):
         invalid = (

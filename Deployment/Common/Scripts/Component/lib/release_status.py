@@ -23,7 +23,7 @@ POSITIVE_INTEGER = re.compile(r"[1-9][0-9]*\Z")
 PIN_KEY = re.compile(r"ghcr-[0-9a-f]{64}-[0-9a-f]{64}\Z")
 ACTIVE_STATUSES = ("queued", "in_progress", "waiting", "requested", "pending")
 CD_WORKFLOWS = ("cd-localcluster.yml", "cd-localsinglenode.yml")
-PROFILE_ACCEPTANCE = {"BlazorAuto": "BlazorAutoV1", "React": "ReactPublicV1"}
+PROFILE_ACCEPTANCE = {"BlazorAuto": "BlazorAutoV1"}
 
 
 class ReleaseStatusError(ValueError):

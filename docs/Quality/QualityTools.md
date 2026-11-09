@@ -12,8 +12,6 @@ The on-demand audits below produce reports for review and do not block merges. T
 | [sitespeed.io](https://www.sitespeed.io/documentation/sitespeed.io/docker/) | Collects three Chrome timing samples and request waterfalls. Compare runs under the same conditions. |
 | [scc](https://github.com/boyter/scc) | Counts code and estimates lexical complexity. Use counts for planning, not as quality or productivity scores. |
 
-The React public Chromium suite includes axe assertions and runs in CI; it is separate from this audit runner. For local browser setup, see [React public browser checks](../Testing/Browser.md#react-public-browser-checks). Install the client lockfile with `npm --prefix GrumPlates.Client ci` so axe is available.
-
 ## Run an audit
 
 Run PowerShell commands from the repository root. Python 3.10+, Git, and Docker with Linux containers are required. Qlty also runs natively on Windows x64 or Linux x64; the runner verifies its pinned archive checksum. Pinned images, versions, and checksums are in [`Scripts/Quality/audit-tools.json`](../../Scripts/Quality/audit-tools.json). Accepted tools and options are declared in [`run_quality_audit.py`](../../Scripts/Quality/run_quality_audit.py).
@@ -33,17 +31,6 @@ Use a disposable app for ZAP and sitespeed. Replace the example URL with its act
 `trivy-image` requires an immutable digest in `--target`. By default it reads that image from a registry without mounting the Docker socket. Public pulls work directly; private registry credentials are not copied from the host. For a private image, use `--image-archive` with a non-empty Docker-save tar created by an authorized environment after pulling the target by digest. The wrapper mounts the archive read-only and records its SHA-256 and byte count beside the requested digest. The caller must preserve evidence that the archive came from that digest.
 
 The default timeout is 15 minutes, including image pulls. Set `--timeout-minutes 1` through `60` to change it. Docker audits use a unique container, two CPUs, 4 GiB memory, and 1 GiB shared memory. The first browser-image pull can be large. Trivy downloads its vulnerability database for each run.
-
-## Summarize Lighthouse runs
-
-`Scripts/RunLighthouse.ps1` writes one report folder per run under `TestResults/Lighthouse`. Summarize several runs that share a label prefix, one line per page and device with the median of its runs:
-
-```powershell
-python Scripts/Quality/summarize_lighthouse.py p2-origin-
-python Scripts/Quality/summarize_lighthouse.py p2-origin- --minimum "performance=90,accessibility=100,best-practices=100,seo=100"
-```
-
-With `--minimum`, the script lists every page and device whose median is below a minimum and exits `1`. An unknown category, no matching reports, or a report from a run that did not finish (no scores) exits `2`; it never reports success for an empty set or a smaller sample. Delete the failed run's report and run that page again. `RunLighthouse.ps1 -Minimum "<same value>"` applies the check to its own run and returns the script's exit code. Both are for manual use and are not part of any workflow.
 
 ## Reports and cleanup
 

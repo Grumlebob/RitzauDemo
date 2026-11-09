@@ -46,7 +46,7 @@ try {
             'Directory.Packages.props', 'frontend-profile.txt', 'Scripts/Quality/tool-versions.json')) {
         $path = Join-Path $temporaryRoot $relative
         New-Item -ItemType Directory -Force -Path (Split-Path -Parent $path) | Out-Null
-        [IO.File]::WriteAllText($path, $(if ($relative -eq 'frontend-profile.txt') { 'React' } else { 'fixture' }))
+        [IO.File]::WriteAllText($path, $(if ($relative -eq 'frontend-profile.txt') { 'BlazorAuto' } else { 'fixture' }))
     }
     # Fixture git commands must not follow inherited GIT_* variables into the caller's repository.
     Get-ChildItem Env: | Where-Object { $_.Name -like 'GIT_*' } | ForEach-Object { Remove-Item -Path "Env:$($_.Name)" }
@@ -90,14 +90,14 @@ try {
         RepositoryIdentity = 'github.com/quality-test/fixture'
         ToolVersions = [pscustomobject]@{ analyzer = [pscustomobject]@{ version = '10.35.0.4138' } }
     }
-    $failedQuick = & $quick -FrontendProfile Both -RepoRoot $temporaryRoot -Context $fakeContext
-    if ($failedQuick.outcome -ne 'failed' -or @($failedQuick.profiles).Count -ne 2) {
-        throw 'Quick failure fixture did not retain both profile outcomes.'
+    $failedQuick = & $quick -FrontendProfile BlazorAuto -RepoRoot $temporaryRoot -Context $fakeContext
+    if ($failedQuick.outcome -ne 'failed' -or @($failedQuick.profiles).Count -ne 1) {
+        throw 'Quick failure fixture did not retain the Blazor outcome.'
     }
     if (@($failedQuick.profiles | Where-Object { $_.restore.exitCode -eq 0 }).Count -ne 0) {
         throw 'Quick failure fixture unexpectedly accepted a failed analyzer restore.'
     }
-    if ($failedQuick.normalRestore.profile -ne 'React' -or $failedQuick.normalRestore.exitCode -eq 0) {
+    if ($failedQuick.normalRestore.profile -ne 'BlazorAuto' -or $failedQuick.normalRestore.exitCode -eq 0) {
         throw 'Quick failure fixture did not record the final selected-profile normal restore attempt.'
     }
 }

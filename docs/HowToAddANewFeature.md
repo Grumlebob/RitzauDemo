@@ -1,13 +1,13 @@
 # Add a feature
 
-Use this page to choose the implementation route. Read [Requirements](Requirements.md) for product rules. Check the tracked `frontend-profile.txt` to identify the target client. Read [FrontendProfiles](FrontendProfiles.md) when changing profile selection; React work follows [its feature guide](Frontend/React.md).
+Use this page to add a feature to the single Blazor Auto app. Read [Requirements](Requirements.md) for product rules and [FrontendProfiles](FrontendProfiles.md) for the supported frontend.
 
 ## Order
 
 1. Define the behavior, data scope, access rules, routes, and what is out of scope.
 2. For shared behavior, put domain types and API contracts in `GrumPlates.Core/Features/{Feature}`. UI-only features keep their state and types in the selected client; add no unused server contract or DTOs.
 3. When server behavior is needed, add it in `GrumPlates/Features/{Feature}`. Skip persistence when the feature does not store data. Follow [Server feature guidance](Features/Server.md).
-4. Implement the selected UI: Blazor under `GrumPlates.Client/Features/{Feature}`, or React under `GrumPlates.React/app`. Do not add both clients unless both profiles need the feature.
+4. Implement UI under `GrumPlates.Client/Features/{Feature}`. Keep the component focused and use the Core contract or feature state for server data.
 5. Test behavior at its boundary: components/state for UI-only work, APIs for server behavior. Add browser coverage for important user workflows. Use [Infrastructure testing](Testing/Infrastructure.md) and [Browser testing](Testing/Browser.md).
 6. Update configuration, observability, or operator docs only when the feature changes those behaviors. Run the [local gate](Test.md#local-gate).
 

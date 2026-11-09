@@ -47,7 +47,7 @@ CHURN_TEXT = (
 RUN_EVIDENCE = {
     "tests": {"frontendTests": {"status": "not-applicable"},
               "dotnet": {"passed": 190, "failed": 0, "skipped": 13, "total": 203, "result": "tests/suite.trx"}},
-    "coverage": {"reactLcov": "not-applicable", "dotnet": {"valid": True, "directReportCount": 1,
+    "coverage": {"dotnet": {"valid": True, "directReportCount": 1,
                                                                   "coveredProductionSources": [GEOMETRY]}},
 }
 
@@ -105,16 +105,8 @@ def report_request(profile: str, run_evidence: dict) -> sr.ReportRequest:
 
 
 def build_standard_report(routes: dict | None = None, path_exists=None, profile: str = "BlazorAuto") -> dict:
-    run_evidence = RUN_EVIDENCE
-    if profile == "React":
-        run_evidence = {
-            "tests": {"frontendTests": {"passed": 31, "failed": 0, "skipped": 0, "total": 31},
-                      "dotnet": {"passed": 182, "failed": 0, "skipped": 13, "total": 195, "result": "tests/suite.trx"}},
-            "coverage": {"reactLcov": "validated", "dotnet": {"valid": True, "directReportCount": 1,
-                                                                        "coveredProductionSources": [GEOMETRY]}},
-        }
     return sr.build_report(
-        FakeClient(routes or standard_routes()), report_request(profile, run_evidence), CHURN_TEXT,
+        FakeClient(routes or standard_routes()), report_request(profile, RUN_EVIDENCE), CHURN_TEXT,
         path_exists=path_exists or (lambda path: True),
     )
 
@@ -249,7 +241,7 @@ class ReportCompletenessTests(unittest.TestCase):
         self.assertEqual(report["frontendProfile"], "BlazorAuto")
         self.assertEqual(report["analysisId"], ANALYSIS_ID)
         self.assertEqual(report["qualityGate"], {"status": "OK", "analysisId": ANALYSIS_ID, "informational": True})
-        self.assertTrue(all(report["scopeEvidence"][name] for name in ("bookGeometry", "bookRazor", "sharedCore", "handwrittenCss", "reactImplementationExcluded")))
+        self.assertTrue(all(report["scopeEvidence"][name] for name in ("bookGeometry", "bookRazor", "sharedCore", "handwrittenCss", "legacyFrontendAbsent")))
         self.assertIn(("api/qualitygates/project_status", {"analysisId": ANALYSIS_ID}), client.calls)
 
     def test_latest_analysis_change_during_export_aborts(self) -> None:
@@ -278,18 +270,6 @@ class ReportCompletenessTests(unittest.TestCase):
         self.assertFalse(report["complete"])
         self.assertIsNone(report["measures"]["coverage"])
         self.assertIn("coverage", report["coreMeasureCompleteness"]["missing"])
-
-    def test_react_scope_and_lcov_evidence(self) -> None:
-        react_tree = [
-            {"key": f"{PROJECT}:GrumPlates/Frontend/FrontendComposition.React.cs", "path": "GrumPlates/Frontend/FrontendComposition.React.cs", "measures": []},
-            {"key": f"{PROJECT}:GrumPlates/Frontend/OpenApi/OpenApiMetadataHosting.cs", "path": "GrumPlates/Frontend/OpenApi/OpenApiMetadataHosting.cs", "measures": []},
-            {"key": f"{PROJECT}:GrumPlates.React/app/features/books/catalog-page.tsx", "path": "GrumPlates.React/app/features/books/catalog-page.tsx", "measures": []},
-            {"key": f"{PROJECT}:GrumPlates.React/app/api/client.ts", "path": "GrumPlates.React/app/api/client.ts", "measures": [{"metric": "coverage", "value": "75.0"}]},
-        ]
-        report = build_standard_report(standard_routes(tree=lambda params: paged(react_tree, params, "components")), profile="React")
-        self.assertTrue(report["complete"])
-        self.assertTrue(report["scopeEvidence"]["testedApiModuleHasCoverage"])
-        self.assertTrue(report["scopeEvidence"]["blazorImplementationExcluded"])
 
     def test_quality_ratings_are_exported_and_rendered_as_letters(self) -> None:
         client = FakeClient(standard_routes())
