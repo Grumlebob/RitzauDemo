@@ -30,6 +30,10 @@ bash ./Deployment/LocalSingleNode/Scripts/doctor.sh --json
 
 Use its reported checks to identify what needs attention. Run `acceptance-check.sh` to verify LAN readiness and the configured HTTP acceptance profile. Use [Readiness](Readiness.md) for a pre-setup candidate check; it does not bootstrap, back up, deploy, restart or repair the node.
 
+## Runtime resource budgets
+
+The RitzauDemo Compose stack starts with caps of 1.5 CPUs, 512 MiB and 256 PIDs for web; 1 CPU, 768 MiB and 256 PIDs for PostgreSQL; and 0.25 CPUs, 128 MiB and 128 PIDs for Redis. Redis retains append-only persistence, caps its dataset at 64 MiB, and uses `noeviction` so a full cache does not silently discard existing entries. Loaded acceptance must confirm these initial limits leave headroom for existing applications and one admitted build; inspect the effective Docker limits and host pressure during that run.
+
 ## Maintenance
 
 The **LocalSingleNode maintenance** workflow runs against the primary app and uses the shared deployment lock. `backup_now` defaults to true; it creates a fresh protected backup and verifies an isolated restore. Keep `acceptance_only=false` for normal maintenance. Host maintenance stays manual; release artifact retention runs daily at 03:17 UTC and also runs on manual dispatch. Set `artifact_only=true` to skip app maintenance. Manual GitHub artifact deletion stays in preview mode unless both `apply_artifacts=true` and the repository variable `ACTIONS_ARTIFACT_RETENTION_ENABLED` is exactly `true`; scheduled deletion requires that variable alone. Leave the variable unset until current accepted/recovery pins and live operations are verified. The workflow also prunes expired runner-local CI reports.

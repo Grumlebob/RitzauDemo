@@ -160,9 +160,21 @@ for needle, why in (
 compose = read("Deployment/LocalSingleNode/compose/docker-compose.yml")
 if "127.0.0.1" not in compose:
     failures.append("LocalSingleNode Compose must bind private app/data ports to loopback")
-for service in ("web:", "postgres:", "redis:"):
-    if service not in compose:
+resource_limits = {
+    "postgres": {"cpus": "1.0", "mem_limit": "768m", "pids_limit": "256"},
+    "redis": {"cpus": "0.25", "mem_limit": "128m", "pids_limit": "128"},
+    "web": {"cpus": "1.5", "mem_limit": "512m", "pids_limit": "256"},
+}
+for service, limits in resource_limits.items():
+    match = re.search(rf"(?ms)^  {service}:\n(.*?)(?=^  [a-z][a-z0-9_-]*:\n|\Z)", compose)
+    if match is None:
         failures.append(f"LocalSingleNode Compose is missing service {service}")
+        continue
+    for key, value in limits.items():
+        if not re.search(rf"(?m)^    {re.escape(key)}:\s*{re.escape(value)}\s*$", match.group(1)):
+            failures.append(f"LocalSingleNode Compose must bound {service} {key} to {value}")
+if '"--maxmemory", "64mb", "--maxmemory-policy", "noeviction"' not in compose:
+    failures.append("LocalSingleNode Redis must bound cache memory without evicting persisted entries")
 
 site = read("Deployment/LocalSingleNode/ansible/roles/single_node_caddy_site/templates/app.caddy.j2")
 for needle, why in (
