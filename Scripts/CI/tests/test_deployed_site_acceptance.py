@@ -36,7 +36,7 @@ class AcceptanceHandler(BaseHTTPRequestHandler):
         elif path == "/api/books":
             self.respond(401, b'{"error":"unauthorized"}', "application/json")
         elif path == "/Account/Manage":
-            self.respond(302, headers={"Location": "/Account/Login"})
+            self.respond(404, b"Not found")
         elif path == "/Account/Login":
             self.respond(
                 200,
@@ -102,7 +102,7 @@ class DeployedSiteAcceptanceTests(unittest.TestCase):
         self.assertEqual(0, result.returncode, result.stdout + result.stderr)
         self.assertIn("PASS health", result.stdout)
         self.assertIn("PASS anonymous-API", result.stdout)
-        self.assertIn("PASS account-manage-anonymous", result.stdout)
+        self.assertIn("PASS account-management-removed", result.stdout)
         self.assertIn("PASS account-login-page", result.stdout)
         self.assertIn("RESULT: PASS", result.stdout)
         paths = {path.split("?", 1)[0] for _method, path, _cookie in requests}
@@ -113,7 +113,7 @@ class DeployedSiteAcceptanceTests(unittest.TestCase):
         result, requests = self.run_fixture(forwarded_proto="")
         self.assertEqual(0, result.returncode, result.stdout + result.stderr)
         self.assertNotIn("account-login-page", result.stdout)
-        self.assertIn("PASS account-manage-anonymous", result.stdout)
+        self.assertIn("PASS account-management-removed", result.stdout)
         self.assertIn("RESULT: PASS", result.stdout)
         paths = {path.split("?", 1)[0] for _method, path, _cookie in requests}
         self.assertNotIn("/Account/Login", paths)
