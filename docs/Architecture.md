@@ -4,12 +4,12 @@ RitzauDemo is one Blazor Auto app. The Books feature is the demo path. The serve
 
 | Project | Responsibility |
 | --- | --- |
-| `GrumPlates.Core` | Books domain rules, API contracts and request/response DTOs. |
-| `GrumPlates.Client` | Blazor routes, components, API implementations and UI state. |
-| `GrumPlates` | HTTP endpoints, Books operations, EF persistence and hosting. |
-| `GrumPlates.Test` | Books CRUD request validation, database-backed integration coverage and one optional packaged render smoke. |
+| `RitzauDemo.Core` | Books domain rules, API contracts and request/response DTOs. |
+| `RitzauDemo.Client` | Blazor routes, components, API implementations and UI state. |
+| `RitzauDemo` | HTTP endpoints, Books operations, EF persistence and hosting. |
+| `RitzauDemo.Test` | Books CRUD request validation, database-backed integration coverage and one optional packaged render smoke. |
 
-Books contracts and validation live in `GrumPlates.Core/Features/Books`. Server operations and persistence live in `GrumPlates/Features/Books`. Blazor views live in `GrumPlates.Client/Features/Books`. Keep UI code on shared Core contracts and enforce data ownership on the server.
+Books contracts and validation live in `RitzauDemo.Core/Features/Books`. Server operations and persistence live in `RitzauDemo/Features/Books`. Blazor views live in `RitzauDemo.Client/Features/Books`. Keep UI code on shared Core contracts and enforce data ownership on the server.
 
 Identity and account settings remain available for protected Books operations, but are outside the product test showcase. See [Accounts](Accounts.md) for registration defaults and deployment settings.
 

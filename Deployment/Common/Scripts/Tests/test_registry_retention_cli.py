@@ -23,7 +23,7 @@ SPEC.loader.exec_module(CLI)
 from registry_retention import Inventory, Payload, RetentionError, Version  # noqa: E402
 
 
-REPOSITORY = "Grumlebob/GrumPlates"
+REPOSITORY = "Grumlebob/RitzauDemo"
 PACKAGE = "ghcr.io/grumlebob/private-books-release-payload"
 NOW = datetime.now(timezone.utc)
 

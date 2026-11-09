@@ -224,7 +224,7 @@ function New-ArchiveManifest {
         $entries.Add([ordered]@{ path = $relative; sha256 = $digest })
     }
     Write-AuditJson -Path (Join-Path $Directory 'manifest.json') -Value ([ordered]@{
-        schema = 'grumplates.sonar-archive/1'
+        schema = 'ritzaudemo.sonar-archive/1'
         runId = $batch.runId
         files = @($entries)
     })
@@ -234,7 +234,7 @@ function Verify-ArchiveManifest {
     param([Parameter(Mandatory)][string]$Directory)
     $manifestPath = Join-Path $Directory 'manifest.json'
     $manifest = Get-Content -LiteralPath $manifestPath -Raw | ConvertFrom-Json
-    if ($manifest.schema -ne 'grumplates.sonar-archive/1' -or $manifest.runId -ne $batch.runId) { throw 'Archive manifest identity does not match the audit.' }
+    if ($manifest.schema -ne 'ritzaudemo.sonar-archive/1' -or $manifest.runId -ne $batch.runId) { throw 'Archive manifest identity does not match the audit.' }
     foreach ($entry in $manifest.files) {
         $path = Join-Path $Directory ($entry.path.Replace('/', [IO.Path]::DirectorySeparatorChar))
         if (-not (Test-Path -LiteralPath $path -PathType Leaf)) { throw "Archived file is missing: $($entry.path)" }
@@ -334,7 +334,7 @@ try {
         'Scripts/Quality/Start-SonarQubeMcp.ps1', 'Scripts/Quality/validate_dotnet_coverage.py',
         'Scripts/Quality/tool-versions.json', 'Scripts/Quality/quality-settings.example.json',
         'Scripts/Quality/SonarQube/SonarQube.Analysis.xml', 'Scripts/Quality/SonarQube/profile-overrides.json',
-        'docker/sonarqube/compose.yaml'
+        'Scripts/Quality/SonarQube/compose.yaml'
     )
     foreach ($relative in $requiredFiles) {
         $check = Invoke-QualityProcess -FilePath $git -ArgumentList @('-C', $invokingRoot, 'cat-file', '-e', "$($sourceSha):$relative") `
@@ -347,7 +347,7 @@ try {
     $runDirectory = Join-Path $context.RunsDirectory $runId
     New-Item -ItemType Directory -Force -Path (Join-Path $runDirectory 'worktrees') | Out-Null
     $batch = [ordered]@{
-        schema = 'grumplates.sonar-audit/1'
+        schema = 'ritzaudemo.sonar-audit/1'
         mode = 'Full'
         runId = $runId
         repositoryIdentity = $context.RepositoryIdentity
@@ -380,7 +380,7 @@ try {
 
     $sourceRoot = [string]$worktrees[0].path
     $context.RepoRoot = $sourceRoot
-    $context.ComposePath = Join-Path $sourceRoot 'docker/sonarqube/compose.yaml'
+    $context.ComposePath = Join-Path $sourceRoot 'Scripts/Quality/SonarQube/compose.yaml'
     $context.ToolVersions = Get-QualityToolVersions -RepoRoot $sourceRoot
     $batch.toolVersions = $context.ToolVersions
     $serverScript = Join-Path $sourceRoot 'Scripts/Quality/SonarQubeServer.ps1'

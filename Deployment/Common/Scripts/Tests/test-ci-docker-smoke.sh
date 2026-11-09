@@ -38,8 +38,8 @@ if args[:2] == ["image", "inspect"]:
     if os.environ.get("FAIL_ACCEPTANCE_LABEL") == "1":
         acceptance = "ReactPublicV1"
     print(json.dumps({
-        "com.grumplates.frontend-profile": profile,
-        "com.grumplates.acceptance-profile": acceptance,
+        "com.ritzaudemo.frontend-profile": profile,
+        "com.ritzaudemo.acceptance-profile": acceptance,
         "org.opencontainers.image.revision": os.environ["GITHUB_SHA"],
     }))
 elif args[:2] == ["network", "create"] or args[0] == "run":

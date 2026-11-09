@@ -104,13 +104,8 @@ jobs:
       - name: Resolve target frontend and acceptance profiles
         run: |
           set -euo pipefail
-          target_profile_file="${RUNNER_TEMP}/frontend-profile-${TARGET_SHA}.txt"
-          git show "${TARGET_SHA}:frontend-profile.txt" > "$target_profile_file" || {
-            echo "The selected source commit has no frontend-profile.txt." >&2
-            exit 1
-          }
-          frontend_profile="$(python3 Scripts/Frontend/resolve_frontend_profile.py --profile-file "$target_profile_file")"
-          acceptance_profile="$(python3 Scripts/Frontend/resolve_frontend_profile.py --profile-file "$target_profile_file" --acceptance-profile)"
+          frontend_profile="$(python3 Scripts/Frontend/resolve_frontend_profile.py --source-sha "$TARGET_SHA")"
+          acceptance_profile="$(python3 Scripts/Frontend/resolve_frontend_profile.py --source-sha "$TARGET_SHA" --acceptance-profile)"
           {
             echo "FRONTEND_PROFILE=${frontend_profile}"
             echo "ACCEPTANCE_PROFILE=${acceptance_profile}"

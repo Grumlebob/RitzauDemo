@@ -14,7 +14,7 @@ dotnet_separate_import_directive_groups = false
 dotnet_diagnostic.IDE0005.severity = warning
 
 # Preserve generated migration history, including files without generated headers.
-[GrumPlates/Infrastructure/Persistence/Migrations/*.cs]
+[RitzauDemo/Infrastructure/Persistence/Migrations/*.cs]
 dotnet_diagnostic.IDE0005.severity = none
 
 [*.{json,yml,yaml,csproj,props,targets}]

@@ -17,6 +17,6 @@ flowchart LR
   tempo --> grafana
 ```
 
-The local Compose profile and its limits live in [`docker-compose.yml`](../../docker-compose.yml) and [`docker/observability`](../../docker/observability). App instrumentation is in [`ObservabilityExtensions.cs`](../../GrumPlates/Infrastructure/Hosting/ObservabilityExtensions.cs). The deployment settings keep `observability_enabled: false`.
+The optional local observability stack and its limits live in [`docker-compose.yml`](../../docker-compose.yml) and [`Scripts/LocalObservability`](../../Scripts/LocalObservability). App instrumentation is in [`ObservabilityExtensions.cs`](../../RitzauDemo/Infrastructure/Hosting/ObservabilityExtensions.cs). The deployment settings keep `observability_enabled: false`.
 
 Telemetry export is best-effort. A missing collector or failed export must not prevent app startup, readiness, or requests. Keep metric labels bounded; do not include user or record IDs, email addresses, full URLs, query strings, request or trace IDs, IP addresses, or free text.

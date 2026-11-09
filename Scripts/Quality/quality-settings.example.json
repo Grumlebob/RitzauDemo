@@ -1,5 +1,5 @@
 {
-  "schema": "grumplates.sonar-settings/1",
+  "schema": "ritzaudemo.sonar-settings/1",
   "hostPort": null,
   "pythonExecutable": null
 }

@@ -33,8 +33,8 @@ def write_manifest(directory: Path, digests: object, labels: object, env: Mappin
     expected_labels = {
         "org.opencontainers.image.source": f"{env['GITHUB_SERVER_URL']}/{env['GITHUB_REPOSITORY']}",
         "org.opencontainers.image.revision": env["GITHUB_SHA"],
-        "com.grumplates.frontend-profile": profile,
-        "com.grumplates.acceptance-profile": env["FRONTEND_ACCEPTANCE_PROFILE"],
+        "com.ritzaudemo.frontend-profile": profile,
+        "com.ritzaudemo.acceptance-profile": env["FRONTEND_ACCEPTANCE_PROFILE"],
         "localcluster.ci.repository": env["GITHUB_REPOSITORY"],
         "localcluster.ci.owner": "ci-build",
         "localcluster.ci.run_id": env["GITHUB_RUN_ID"],

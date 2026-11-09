@@ -25,7 +25,7 @@ FAKE_ROOT = "C:/fake/repo"
 def run_main(extra: list[str], out_dir: str, sarif_dir: Path = FIXTURES) -> tuple[int, str]:
     argv = [
         "--sarif-dir", str(sarif_dir), "--repo-root", FAKE_ROOT, "--out-dir", out_dir,
-        "--repository-identity", "github.com/example/grumplates",
+        "--repository-identity", "github.com/example/ritzaudemo",
         "--frontend-profile", "BlazorAuto", "--configuration", "Release",
         "--configuration-digest", "a" * 64,
         "--analyzer-version", "10.35.0.4138", "--run-id", "fixture-run", *extra,
@@ -39,26 +39,26 @@ def run_main(extra: list[str], out_dir: str, sarif_dir: Path = FIXTURES) -> tupl
 class ToRepoRelativeTests(unittest.TestCase):
     def test_windows_file_uri_becomes_repo_relative(self) -> None:
         self.assertEqual(
-            to_repo_relative("file:///C:/fake/repo/GrumPlates.Core/Features/Books/UseCases/GetBook/GetBookRequest.cs", "C:\\fake\\repo"),
-            "GrumPlates.Core/Features/Books/UseCases/GetBook/GetBookRequest.cs",
+            to_repo_relative("file:///C:/fake/repo/RitzauDemo.Core/Features/Books/UseCases/GetBook/GetBookRequest.cs", "C:\\fake\\repo"),
+            "RitzauDemo.Core/Features/Books/UseCases/GetBook/GetBookRequest.cs",
         )
 
     def test_posix_file_uri_becomes_repo_relative(self) -> None:
         self.assertEqual(
-            to_repo_relative("file:///home/runner/work/GrumPlates/GrumPlates/Program.cs", "/home/runner/work/GrumPlates"),
-            "GrumPlates/Program.cs",
+            to_repo_relative("file:///home/runner/work/RitzauDemo/RitzauDemo/Program.cs", "/home/runner/work/RitzauDemo"),
+            "RitzauDemo/Program.cs",
         )
 
     def test_original_casing_of_the_relative_path_is_preserved(self) -> None:
         self.assertEqual(
-            to_repo_relative("file:///C:/Fake/Repo/GrumPlates.Core/Features/Books/UseCases/GetBooks/GetBooksResponse.cs", "C:/fake/repo"),
-            "GrumPlates.Core/Features/Books/UseCases/GetBooks/GetBooksResponse.cs",
+            to_repo_relative("file:///C:/Fake/Repo/RitzauDemo.Core/Features/Books/UseCases/GetBooks/GetBooksResponse.cs", "C:/fake/repo"),
+            "RitzauDemo.Core/Features/Books/UseCases/GetBooks/GetBooksResponse.cs",
         )
 
     def test_percent_encoding_is_decoded(self) -> None:
         self.assertEqual(
-            to_repo_relative("file:///C:/fake/repo/GrumPlates.Core/Features/Books/My%20Folder/Z.cs", FAKE_ROOT),
-            "GrumPlates.Core/Features/Books/My Folder/Z.cs",
+            to_repo_relative("file:///C:/fake/repo/RitzauDemo.Core/Features/Books/My%20Folder/Z.cs", FAKE_ROOT),
+            "RitzauDemo.Core/Features/Books/My Folder/Z.cs",
         )
 
     def test_path_outside_the_repo_stays_absolute(self) -> None:
@@ -74,18 +74,18 @@ class ClassificationTests(unittest.TestCase):
         self.assertEqual(family_of("XYZ123"), "other")
 
     def test_scope_mapping(self) -> None:
-        self.assertEqual(scope_of("GrumPlates.Core/Features/Books/X.cs", "GrumPlates.Core.sarif"), "production")
-        self.assertEqual(scope_of("GrumPlates/Migrations/20240101_Init.cs", "GrumPlates.sarif"), "generated")
-        self.assertEqual(scope_of("GrumPlates/obj/Debug/Gen.g.cs", "GrumPlates.sarif"), "generated")
-        self.assertEqual(scope_of("GrumPlates/Views/Page.Designer.cs", "GrumPlates.sarif"), "generated")
-        self.assertEqual(scope_of("GrumPlates.Test/FooTests.cs", "GrumPlates.sarif"), "test")
-        self.assertEqual(scope_of("Anything.cs", "GrumPlates.Test.sarif"), "test")
+        self.assertEqual(scope_of("RitzauDemo.Core/Features/Books/X.cs", "RitzauDemo.Core.sarif"), "production")
+        self.assertEqual(scope_of("RitzauDemo/Migrations/20240101_Init.cs", "RitzauDemo.sarif"), "generated")
+        self.assertEqual(scope_of("RitzauDemo/obj/Debug/Gen.g.cs", "RitzauDemo.sarif"), "generated")
+        self.assertEqual(scope_of("RitzauDemo/Views/Page.Designer.cs", "RitzauDemo.sarif"), "generated")
+        self.assertEqual(scope_of("RitzauDemo.Test/FooTests.cs", "RitzauDemo.sarif"), "test")
+        self.assertEqual(scope_of("Anything.cs", "RitzauDemo.Test.sarif"), "test")
 
 
 class ReadFindingsTests(unittest.TestCase):
     def test_duplicates_and_suppressed_results_are_dropped(self) -> None:
         findings, _ = read_findings(str(FIXTURES), FAKE_ROOT)
-        s108 = [f for f in findings if f.rule == "S108" and f.path == "GrumPlates.Core/Features/Books/UseCases/GetBook/GetBookRequest.cs"]
+        s108 = [f for f in findings if f.rule == "S108" and f.path == "RitzauDemo.Core/Features/Books/UseCases/GetBook/GetBookRequest.cs"]
         self.assertEqual(len(s108), 1)
         self.assertEqual(s108[0].line, 12)
 
@@ -122,7 +122,7 @@ class SummaryOutputTests(unittest.TestCase):
             summary = json.loads(Path(out, "summary.json").read_text(encoding="utf-8"))
         self.assertEqual(code, 0)
         self.assertEqual(summary["schema"], SCHEMA)
-        self.assertEqual(summary["repositoryIdentity"], "github.com/example/grumplates")
+        self.assertEqual(summary["repositoryIdentity"], "github.com/example/ritzaudemo")
         self.assertEqual(summary["frontendProfile"], "BlazorAuto")
         self.assertEqual(summary["sha"], "abc1234")
         self.assertFalse(summary["dirty"])
@@ -132,7 +132,7 @@ class SummaryOutputTests(unittest.TestCase):
         self.assertEqual(summary["runId"], "fixture-run")
         self.assertEqual(summary["totals"]["production"], 4)
         self.assertEqual(summary["totals"]["generated"], 1)
-        self.assertEqual(summary["totals"]["test"], 1)  # the S2699 result in GrumPlates.Test.sarif
+        self.assertEqual(summary["totals"]["test"], 1)  # the S2699 result in RitzauDemo.Test.sarif
         self.assertEqual(summary["totals"]["byFamily"], {"sonar": 1, "dotnet": 2, "style": 1, "other": 0})
 
     def test_generated_findings_are_counted_but_not_listed(self) -> None:
@@ -168,7 +168,7 @@ class SummaryOutputTests(unittest.TestCase):
             run_main([], out)
             markdown = Path(out, "summary.md").read_text(encoding="utf-8")
         self.assertIn("High-signal findings", markdown)
-        self.assertIn("`GrumPlates.Core/Features/Books/UseCases/GetBook/GetBookRequest.cs:12`", markdown)
+        self.assertIn("`RitzauDemo.Core/Features/Books/UseCases/GetBook/GetBookRequest.cs:12`", markdown)
 
 
 if __name__ == "__main__":

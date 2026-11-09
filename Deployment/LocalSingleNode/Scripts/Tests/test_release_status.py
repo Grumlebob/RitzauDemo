@@ -25,7 +25,7 @@ class LocalSingleNodeReleaseStatusTests(TestCase):
         return {
             "sha": sha,
             "source_sha": sha,
-            "source_repo_url": "https://github.com/Grumlebob/GrumPlates",
+            "source_repo_url": "https://github.com/Grumlebob/RitzauDemo",
             "image": "ghcr.io/grumlebob/books",
             "digest": "sha256:" + run_id[-1] * 64,
             "frontend_profile": "BlazorAuto",
@@ -72,8 +72,8 @@ class LocalSingleNodeReleaseStatusTests(TestCase):
                     patch.object(status, "verify_live_identity", return_value="verified"), \
                     patch.dict("os.environ", clear=False):
                 result = status.snapshot(
-                    config, root, repository="Grumlebob/GrumPlates",
-                    repository_url="https://github.com/Grumlebob/GrumPlates",
+                    config, root, repository="Grumlebob/RitzauDemo",
+                    repository_url="https://github.com/Grumlebob/RitzauDemo",
                     app_image="ghcr.io/grumlebob/books",
                 )
 
@@ -132,8 +132,8 @@ class LocalSingleNodeReleaseStatusTests(TestCase):
                         "RUNNER_TEMP": directory,
                     }, clear=False):
                 result = status.snapshot(
-                    config, root, repository="Grumlebob/GrumPlates",
-                    repository_url="https://github.com/Grumlebob/GrumPlates",
+                    config, root, repository="Grumlebob/RitzauDemo",
+                    repository_url="https://github.com/Grumlebob/RitzauDemo",
                     app_image="ghcr.io/grumlebob/books",
                 )
 

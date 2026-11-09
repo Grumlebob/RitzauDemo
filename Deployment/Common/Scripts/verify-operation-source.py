@@ -29,7 +29,7 @@ def ordinary_documentation(path):
         return True
     if len(value.parts) == 1:
         return value.name in ('CONTRIBUTING.md','SECURITY.md','LICENSE.md','CHANGELOG.md')
-    return value.parts[0] in ('docs','Plans','Deployment')
+    return value.parts[0] in ('docs','Deployment')
 
 
 def documentation_diff(parent, child):

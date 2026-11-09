@@ -1,40 +1,32 @@
 # Requirements
 
-Canonical rules for apps built from this template. Detailed commands live in the guides linked from [README.md](../README.md).
+RitzauDemo is a small CRUD demonstration with Books as its example. It supports one frontend, one application instance per LocalSingleNode deployment, and no account registration by default. Detailed local commands live in [README](../README.md) and [Run locally](HowToRunLocally.md).
 
-## Rendering
+## Product scope
 
-- In Blazor Auto, product routes must work during SSR/prerender, interactive server rendering, and browser WebAssembly rendering through `InteractiveAuto`.
-- Do not force `InteractiveServer` on product routes to hide Auto, SSR or WebAssembly bugs. Any server-only exception needs a clear comment and focused verification.
-- Interactive controls rendered during prerender stay disabled until the component is interactive (`disabled="@(!RendererInfo.IsInteractive)"`). The packaged browser smoke confirms Blazor hydration.
-- In Blazor Auto, keep prerender payloads bounded. Use `PersistentComponentState` only for bounded public data, never for large response graphs.
-- Blazor components use shared Core contracts or feature state, not raw `HttpClient`.
+- Build and run the Blazor Auto app (`BlazorAuto`). React and alternate frontend profiles are not supported.
+- Keep the Books example easy to follow. Keep product behavior tests to five focused CRUD unit cases, one PostgreSQL-backed create/list/read/update/delete integration path, and at most one optional packaged render/hydration smoke.
+- Retain the existing account sign-in routes. Registration remains disabled. Account, Grafana, visual, navigation, layout, and performance behavior suites are outside this demo's test scope.
+- Deploy only to LocalSingleNode. Keep application resources, credentials, database, and Data Protection keys isolated from neighboring sites.
 
-## UI
+## Blazor behavior
 
-- Prefer Tailwind utilities and existing UI patterns. Rebuild and commit `GrumPlates/wwwroot/tailwind.css` when Tailwind output changes.
-- Blazor component CSS is fine when it is cleaner or faster than a long utility string. Do not add another CSS framework without a plan.
+- Product pages support server prerendering and Blazor Auto interactivity. Do not switch pages to server-only rendering to hide an error.
+- Prerendered controls remain disabled until interactive. Keep persisted prerender data bounded and public; do not put user-specific data in the page payload.
+- Client components use shared Core contracts or feature state. They do not call raw `HttpClient` directly.
+- Rebuild and commit `RitzauDemo/wwwroot/tailwind.css` when Razor classes or client styles change.
 
-## Performance and caching
+## Data and runtime
 
-- Public pages must be fast: useful SSR content, no N+1 queries, bounded API payloads, stable layouts, and cache behaviour that works across app nodes.
-- Put a schema version in cache keys (for example `books:v2:...`) so a deploy that changes a cached shape does not read old entries.
-- User-specific API responses are sent with `Cache-Control: private, no-store`.
+- PostgreSQL stores Books and account data. Redis supports the configured runtime cache and coordination behavior.
+- The app and database use separate app-owned resources and backups. Preserve the existing initial migration ID and schema when updating the demo.
+- User-specific API responses use `Cache-Control: private, no-store`. API authentication failures return `401` or `403`, not an HTML login redirect.
+- Local development may seed an Admin and a User. Deployments keep seeding and registration disabled unless the supported settings explicitly enable an Admin seed.
+- Deployment observability remains disabled. Telemetry export must fail open so it cannot block application requests.
 
-## Runtime
+## Verification and security
 
-- Redis is required outside development and test. Observability must fail open for app requests.
-- API requests answer 401/403, never a redirect to the HTML login page.
-
-## Testing
-
-- Keep product behavior tests focused on Books CRUD: request validation unit tests, one database-backed create/list/read/update/delete integration path, and one optional packaged Blazor render smoke.
-- Keep CI admission, release, deployment, backup/recovery, and host-safety checks as operational gates. Do not add separate account, Grafana, visual, or performance suites for this demo.
-- Integration tests use shared Testcontainers fixtures; containers carry `localcluster.ci.*` labels and use disposable storage.
-
-## Security
-
-- Never log or commit secrets, auth headers, cookies, raw request bodies, connection strings or vault contents.
-- Keep built-in rate limiting enabled: defaults are 600 global requests/minute, 60 API requests/minute and 20 account writes per client IP per five minutes. Static assets are exempt. Defaults are in [`appsettings.json`](../GrumPlates/appsettings.json); account-specific behavior is in [Accounts](Accounts.md).
-- Trust forwarded headers only from configured proxies or networks.
-- Local development can seed an Admin and a User through `Accounts:AdminSeed` and `Accounts:UserSeed`; deployments seed only the Admin. Registration remains disabled by default. See [Accounts](Accounts.md).
+- Product test counts and commands are documented in [Test](Test.md). Keep repository admission, immutable release identity, deployment, backup/recovery and shared-host safety as operational gates.
+- Integration tests use disposable Testcontainers resources and leave host data untouched.
+- Never log or commit secrets, authorization headers, cookies, request bodies, connection strings or vault contents.
+- Trust forwarded headers only from configured proxies or networks. Keep local `.env`, generated certificates, databases, and private deployment state outside commits and images.

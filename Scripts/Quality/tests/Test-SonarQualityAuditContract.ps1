@@ -42,11 +42,11 @@ try {
     New-Item -ItemType Directory -Force -Path $temporaryRoot | Out-Null
     $git = (Get-Command git.exe, git -CommandType Application | Select-Object -First 1).Source
     $powershell = (Get-Command pwsh.exe, pwsh -CommandType Application | Select-Object -First 1).Source
-    foreach ($relative in @('GrumPlates.sln', 'Directory.Build.props', 'Directory.Build.targets',
-            'Directory.Packages.props', 'frontend-profile.txt', 'Scripts/Quality/tool-versions.json')) {
+    foreach ($relative in @('RitzauDemo.sln', 'Directory.Build.props', 'Directory.Build.targets',
+            'Directory.Packages.props', 'Scripts/Quality/tool-versions.json')) {
         $path = Join-Path $temporaryRoot $relative
         New-Item -ItemType Directory -Force -Path (Split-Path -Parent $path) | Out-Null
-        [IO.File]::WriteAllText($path, $(if ($relative -eq 'frontend-profile.txt') { 'BlazorAuto' } else { 'fixture' }))
+                [IO.File]::WriteAllText($path, 'fixture')
     }
     # Fixture git commands must not follow inherited GIT_* variables into the caller's repository.
     Get-ChildItem Env: | Where-Object { $_.Name -like 'GIT_*' } | ForEach-Object { Remove-Item -Path "Env:$($_.Name)" }
@@ -63,7 +63,7 @@ try {
         RepositoryIdentity = 'github.com/quality-test/fixture'
         ComposeProject = 'sonarqube-quality-test-01234567'
         ComposeNetwork = 'sonarqube-quality-test-01234567-network'
-        ComposePath = Join-Path $temporaryRoot 'docker/sonarqube/compose.yaml'
+        ComposePath = Join-Path $temporaryRoot 'Scripts/Quality/SonarQube/compose.yaml'
         BaseDirectory = $privateRoot
         SecretsDirectory = Join-Path $privateRoot 'secrets'
         LockPath = Join-Path $privateRoot 'audit.lock'

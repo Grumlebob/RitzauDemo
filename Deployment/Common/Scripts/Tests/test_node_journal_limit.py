@@ -14,7 +14,7 @@ class NodeJournalLimitTests(unittest.TestCase):
 
     def test_journal_drop_in_bounds_size_and_keeps_free_space(self):
         task = self.tasks["Bound the system journal"]["ansible.builtin.copy"]
-        self.assertEqual("/etc/systemd/journald.conf.d/50-grumplates-size.conf", task["dest"])
+        self.assertEqual("/etc/systemd/journald.conf.d/50-ritzaudemo-size.conf", task["dest"])
         lines = task["content"].splitlines()
         self.assertEqual("[Journal]", lines[0])
         self.assertIn("SystemMaxUse=1G", lines)

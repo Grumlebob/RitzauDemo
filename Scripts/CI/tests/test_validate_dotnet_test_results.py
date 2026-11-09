@@ -108,9 +108,9 @@ class CrudValidationScriptTests(unittest.TestCase):
 
     def good_cases(self):
         return [
-            ("GrumPlates.Test.Features.Books.Unit.BookRequestValidationTests.Valid", "Passed", ""),
-            ("GrumPlates.Test.Features.Books.Integration.BooksCrudIntegrationTests.OwnerCrud", "Passed", ""),
-            ("GrumPlates.Test.E2E.AppShell.RenderModeE2ETests.PackagedSmoke", "NotExecuted", OPT_IN),
+            ("RitzauDemo.Test.Features.Books.Unit.BookRequestValidationTests.Valid", "Passed", ""),
+            ("RitzauDemo.Test.Features.Books.Integration.BooksCrudIntegrationTests.OwnerCrud", "Passed", ""),
+            ("RitzauDemo.Test.E2E.AppShell.RenderModeE2ETests.PackagedSmoke", "NotExecuted", OPT_IN),
         ]
 
     def test_restores_builds_and_runs_one_blazor_crud_suite(self):
@@ -118,7 +118,7 @@ class CrudValidationScriptTests(unittest.TestCase):
         self.assertEqual(0, process.returncode, process.stdout + process.stderr)
         self.assertEqual(["restore", "build", "test"], [call[0] for call in calls])
         test_call = calls[-1]
-        self.assertIn("GrumPlates.Test/GrumPlates.Test.csproj", test_call[1])
+        self.assertIn("RitzauDemo.Test/RitzauDemo.Test.csproj", test_call[1])
         self.assertIn("-p:FrontendProfile=BlazorAuto", test_call)
         self.assertNotIn("--filter", test_call)
         self.assertTrue((results / "BlazorAuto" / "books-crud.trx").is_file())

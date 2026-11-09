@@ -40,7 +40,7 @@ class JsonResponse:
 
 class ReleaseStatusTests(TestCase):
     def setUp(self):
-        self.repository_url = "https://github.com/Grumlebob/GrumPlates"
+        self.repository_url = "https://github.com/Grumlebob/RitzauDemo"
         self.marker = {
             "sha": "a" * 40,
             "source_sha": "a" * 40,
@@ -285,7 +285,7 @@ class ReleaseStatusTests(TestCase):
 
         with patch("release_status.urllib.request.urlopen", side_effect=response):
             result = list_active_deployment_runs(
-                "Grumlebob/GrumPlates",
+                "Grumlebob/RitzauDemo",
                 api_root="https://api.github.com",
                 token="fixture-token",
             )
@@ -311,7 +311,7 @@ class ReleaseStatusTests(TestCase):
 
         with patch("release_status.urllib.request.urlopen", side_effect=response) as api:
             result = list_active_deployment_runs(
-                "Grumlebob/GrumPlates", api_root="https://api.github.com", token="fixture-token",
+                "Grumlebob/RitzauDemo", api_root="https://api.github.com", token="fixture-token",
             )
         self.assertEqual(set(release_status.CD_WORKFLOWS), {run["workflow"] for run in result})
         self.assertEqual(5, api.call_count)
@@ -330,7 +330,7 @@ class ReleaseStatusTests(TestCase):
 
         with patch("release_status.urllib.request.urlopen", side_effect=response) as api:
             result = list_active_deployment_runs(
-                "Grumlebob/GrumPlates", api_root="https://api.github.com", token="fixture-token",
+                "Grumlebob/RitzauDemo", api_root="https://api.github.com", token="fixture-token",
             )
         self.assertEqual(["77"], [run["run_id"] for run in result])
         self.assertEqual(6, api.call_count)
@@ -339,7 +339,7 @@ class ReleaseStatusTests(TestCase):
         with patch("release_status.urllib.request.urlopen", return_value=JsonResponse({"workflow_runs": [{}]})):
             with self.assertRaisesRegex(ReleaseStatusError, "workflow path"):
                 list_active_deployment_runs(
-                    "Grumlebob/GrumPlates", api_root="https://api.github.com", token="fixture-token",
+                    "Grumlebob/RitzauDemo", api_root="https://api.github.com", token="fixture-token",
                 )
 
     def test_fails_closed_when_active_run_has_incomplete_identity(self):
@@ -348,7 +348,7 @@ class ReleaseStatusTests(TestCase):
         with patch("release_status.urllib.request.urlopen", return_value=JsonResponse({"workflow_runs": [run]})):
             with self.assertRaises(ReleaseStatusError):
                 list_active_deployment_runs(
-                    "Grumlebob/GrumPlates",
+                    "Grumlebob/RitzauDemo",
                     api_root="https://api.github.com",
                     token="fixture-token",
                 )

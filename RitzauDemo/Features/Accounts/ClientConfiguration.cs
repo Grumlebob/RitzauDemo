@@ -1,0 +1,26 @@
+using System.Security.Cryptography;
+using System.Text;
+using RitzauDemo.Core.Features.Accounts.Contracts;
+
+namespace RitzauDemo.Features.Accounts;
+
+internal sealed class AccountApplicationIdentity(string appName, string environmentName)
+{
+    public string AppName { get; } = appName;
+    // Length prefixes keep separators in names from creating ambiguous identities.
+    public string Id { get; } = Convert.ToHexStringLower(SHA256.HashData(Encoding.UTF8.GetBytes(
+        $"{appName.Length}:{appName}{environmentName.Length}:{environmentName}")))[..32];
+}
+
+internal static class ClientConfigurationEndpoints
+{
+    public static IEndpointRouteBuilder MapClientConfiguration(this IEndpointRouteBuilder endpoints)
+    {
+        endpoints.MapGet("/api/client-config", (HttpContext context, AccountApplicationIdentity identity) =>
+        {
+            context.Response.Headers.CacheControl = "no-store";
+            return TypedResults.Ok(new ClientConfiguration(1, identity.Id));
+        }).WithName("ClientConfiguration").WithTags("Accounts").AllowAnonymous();
+        return endpoints;
+    }
+}

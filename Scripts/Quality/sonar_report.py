@@ -25,7 +25,7 @@ from urllib.parse import urlencode, urlsplit
 from urllib.request import Request, urlopen
 
 
-SCHEMA = "grumplates.sonar-report/1"
+SCHEMA = "ritzaudemo.sonar-report/1"
 TOKEN_ENV = "SONAR_REPORT_TOKEN"
 PAGE_SIZE = 500
 ISSUE_CAP = 10000
@@ -50,7 +50,7 @@ FILE_METRICS = (
     "duplicated_lines", "duplicated_lines_density", "violations",
 )
 FIXED_HOW_TO_USE = (
-    "Use this report to create bounded, evidence-based work in Plans/CodeQualityImprovements.md. "
+    "Use this report to create bounded, evidence-based repository issues or pull requests. "
     "Read the source before classifying a finding. Review security hotspots as questions, then "
     "prioritize confirmed correctness and reliability risks, valuable low-effort work, and tested refactors."
 )
@@ -513,13 +513,13 @@ def build_scope_evidence(profile: str, tree: list[dict[str, Any]]) -> dict[str, 
     by_path = {normalize_component_path(item.get("path", ""), ""): item for item in tree}
     paths = set(by_path)
     expected = {
-        "bookGeometry": "GrumPlates.Client/Features/Books/Shared/BookCoverGeometry.cs",
-        "bookRazor": "GrumPlates.Client/Features/Books/Shared/BookCoverRenderer.razor",
-        "sharedCore": next((path for path in sorted(paths) if path.startswith("GrumPlates.Core/")), ""),
-        "handwrittenCss": "GrumPlates.Client/Styles/input.css",
+        "bookGeometry": "RitzauDemo.Client/Features/Books/Shared/BookCoverGeometry.cs",
+        "bookRazor": "RitzauDemo.Client/Features/Books/Shared/BookCoverRenderer.razor",
+        "sharedCore": next((path for path in sorted(paths) if path.startswith("RitzauDemo.Core/")), ""),
+        "handwrittenCss": "RitzauDemo.Client/Styles/input.css",
     }
     evidence = {name: bool(path and path in paths) for name, path in expected.items()}
-    unexpected_legacy_paths = sorted(path for path in paths if path.startswith("GrumPlates.React/"))
+    unexpected_legacy_paths = sorted(path for path in paths if path.startswith("RitzauDemo.React/"))
     evidence["legacyFrontendAbsent"] = not unexpected_legacy_paths
     evidence["details"] = {name: path or None for name, path in expected.items()}
     evidence["unexpectedLegacyFrontendFiles"] = unexpected_legacy_paths[:10]

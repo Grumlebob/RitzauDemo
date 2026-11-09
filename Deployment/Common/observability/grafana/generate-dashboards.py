@@ -64,10 +64,10 @@ def variable(name: str) -> dict[str, Any]:
             'label_values(books_operations_total{job=~"$service_job", instance=~"$app_instance"}, books_outcome)',
         ),
         "service_name": {
-            "current": {"selected": False, "text": "GrumPlates", "value": "GrumPlates"},
+            "current": {"selected": False, "text": "RitzauDemo", "value": "RitzauDemo"},
             "label": "Trace service",
             "name": "service_name",
-            "query": "GrumPlates",
+            "query": "RitzauDemo",
             "type": "textbox",
         },
     }

@@ -108,8 +108,8 @@ labels = json.loads(labels_json)
 if not isinstance(labels, dict):
     raise SystemExit("final image labels are missing")
 expected = {
-    "com.grumplates.frontend-profile": frontend_profile,
-    "com.grumplates.acceptance-profile": acceptance_profile,
+    "com.ritzaudemo.frontend-profile": frontend_profile,
+    "com.ritzaudemo.acceptance-profile": acceptance_profile,
 }
 if source_sha:
     expected["org.opencontainers.image.revision"] = source_sha
@@ -252,11 +252,11 @@ forwarded_proto=(--header "X-Forwarded-Proto: https")
 case "${RUN_E2E:-0}" in
   1)
     cd "$REPO_ROOT"
-    pwsh "$REPO_ROOT/GrumPlates.Test/bin/Release/net10.0/playwright.ps1" install chromium
+    pwsh "$REPO_ROOT/RitzauDemo.Test/bin/Release/net10.0/playwright.ps1" install chromium
     browser_results_dir="${RUNNER_TEMP:-${TMPDIR:-/tmp}}/test-results/${expected_run_id}-${expected_run_attempt}/${GITHUB_JOB:-validate}/docker-smoke/BlazorAuto"
     mkdir -p "$browser_results_dir"
     E2E_BASE_URL="$base_url" E2E_HEADLESS=1 E2E_SLOW_MO_MS=0 \
-      dotnet test "$REPO_ROOT/GrumPlates.Test/GrumPlates.Test.csproj" \
+      dotnet test "$REPO_ROOT/RitzauDemo.Test/RitzauDemo.Test.csproj" \
         --configuration Release --no-build --no-restore \
         --filter "$BROWSER_SMOKE_FILTER" \
         --logger "trx;LogFileName=blazor-browser-smoke.trx" \

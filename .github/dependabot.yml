@@ -35,7 +35,7 @@ updates:
           - "patch"
 
   - package-ecosystem: "docker"
-    directory: "/GrumPlates"
+    directory: "/RitzauDemo"
     schedule:
       interval: "weekly"
       day: "sunday"
@@ -83,7 +83,7 @@ updates:
           - "patch"
 
   - package-ecosystem: "npm"
-    directory: "/GrumPlates.Client"
+    directory: "/RitzauDemo.Client"
     schedule:
       interval: "weekly"
       day: "sunday"

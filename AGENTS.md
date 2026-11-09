@@ -2,10 +2,11 @@
 
 Portable rules for people and coding agents working in this repository. Machine-specific paths, host names, IP addresses, keys and local permission preferences belong in your private agent configuration, never in tracked files.
 
-## Plans
+## Project scope and records
 
-- Retained plans live in `Plans/` (tracked). Scratch notes go in `Plans.local/` (ignored).
-- A plan-driven change is complete when it is verified on `origin/main` and applicable checks pass. Code/configuration changes require green exact-main CI; documentation-only changes use the exception below. Record the integrated commit and verification in the plan or the PR description.
+- This repository is a small Books CRUD demo with one Blazor frontend and one LocalSingleNode deployment target. Product behavior tests stay within the scope in [Requirements](docs/Requirements.md).
+- Do not add task plans to this demo repository. Keep current behavior and operator guidance under `docs/` or `Deployment/`; record change evidence in the pull request.
+- A change is complete when it is verified on `origin/main` and applicable checks pass. Code/configuration changes require green exact-main CI; documentation-only changes use the exception below.
 
 ## Changes and checks
 
@@ -14,15 +15,15 @@ Portable rules for people and coding agents working in this repository. Machine-
 - Before merging a PR that other open PRs use as their base, retarget them with `gh pr edit <n> --base main`; `--delete-branch` otherwise closes them.
 - For changes that include code, configuration or other non-Markdown files, run the local gate before pushing; CI is not the first test run. The full list is in [docs/Test.md](docs/Test.md#local-gate). The short form:
   ```bash
-  dotnet format GrumPlates.sln --verify-no-changes
+  dotnet format RitzauDemo.sln --verify-no-changes
   bash Scripts/CI/validate-frontend-profiles.sh /tmp/frontend-profile-results # needs Docker
   bash Deployment/Common/Scripts/audit-deployment.sh
   ```
 - Keep `dotnet build` and `dotnet test` sequential in one checkout. Never run them at the same time against the same files.
 - When you change behavior covered by the deployment audit (`Deployment/Common/Scripts/Component/lib/audit_deployment.py`), update the audit in the same change. Replace obsolete rules with checks for the supported single-node behavior; do not remove operational coverage.
-- Rebuild and commit `GrumPlates/wwwroot/tailwind.css` when Razor classes or `GrumPlates.Client/Styles` change.
+- Rebuild and commit `RitzauDemo/wwwroot/tailwind.css` when Razor classes or `RitzauDemo.Client/Styles` change.
 - Product requirements are in [docs/Requirements.md](docs/Requirements.md).
-- Keep durable docs focused on current template behavior. Link canonical rules and commands instead of duplicating them; keep execution history in plans or PRs and use generic examples unless project-specific details explain template behavior.
+- Keep durable docs focused on current RitzauDemo behavior. Link canonical rules and commands instead of duplicating them.
 
 ## Hard stops
 
@@ -38,9 +39,9 @@ Portable rules for people and coding agents working in this repository. Machine-
 
 - Closeout is part of task completion: fetch and prune, verify `origin/main`, then remove finished task checkouts and local/remote branches, including local branches whose upstream is gone once their content is on `main`. Preserve the primary checkout and `main` branch.
 - Before cleanup, verify integrated or superseded content and no live task, process, lock, resource or open PR depends on it. Inspect tracked, untracked and ignored files; reconcile useful unmerged changes first. Squash merges require PR-head/content verification; ancestry or a closed PR alone is insufficient.
-- Do not keep archives, bundles or evidence copies of finished work: record SHAs and outcomes in the plan or PR, then delete. Preserve private inputs, keys, application data, backups and other sessions' edits.
+- Do not keep archives, bundles or evidence copies of finished work: record SHAs and outcomes in the PR, then delete. Preserve private inputs, keys, application data, backups and other sessions' edits.
 - Closeout also removes the Docker images, containers, Compose projects and volumes the task created, by ID or name and without force. Give them a task-specific name or label so they can be found. Keep what a later step or another task still uses.
-- Record each deleted branch's full SHA in its plan or PR. Run `git worktree remove` from another checkout; resolve refusals without force or broad recursive deletion.
+- Record each deleted branch's full SHA in its PR. Run `git worktree remove` from another checkout; resolve refusals without force or broad recursive deletion.
 - Verified routine cleanup needs no additional approval, including finished tasks from earlier sessions. Fast-forward primary `main` when clean and idle. Report each retained task worktree with its concrete owner or dependency; age alone is not proof.
 - Apply these checks to human, Claude, Codex and unknown-origin copies alike. Resolve routine leftovers using content, ownership and recovery proof; do not keep a completed generated workspace merely because its creator is unavailable. Preserve useful unfinished work compactly with a concrete next action when immediate integration is inappropriate.
 - Unique work that is still useful is integrated, or recorded with a concrete next action; a recorded SHA is enough for squash-merged work. Historical diagnostic logs or screenshots with no remaining purpose may be removed after review. Preserve original user inputs, keys and operational data, and validate exact absolute paths and ancestor reparse boundaries before filesystem removal.

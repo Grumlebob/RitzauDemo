@@ -182,8 +182,8 @@
       - staged_image_labels.get('localcluster.ci.run_id') == (release_ci_run_id | string)
       - staged_image_labels.get('localcluster.ci.run_attempt') == (release_ci_run_attempt | string)
       - staged_image_labels.get('org.opencontainers.image.revision') == release_source_sha
-      - staged_image_labels.get('com.grumplates.frontend-profile') == release_frontend_profile
-      - staged_image_labels.get('com.grumplates.acceptance-profile') == release_acceptance_profile
+      - staged_image_labels.get('com.ritzaudemo.frontend-profile') == release_frontend_profile
+      - staged_image_labels.get('com.ritzaudemo.acceptance-profile') == release_acceptance_profile
     fail_msg: "The staged image identity does not match the source SHA and frontend/acceptance contract."
 - name: Render protected app environment
   ansible.builtin.template:

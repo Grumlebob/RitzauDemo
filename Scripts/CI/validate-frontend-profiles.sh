@@ -17,10 +17,10 @@ results_directory="$results_root/$profile"
 mkdir -p "$results_directory"
 
 echo "Restore, build and test the $profile/$acceptance_profile demo"
-dotnet restore "$REPO_ROOT/GrumPlates.sln" "-p:FrontendProfile=$profile"
-dotnet build "$REPO_ROOT/GrumPlates.sln" \
+dotnet restore "$REPO_ROOT/RitzauDemo.sln" "-p:FrontendProfile=$profile"
+dotnet build "$REPO_ROOT/RitzauDemo.sln" \
   --configuration Release --no-restore "-p:FrontendProfile=$profile"
-dotnet test "$REPO_ROOT/GrumPlates.Test/GrumPlates.Test.csproj" \
+dotnet test "$REPO_ROOT/RitzauDemo.Test/RitzauDemo.Test.csproj" \
   --configuration Release --no-build --no-restore "-p:FrontendProfile=$profile" \
   --logger 'trx;LogFileName=books-crud.trx' \
   --results-directory "$results_directory"
