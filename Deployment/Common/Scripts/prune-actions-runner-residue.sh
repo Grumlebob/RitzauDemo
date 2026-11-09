@@ -485,7 +485,7 @@ for duration in "$STALE_VERSION_UNTIL" "$UPDATE_UNTIL" "$TEMP_UNTIL" "$DIAG_UNTI
 done
 [[ "$MIN_FREE_MB" =~ ^[0-9]+$ ]] || fail "--min-free-mb must be an integer"
 
-print_heading "LocalCluster Actions runner residue cleanup"
+print_heading "Actions runner residue cleanup"
 discover_runner_roots
 discover_protected_paths
 print_report "Before cleanup"
@@ -519,4 +519,4 @@ if [[ "$DEFER_IF_SKIPPED" == "true" && "$DEFERRED_COUNT" -gt 0 ]]; then
   exit 75
 fi
 
-echo "LocalCluster Actions runner residue cleanup complete."
+echo "Actions runner residue cleanup complete."

@@ -80,7 +80,7 @@ class CiRunnerProfileTests(unittest.TestCase):
         for name in ("ci.yml", "auto-merge-dependabot.yml"):
             text = (ROOT / ".github/workflows" / name).read_text()
             runner_lines = [line.strip() for line in re.findall(r"(?m)^    runs-on:.*$", text)]
-            fallback = "vars.CI_RUNNER_LABEL || vars.LOCALCLUSTER_RUNNER_LABEL || 'localcluster-books'"
+            fallback = '"${{ vars.CI_RUNNER_LABEL }}"'
             if name == "ci.yml":
                 canonical = 'runs-on: [self-hosted, linux, x64, "${{ vars.CI_RUNNER_LABEL }}"]'
                 self.assertEqual(len(runner_lines), 4)

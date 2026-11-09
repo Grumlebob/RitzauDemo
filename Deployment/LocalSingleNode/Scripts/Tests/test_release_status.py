@@ -70,7 +70,7 @@ class LocalSingleNodeReleaseStatusTests(TestCase):
                     patch.object(status.pin_release_payload, "prune_local_pins", return_value=inventory), \
                     patch.object(status, "list_active_deployment_runs", return_value=[{"run_id": "77"}]), \
                     patch.object(status, "verify_live_identity", return_value="verified"), \
-                    patch.dict("os.environ", {"APP_INSTANCE": "primary"}, clear=False):
+                    patch.dict("os.environ", clear=False):
                 result = status.snapshot(
                     config, root, repository="Grumlebob/GrumPlates",
                     repository_url="https://github.com/Grumlebob/GrumPlates",
@@ -128,7 +128,6 @@ class LocalSingleNodeReleaseStatusTests(TestCase):
                         },
                     ) as restore, \
                     patch.dict("os.environ", {
-                        "APP_INSTANCE": "additional",
                         "VERIFY_OFFLINE_PINS": "true",
                         "RUNNER_TEMP": directory,
                     }, clear=False):

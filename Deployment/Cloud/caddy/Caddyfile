@@ -1,5 +1,0 @@
-{
-  auto_https off
-}
-
-import /etc/caddy/sites/*.caddy

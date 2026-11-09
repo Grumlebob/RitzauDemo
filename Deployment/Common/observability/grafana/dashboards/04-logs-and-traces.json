@@ -271,7 +271,7 @@
         "multi": true,
         "name": "deployment_target",
         "options": [],
-        "query": "local,localcluster,cloud",
+        "query": "local",
         "type": "custom"
       },
       {

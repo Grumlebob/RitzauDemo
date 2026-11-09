@@ -1,15 +1,15 @@
 #!/usr/bin/env bash
 set -euo pipefail
 
-# The workflow resolves and validates the selected app instance before calling
+# The workflow resolves and validates the primary app before calling
 # this script. Keep the accepted marker read and artifact cleanup under the
-# same host lock used by LocalSingleNode and LocalCluster release selection.
+# same host lock used by single-node release selection.
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 ROOT="$(cd "$SCRIPT_DIR/../../.." && pwd)"
 COMMON="$ROOT/Deployment/Common/Scripts"
 LOCK_DIR="${LOCALCLUSTER_DEPLOY_LOCK_DIR:-}"
 LOCK_TOKEN="${LOCALCLUSTER_DEPLOY_LOCK_TOKEN:-}"
-INSTANCE_FILE="${INSTANCE_EXTRA_VARS_FILE:-}"
+DEPLOYMENT_FILE="${DEPLOYMENT_VARS_FILE:-}"
 RUNNER_TEMP_DIR="${RUNNER_TEMP:-}"
 
 if [[ -z "$LOCK_DIR" || -z "$LOCK_TOKEN" || "$(cat "$LOCK_DIR/token" 2>/dev/null || true)" != "$LOCK_TOKEN" ]]; then
@@ -20,22 +20,19 @@ fi
   echo "GITHUB_TOKEN and GITHUB_REPOSITORY are required" >&2
   exit 1
 }
-[[ -n "$RUNNER_TEMP_DIR" && "$INSTANCE_FILE" == "$RUNNER_TEMP_DIR"/* && -f "$INSTANCE_FILE" ]] || {
-  echo "validated app-instance settings are unavailable" >&2
+[[ -n "$RUNNER_TEMP_DIR" && "$DEPLOYMENT_FILE" == "$RUNNER_TEMP_DIR"/* && -f "$DEPLOYMENT_FILE" ]] || {
+  echo "validated deployment settings are unavailable" >&2
   exit 1
 }
 [[ -n "${MIGRATION_ARTIFACT_NAME:-}" ]] || { echo "MIGRATION_ARTIFACT_NAME is required" >&2; exit 1; }
 export GH_TOKEN="$GITHUB_TOKEN"
 
 cleanup() {
-  rm -f -- "$INSTANCE_FILE"
-  if [[ -n "${LOCALSINGLENODE_SETTINGS_FILE:-}" ]]; then
-    rm -f -- "$LOCALSINGLENODE_SETTINGS_FILE"
-  fi
+  rm -f -- "$DEPLOYMENT_FILE"
 }
 trap cleanup EXIT
 
-identity="$(python3 - "$INSTANCE_FILE" <<'PY'
+identity="$(python3 - "$DEPLOYMENT_FILE" <<'PY'
 import json
 import re
 import sys
@@ -67,7 +64,7 @@ recovery_run_id="$(python3 "$SCRIPT_DIR/lib/read_release_acceptance.py" \
 }
 
 # The shared pruner also pins live targets and the two newest successful target
-# SHAs from both deployment workflows. Keep the accepted and recovery release
+# SHAs from the primary deployment workflow. Keep the accepted and recovery release
 # CI artifacts even when their deployment SHAs fall outside that recent floor.
 # CI now publishes final payloads to GHCR, so unprotected legacy cloud copies
 # need no additional keep floor. Protected releases and consumers still remain.
@@ -76,7 +73,6 @@ bash "$COMMON/prune-actions-artifacts.sh" \
   --keep 0 \
   --max-unprotected-bytes 536870912 \
   --max-deletions 100 \
-  --deployment-workflow-file cd-localcluster.yml \
   --deployment-workflow-file cd-localsinglenode.yml \
   --protect-run-id "$live_run_id" \
   --protect-run-id "$recovery_run_id"

@@ -40,11 +40,11 @@ class AppOperationsTests(unittest.TestCase):
             (root / '.env').write_text('APP_NAME=primary\n')
             (root / 'compose.yml').write_text('name: ${APP_NAME}\nservices:\n  web:\n    image: example.invalid/app:fixture\n')
             env = {key: value for key, value in os.environ.items() if key not in ('COMPOSE_FILE', 'COMPOSE_PROJECT_NAME', 'COMPOSE_ENV_FILES')}
-            env['APP_NAME'] = 'additional'
+            env['APP_NAME'] = 'foreign-app'
             base = ['docker', 'compose', '--project-directory', str(root), '-f', str(root / 'compose.yml')]
             inherited = json.loads(subprocess.check_output(base + ['config', '--format', 'json'], env=env, text=True))
             pinned = json.loads(subprocess.check_output(base + ['--project-name', 'primary', 'config', '--format', 'json'], env=env, text=True))
-            self.assertEqual('additional', inherited['name'])
+            self.assertEqual('foreign-app', inherited['name'])
             self.assertEqual('primary', pinned['name'])
 
     def fixture(self):
@@ -108,27 +108,26 @@ class AppOperationsTests(unittest.TestCase):
             with self.assertRaises(ValueError):
                 inspect(fixture)
 
-    def test_successful_restart_targets_only_web_and_preserves_sibling(self):
-        primary = fixture_settings()
-        config = {**primary, 'app_name': 'catalog', 'deploy_root': '/opt/catalog'}
+    def test_successful_restart_targets_only_primary_web_and_preserves_catalog(self):
+        config = fixture_settings()
         before = self.fixture()
         after = copy.deepcopy(before)
-        after['web']['started'] = 'after'
-        sibling = self.fixture()
-        with patch.object(restart, 'guards'), patch.object(restart, 'settings', side_effect=[config, primary]), \
-                patch.object(restart.instance, 'verify_owned'), \
-                patch.object(restart, 'containers', side_effect=[before, sibling, after, after, sibling]), \
-                patch.object(restart, 'verify_release', return_value={'digest': 'unchanged'}), \
-                patch.object(restart, 'catalog', return_value='seed'), patch.object(restart.time, 'sleep'), \
-                patch.dict(os.environ, {'GITHUB_SERVER_URL':'https://github.com','GITHUB_REPOSITORY':'example/template'}), \
-                patch.object(restart, 'command') as command:
+        after["web"]["started"] = "after"
+        with patch.object(restart, "guards"), patch.object(restart, "settings", return_value=config), \
+                patch.object(restart.deployment, "verify_owned"), \
+                patch.object(restart, "containers", side_effect=[before, after, after]), \
+                patch.object(restart, "verify_release", return_value={"digest": "unchanged"}), \
+                patch.object(restart, "catalog", return_value="seed"), patch.object(restart.time, "sleep"), \
+                patch.dict(os.environ, {"GITHUB_SERVER_URL":"https://github.com","GITHUB_REPOSITORY":"example/template"}), \
+                patch.object(restart, "command") as command:
             self.assertEqual(0, restart.main())
-            command.assert_called_once_with(*restart.compose('/opt/catalog'), '--project-name', 'catalog', 'restart', '--no-deps', 'web', timeout=60)
+            command.assert_called_once_with(*restart.compose(config["deploy_root"]), "--project-name",
+                                            config["app_name"], "restart", "--no-deps", "web", timeout=60)
 
     def test_failed_ownership_or_release_prevents_restart(self):
         for target in ('ownership', 'release', 'catalog'):
             with patch.object(restart, 'guards'), patch.object(restart, 'settings', return_value=fixture_settings()), \
-                    patch.object(restart.instance, 'verify_owned', side_effect=ValueError() if target == 'ownership' else None), \
+                    patch.object(restart.deployment, 'verify_owned', side_effect=ValueError() if target == 'ownership' else None), \
                     patch.object(restart, 'containers', return_value=self.fixture()), \
                     patch.object(restart, 'verify_release', side_effect=ValueError() if target == 'release' else None), \
                     patch.object(restart, 'catalog', side_effect=ValueError() if target == 'catalog' else None), \
@@ -139,13 +138,13 @@ class AppOperationsTests(unittest.TestCase):
 
     def test_release_uses_independent_protected_expectations(self):
         with tempfile.TemporaryDirectory() as temporary:
-            release = {'image':'ghcr.io/example/catalog-react','source_repo_url':'https://github.com/example/template',
-                       'frontend_profile':'React','acceptance_profile':'ReactPublicV1','digest':'sha256:fixture',
+            release = {'image':'ghcr.io/example/books','source_repo_url':'https://github.com/example/template',
+                       'frontend_profile':'BlazorAuto','acceptance_profile':'BlazorAutoV1','digest':'sha256:fixture',
                        'source_sha':'a'*40,'manifest_schema_version':2,'ci_run_id':42,'ci_run_attempt':1}
             path = Path(temporary) / 'release.json'
             path.write_text(json.dumps(release))
             env = {'APP_IMAGE':release['image'],'GITHUB_SERVER_URL':'https://github.com','GITHUB_REPOSITORY':'example/template',
-                   'FRONTEND_PROFILE':'React','ACCEPTANCE_PROFILE':'ReactPublicV1'}
+                   'FRONTEND_PROFILE':'BlazorAuto','ACCEPTANCE_PROFILE':'BlazorAutoV1'}
             with patch.dict(os.environ, env), patch.object(restart, 'command') as command:
                 self.assertEqual(release, restart.verify_release({'deploy_root':temporary}))
                 self.assertIn('verify-release-identity.sh', command.call_args.args[1])
@@ -169,27 +168,20 @@ class AppOperationsTests(unittest.TestCase):
                     with self.assertRaises(ValueError):
                         restart.catalog(fixture_settings())
 
-    def test_changed_catalog_or_sibling_fails_after_one_restart(self):
-        primary = fixture_settings()
-        config = {**primary,'app_name':'catalog','deploy_root':'/opt/catalog'}
-        before = self.fixture()
-        after = copy.deepcopy(before)
-        after['web']['started']='after'
-        sibling_changed = copy.deepcopy(before)
-        sibling_changed['web']['started']='foreign-restart'
-        for target in ('catalog','sibling'):
-            with patch.object(restart, 'guards'), patch.object(restart, 'settings', side_effect=[config,primary]), \
-                    patch.object(restart.instance, 'verify_owned'), \
-                    patch.object(restart, 'containers', side_effect=[before,before,after,after,sibling_changed]), \
-                    patch.object(restart, 'verify_release', return_value={'digest':'unchanged'}), \
-                    patch.object(restart, 'catalog', side_effect=['seed','changed'] if target == 'catalog' else ['seed']*3), \
-                    patch.object(restart.time,'monotonic',side_effect=[0,181]), patch.object(restart.time,'sleep'), \
-                    patch.dict(os.environ,{'GITHUB_SERVER_URL':'https://github.com','GITHUB_REPOSITORY':'example/template'}), \
-                    patch.object(restart,'command') as command, self.assertRaises(ValueError):
-                restart.main()
-            self.assertEqual(1,command.call_count)
+    def test_changed_catalog_fails_after_one_primary_restart(self):
+        config = fixture_settings()
+        with patch.object(restart, "guards"), patch.object(restart, "settings", return_value=config), \
+                patch.object(restart.deployment, "verify_owned"), \
+                patch.object(restart, "containers", return_value=self.fixture()), \
+                patch.object(restart, "verify_release", return_value={"digest": "unchanged"}), \
+                patch.object(restart, "catalog", side_effect=["seed", "changed"]), \
+                patch.object(restart.time, "monotonic", side_effect=[0, 181]), patch.object(restart.time, "sleep"), \
+                patch.dict(os.environ, {"GITHUB_SERVER_URL":"https://github.com","GITHUB_REPOSITORY":"example/template"}), \
+                patch.object(restart, "command") as command, self.assertRaises(ValueError):
+            restart.main()
+        self.assertEqual(1, command.call_count)
 
-    def test_runner_identity_ignores_additional_settings_selection(self):
+    def test_runner_identity_uses_the_primary_settings(self):
         primary = fixture_settings()
         with patch.object(ls_settings, 'settings', return_value=primary) as read:
             self.assertEqual(primary['app_name'], ls_settings.runner_app())
@@ -197,14 +189,14 @@ class AppOperationsTests(unittest.TestCase):
         self.assertIn('runner_active(runner_app())', (SCRIPTS / 'lib/doctor.py').read_text())
         self.assertIn('runner_app()', (SCRIPTS / 'lib/maintenance.py').read_text())
 
-    def test_workflow_protects_selection_cleanup_and_shared_reboot(self):
+    def test_workflow_protects_primary_app_cleanup_and_shared_reboot(self):
         workflow = (ls_settings.ROOT / '.github/workflows/localsinglenode-maintenance.yml').read_text()
-        self.assertIn('inputs.app_instance', workflow)
-        self.assertIn('vars.LOCALSINGLENODE_ADDITIONAL_ENVIRONMENT', workflow)
-        self.assertIn('secrets.LOCALSINGLENODE_APP_INSTANCE', workflow)
-        self.assertLess(workflow.index('resolve-app-instance.py'), workflow.index('Protected backup and scoped maintenance'))
+        self.assertNotIn('app_instance', workflow)
+        self.assertNotIn('LOCALSINGLENODE_ADDITIONAL', workflow)
+        self.assertIn('resolve-deployment.py', workflow)
+        self.assertLess(workflow.index('resolve-deployment.py'), workflow.index('Protected backup and scoped maintenance'))
         for text in ('Require green main CI for unchanged operation code','fetch-depth: 0','verify-operation-source.py','acceptance_only=true','Select only one restart',
-                     'Additional-app maintenance cannot request a shared host reboot','if: always()', 'restart-app-check.py'):
+                     'if: always()', 'restart-app-check.py'):
             self.assertIn(text, workflow)
 
 

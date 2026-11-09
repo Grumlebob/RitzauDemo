@@ -54,6 +54,6 @@ A database restore may replay an active pending job and produce a duplicate emai
 
 Data Protection keys and account data share the PostgreSQL database. Production keys are wrapped with the app-owned certificate and private key stored outside that database. A database dump alone cannot restore sign-in cookies or decrypt outbox jobs. Preserve the same app identity, deployment environment, database, certificate/private key and certificate password. Replicas of one app share those inputs; unrelated apps must not.
 
-Keep the wrapping key across ordinary redeploys. Store it with protected off-host backups and never bake it into an image. Follow the selected target's backup verification and recovery procedures: [LocalCluster](../Deployment/LocalCluster/Operations.md#backup-and-restore), [Cloud](../Deployment/Cloud/Operations.md#back-up-and-restore-postgresql), or [LocalSingleNode](../Deployment/LocalSingleNode/Operations.md#backups-and-recovery).
+Keep the wrapping key across ordinary redeploys. Store it with protected off-host backups and never bake it into an image. Follow [LocalSingleNode backup verification and recovery](../Deployment/LocalSingleNode/Operations.md#backups-and-recovery).
 
 Restart and restore acceptance uses disposable fixtures only. Do not treat a fixture restore test as authorization or a procedure for restoring live account data.

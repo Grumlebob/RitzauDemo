@@ -126,18 +126,16 @@ class BuildCacheTests(TestCase):
         self.assertIn("with-deploy-lock.sh python3 Deployment/LocalSingleNode/Scripts/lib/build_cache.py --keep-gb",
                       job["steps"][-1]["run"])
 
-    def test_image_retention_runs_daily_for_each_app_after_the_backup_timers(self):
+    def test_image_retention_runs_daily_for_the_primary_app_after_its_backup(self):
         workflow = yaml.safe_load((ROOT / ".github/workflows/localsinglenode-maintenance.yml").read_text())
         crons = [entry["cron"] for entry in workflow[True]["schedule"]]
         self.assertIn("37 4 * * *", crons)
-        self.assertIn("47 4 * * *", crons)
+        self.assertNotIn("47 4 * * *", crons)
         job = workflow["jobs"]["maintenance"]
         self.assertIn("github.event.schedule == '37 4 * * *'", job["if"])
-        self.assertIn("github.event.schedule == '47 4 * * *'", job["if"])
-        check = next(item for item in job["steps"] if item.get("name") == "Check whether the selected app exists")
-        self.assertIn("github.event.schedule == '47 4 * * *' && 'additional'", check["env"]["APP_INSTANCE"])
+        self.assertNotIn("additional", job["if"])
         step = next(item for item in job["steps"] if item.get("name") == "Protected backup and scoped maintenance")
-        self.assertEqual("inputs.acceptance_only != true && steps.instance.outputs.configured == 'true'", step["if"])
+        self.assertEqual("inputs.acceptance_only != true", step["if"])
         self.assertIn('if [[ "$BACKUP_NOW" == true ]]', step["run"])
         reboot = next(item for item in job["steps"] if item.get("name") == "Schedule completion-aware reboot check")
         self.assertIn("inputs.reboot_check == true", reboot["if"])

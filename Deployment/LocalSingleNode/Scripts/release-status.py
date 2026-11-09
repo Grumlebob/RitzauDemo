@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Read the selected LocalSingleNode release, local pins and active CD runs."""
+"""Read the primary LocalSingleNode release, local pins and active CD runs."""
 
 from __future__ import annotations
 
@@ -33,10 +33,10 @@ from release_status import (  # noqa: E402
 )
 
 
-def load_instance_module():
-    spec = importlib.util.spec_from_file_location("app_instance", SCRIPT_DIR / "resolve-app-instance.py")
+def load_deployment_module():
+    spec = importlib.util.spec_from_file_location("deployment_inputs", SCRIPT_DIR / "resolve-deployment.py")
     if spec is None or spec.loader is None:
-        raise ReleaseStatusError("application instance validator is unavailable")
+        raise ReleaseStatusError("deployment settings validator is unavailable")
     module = importlib.util.module_from_spec(spec)
     spec.loader.exec_module(module)
     return module
@@ -60,26 +60,26 @@ def marker(path: Path) -> dict | None:
 
 def runtime_inputs() -> tuple[dict, Path, str, str, str]:
     repository = os.environ.get("GITHUB_REPOSITORY", "")
-    if repository.casefold() != "Grumlebob/GrumPlates".casefold():
-        raise ReleaseStatusError("status workflow is bound to the Template repository")
+    if repository.casefold() != "Grumlebob/RitzauDemo".casefold():
+        raise ReleaseStatusError("status workflow is bound to the RitzauDemo repository")
     expected_host = os.environ.get("LOCALSINGLENODE_HOST", "")
     if (not native() or os.geteuid() == 0 or getpass.getuser() != "deploy"
             or not expected_host or socket.gethostname().casefold() != expected_host.casefold()):
         raise ReleaseStatusError("status requires the protected native LocalSingleNode runner")
 
     runner_temp = Path(os.environ.get("RUNNER_TEMP", "")).resolve()
-    instance_file = Path(os.environ.get("INSTANCE_EXTRA_VARS_FILE", ""))
-    if not instance_file.is_file() or instance_file.is_symlink():
-        raise ReleaseStatusError("resolved application identity is unavailable")
-    instance_file = instance_file.resolve()
+    deployment_file = Path(os.environ.get("DEPLOYMENT_VARS_FILE", ""))
+    if not deployment_file.is_file() or deployment_file.is_symlink():
+        raise ReleaseStatusError("resolved deployment identity is unavailable")
+    deployment_file = deployment_file.resolve()
     try:
-        if os.path.commonpath((str(runner_temp), str(instance_file))) != str(runner_temp):
-            raise ReleaseStatusError("resolved application identity is outside runner scratch storage")
-        config = json.loads(instance_file.read_text(encoding="utf-8"))
+        if os.path.commonpath((str(runner_temp), str(deployment_file))) != str(runner_temp):
+            raise ReleaseStatusError("resolved deployment identity is outside runner scratch storage")
+        config = json.loads(deployment_file.read_text(encoding="utf-8"))
     except (OSError, UnicodeError, json.JSONDecodeError, ValueError) as error:
-        raise ReleaseStatusError("resolved application identity is unreadable") from error
+        raise ReleaseStatusError("resolved deployment identity is unreadable") from error
     if not isinstance(config, dict):
-        raise ReleaseStatusError("resolved application identity is malformed")
+        raise ReleaseStatusError("resolved deployment identity is malformed")
 
     app_name = os.environ.get("APP_NAME", "")
     app_image = os.environ.get("APP_IMAGE", "")
@@ -87,11 +87,11 @@ def runtime_inputs() -> tuple[dict, Path, str, str, str]:
     if (config.get("app_name") != app_name or config.get("app_image") != app_image
             or not isinstance(deploy_root, str) or not deploy_root.startswith("/opt/")
             or ".." in deploy_root.split("/") or not Path(deploy_root).is_absolute()):
-        raise ReleaseStatusError("resolved application identity does not match deployment settings")
+        raise ReleaseStatusError("resolved deployment identity does not match deployment settings")
 
     source = os.environ.get("GITHUB_SERVER_URL", "https://github.com").rstrip("/") + "/" + repository
     load_release_settings(ROOT / "Deployment/Common/release.yml")
-    load_instance_module().verify_owned(config, source)
+    load_deployment_module().verify_owned(config, source)
     return config, Path(deploy_root), repository, source, app_image
 
 
@@ -181,7 +181,6 @@ def snapshot(config: dict, deploy_root: Path, *, repository: str, repository_url
         "schema_version": 1,
         "repository": repository,
         "target": "localsinglenode",
-        "app_instance": os.environ.get("APP_INSTANCE", "primary"),
         "app_name": config["app_name"],
         "node_identity": "verified",
         "shared_lock": "held",

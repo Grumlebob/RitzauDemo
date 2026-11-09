@@ -63,12 +63,12 @@ elif name == 'gh':
     if args[:2] == ['api', 'user']:
         say('fixture-login')
     elif args[0] == 'api' and '/variables?' in args[1]:
-        values = {'DEPLOY_TARGETS': 'localsinglenode', 'LOCALSINGLENODE_HOST': 'node-rehearsal'} if state.get('variables', True) else {}
+        values = {'DEPLOY_TARGETS': 'localsinglenode', 'LOCALSINGLENODE_HOST': 'node-rehearsal', 'CI_RUNNER_LABEL': 'ci-books', 'CI_RUNNER_HOST': 'node-rehearsal'} if state.get('variables', True) else {}
         say({'variables': [{'name': key, 'value': value} for key, value in values.items()]})
     elif args[0] == 'api' and '/runners?' in args[1]:
-        runners = [{'name': 'fixture-ci', 'status': 'online', 'labels': [{'name': 'localcluster-books'}]}] if state.get('ci_capacity', True) else []
+        runners = [{'name': 'fixture-ci', 'status': 'online', 'labels': [{'name': 'ci-books'}]}] if state.get('ci_capacity', True) else []
         if state.get('ci_registered_offline'):
-            runners.append({'name': 'existing-ci-preserve', 'status': 'offline', 'labels': [{'name': 'localcluster-books'}]})
+            runners.append({'name': 'existing-ci-preserve', 'status': 'offline', 'labels': [{'name': 'ci-books'}]})
         if state.get('runner', True):
             runners.append({'name': 'node-rehearsal-books', 'status': 'online', 'labels': [{'name': 'localsinglenode-books'}]})
         say({'runners': runners})

@@ -41,7 +41,7 @@ from release_status import list_active_deployment_runs  # noqa: E402
 
 SHA = re.compile(r"[0-9a-f]{40}\Z")
 POSITIVE = re.compile(r"[1-9][0-9]{0,19}\Z")
-REQUIRED_PROTECTIONS = {("localcluster", "cluster"), ("localsinglenode", "primary")}
+REQUIRED_PROTECTIONS = {"localsinglenode"}
 
 
 def _parse_packages(values: list[str]) -> dict[str, str]:
@@ -59,8 +59,8 @@ def _parse_packages(values: list[str]) -> dict[str, str]:
     return packages
 
 
-def _parse_protections(values: list[str], *, require_additional: bool) -> tuple[dict, ...]:
-    required = REQUIRED_PROTECTIONS | ({("localsinglenode", "additional")} if require_additional else set())
+def _parse_protections(values: list[str]) -> tuple[dict, ...]:
+    required = REQUIRED_PROTECTIONS
     parsed = []
     seen = set()
     for raw in values:
@@ -69,14 +69,13 @@ def _parse_protections(values: list[str], *, require_additional: bool) -> tuple[
         except (TypeError, json.JSONDecodeError) as error:
             raise RetentionError("release protection snapshot is malformed") from error
         if (not isinstance(item, dict)
-                or set(item) != {"schema_version", "target", "instance", "complete", "consumers", "registry_payload_references"}
+                or set(item) != {"schema_version", "target", "complete", "consumers", "registry_payload_references"}
                 or type(item.get("schema_version")) is not int or item.get("schema_version") != 1
                 or item.get("complete") is not True
-                or item.get("target") not in {"localcluster", "localsinglenode"}
-                or item.get("instance") not in {"cluster", "primary", "additional"}):
+                or item.get("target") != "localsinglenode"):
             raise RetentionError("release protection snapshot is incomplete")
-        identity = item["target"], item["instance"]
-        if identity in seen or identity not in REQUIRED_PROTECTIONS | {("localsinglenode", "additional")}:
+        identity = item["target"]
+        if identity in seen or identity not in REQUIRED_PROTECTIONS:
             raise RetentionError("release protection snapshots are duplicated or out of scope")
         seen.add(identity)
         if not isinstance(item["consumers"], list) or len(item["consumers"]) > 4:
@@ -105,8 +104,8 @@ def _parse_protections(values: list[str], *, require_additional: bool) -> tuple[
                                              for consumer in matching_consumers):
                 raise RetentionError("registry payload reference differs from its current/recovery marker")
         parsed.append(item)
-    if not required.issubset(seen) or ("localsinglenode", "additional") in seen and not require_additional:
-        raise RetentionError("current/recovery protection is missing for an enabled deployment instance")
+    if not required.issubset(seen):
+        raise RetentionError("primary app current/recovery protection is missing")
     return tuple(parsed)
 
 
@@ -373,7 +372,7 @@ def run(args: argparse.Namespace, *, client_factory=RegistryClient, guard_factor
             observation_plan, inventory, outcome="observed", receipts=(), publication=observation,
         )
 
-    snapshots = _parse_protections(args.protection_json, require_additional=args.require_additional)
+    snapshots = _parse_protections(args.protection_json)
     if args.apply and args.reservation_id:
         return _resume_exact_reservation(
             args, repository=args.repository, packages=packages, token=token, client=client,
@@ -435,8 +434,7 @@ def main(argv=None) -> int:
     parser.add_argument("--retain-manifest", action="append", default=[],
                         help="Preserve an exact reviewed config-only bootstrap: ghcr.io/owner/app-release-payload@sha256:...")
     parser.add_argument("--protection-json", action="append", default=[],
-                        help="A compact verified current/recovery snapshot from one enabled target instance")
-    parser.add_argument("--require-additional", action="store_true")
+                        help="A compact verified current/recovery snapshot from the primary app")
     parser.add_argument("--reservation-id", default="")
     parser.add_argument("--max-deletions", type=int, default=MAX_DELETIONS)
     parser.add_argument("--publication-kind", choices=("final", "staging", "harness"))

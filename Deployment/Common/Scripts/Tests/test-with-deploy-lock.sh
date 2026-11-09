@@ -71,7 +71,7 @@ bash "$LOCK_WRAPPER" bash -c 'touch "$1"' fixture-second "$second_marker" >"$sec
 second_pid=$!
 second_waiting=false
 for _ in $(seq 1 100); do
-  if grep -Fq "waiting for LocalCluster deployment lock" "$second_log"; then
+  if grep -Fq "waiting for shared deployment lock" "$second_log"; then
     second_waiting=true
     break
   fi

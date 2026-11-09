@@ -51,23 +51,7 @@ updates:
           - "patch"
 
   - package-ecosystem: "docker"
-    directory: "/Deployment/LocalCluster/compose/app-server"
-    schedule:
-      interval: "weekly"
-      day: "sunday"
-      time: "22:00"
-      timezone: "Europe/Copenhagen"
-    open-pull-requests-limit: 5
-    groups:
-      minor-and-patch:
-        patterns:
-          - "*"
-        update-types:
-          - "minor"
-          - "patch"
-
-  - package-ecosystem: "docker"
-    directory: "/Deployment/LocalCluster/compose/node-db"
+    directory: "/Deployment/LocalSingleNode/compose"
     schedule:
       interval: "weekly"
       day: "sunday"

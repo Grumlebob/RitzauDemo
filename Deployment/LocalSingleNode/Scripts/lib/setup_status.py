@@ -121,13 +121,13 @@ def status(node, expected_address=None):
         return choose(checks, node, app, facts, repo, ci_runner)
     variables = {value["name"]: value["value"] for value in json.loads(gh("api", f"repos/{repo}/actions/variables?per_page=100"))["variables"]}
     runners = json.loads(gh("api", f"repos/{repo}/actions/runners?per_page=100"))["runners"]
-    ci_label = variables.get("CI_RUNNER_LABEL") or variables.get("LOCALCLUSTER_RUNNER_LABEL") or "localcluster-books"
-    checks["ci_capacity"] = any(runner["status"] == "online" and ci_label in {label["name"] for label in runner["labels"]} for runner in runners)
+    ci_label = variables.get("CI_RUNNER_LABEL", "")
+    checks["ci_capacity"] = bool(ci_label) and any(runner["status"] == "online" and ci_label in {label["name"] for label in runner["labels"]} for runner in runners)
     marker_path = ETC / "localsinglenode/bootstrap.json"
     host_marker = json.loads(marker_path.read_text()) if marker_path.exists() else {}
     marker = host_marker.get("apps", {}).get(app, host_marker)
     # An offline existing CI runner is not permission to move CI to this node.
-    ci_registered = any(ci_label in {label["name"] for label in runner["labels"]} for runner in runners)
+    ci_registered = bool(ci_label) and any(ci_label in {label["name"] for label in runner["labels"]} for runner in runners)
     ci_runner = bool(marker.get("ci_runner")) or not ci_registered
     checks["root"] = marker.get("version") == VERSION and marker.get("node") == node and marker.get("app") == app and marker.get("repo") == repo
     if checks["root"]:

@@ -1,4 +1,4 @@
-"""The shared node setup bounds the system journal on every LocalCluster and LocalSingleNode node."""
+"""The LocalSingleNode setup bounds the system journal on an existing host."""
 from pathlib import Path
 import unittest
 
@@ -27,12 +27,11 @@ class NodeJournalLimitTests(unittest.TestCase):
         self.assertEqual("mint_base_journal_limit.changed", task["when"])
         self.assertEqual("mint_base_journal_limit", self.tasks["Bound the system journal"]["register"])
 
-    def test_every_node_setup_playbook_applies_the_role(self):
-        for playbook in ("Deployment/LocalCluster/ansible/playbooks/PrepareFreshLinuxMachine.yml",
-                         "Deployment/LocalSingleNode/ansible/playbooks/PrepareSingleNode.yml"):
-            plays = yaml.safe_load((ROOT / playbook).read_text())
-            roles = [role if isinstance(role, str) else role.get("role") for play in plays for role in play.get("roles", [])]
-            self.assertIn("mint_base", roles, playbook)
+    def test_single_node_setup_applies_the_shared_base_role(self):
+        playbook = "Deployment/LocalSingleNode/ansible/playbooks/PrepareSingleNode.yml"
+        plays = yaml.safe_load((ROOT / playbook).read_text())
+        roles = [role if isinstance(role, str) else role.get("role") for play in plays for role in play.get("roles", [])]
+        self.assertIn("mint_base", roles, playbook)
 
     def test_single_node_bootstrap_skips_dist_upgrade_on_existing_host(self):
         playbook = yaml.safe_load((ROOT / "Deployment/LocalSingleNode/ansible/playbooks/PrepareSingleNode.yml").read_text())[0]

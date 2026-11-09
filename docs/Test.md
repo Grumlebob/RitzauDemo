@@ -1,6 +1,6 @@
 # Test
 
-Use the full local gate for code, configuration, and other non-Markdown changes. The one-week product suite covers five focused Books CRUD unit cases and one database-backed create/list/read/update/delete integration test. Tests require Docker for PostgreSQL and Redis Testcontainers. At most one packaged Blazor render/hydration E2E smoke is optional and off by default; it is not a browser CRUD journey. Required CI, release, deployment and host-safety checks remain separate operational gates. Grafana/observability validation is not part of the RitzauDemo demo gate while deployed observability is disabled. See [Browser testing](Testing/Browser.md) and [Infrastructure testing](Testing/Infrastructure.md) for retained smoke and integration fixture details.
+Use the full local gate for code, configuration, and other non-Markdown changes. Product behavior coverage is five focused Books CRUD unit cases and one PostgreSQL/Redis-backed create/list/read/update/delete integration test. At most one packaged Blazor render/hydration smoke is optional and off by default; it does not exercise browser CRUD. CI, release, single-node deployment, backup/recovery, and host-safety checks remain operational gates. Grafana/observability suites are out of scope while deployed observability is disabled. See [Browser testing](Testing/Browser.md) and [Infrastructure testing](Testing/Infrastructure.md) for the optional smoke and CRUD integration fixture.
 
 ## Normal run
 
@@ -38,16 +38,15 @@ python3 -m unittest discover -s Scripts/CI/tests -v
 python3 Scripts/CI/workflow_policy.py --repo-root .
 dotnet format GrumPlates.sln --verify-no-changes --verbosity minimal --no-restore
 bash Scripts/CI/validate-frontend-profiles.sh /tmp/frontend-profile-results # needs Docker
+bash Scripts/CI/tests/test_check_runner_capacity.sh
 bash Deployment/Common/Scripts/validate-common-release.sh
-bash Deployment/Cloud/Scripts/validate-cloud-settings.sh
-bash Deployment/LocalCluster/Scripts/audit-deployment.sh
-python3 -m unittest discover -s Deployment/Common/Scripts/Tests -v
-python3 -m unittest discover -s Deployment/LocalCluster/Scripts/Tests -p 'test_*.py' -v
 python3 -m unittest discover -s Deployment/LocalSingleNode/Scripts/Tests -v
+bash Deployment/Common/Scripts/audit-deployment.sh
+python3 -m unittest discover -s Deployment/Common/Scripts/Tests -v
 python3 -m venv /tmp/tpl-venv && /tmp/tpl-venv/bin/pip install --constraint Deployment/Common/ci-python-constraints.txt jinja2 yamllint
-PATH="/tmp/tpl-venv/bin:$PATH" bash Deployment/LocalCluster/Scripts/validate-rendered-templates.sh
+PATH="/tmp/tpl-venv/bin:$PATH" bash Deployment/LocalSingleNode/Scripts/validate-rendered-templates.sh
 PATH="/tmp/tpl-venv/bin:$PATH" yamllint .github Deployment docker-compose.yml .yamllint.yml
-find Deployment Scripts/CI -type f -name '*.sh' -print0 | xargs -0 shellcheck --severity=warning
+find Deployment/LocalSingleNode Deployment/Common/Scripts Scripts/CI -type f -name '*.sh' -print0 | xargs -0 shellcheck --severity=warning
 bash Scripts/CI/run-actionlint.sh
 ```
 

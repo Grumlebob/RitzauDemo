@@ -11,14 +11,6 @@ on:
         description: Apply GitHub Actions artifact retention during this manual dispatch
         type: boolean
         default: false
-      app_instance:
-        description: Select the primary app or the protected additional app
-        required: true
-        default: primary
-        type: choice
-        options:
-          - primary
-          - additional
       restart_app:
         description: Restart only this app's web container and verify public catalog persistence; requires acceptance_only=true
         type: boolean
@@ -41,10 +33,8 @@ on:
         default: false
   schedule:
     - cron: "17 3 * * *"
-    - cron: "27 3 * * *"
-    # Scoped image retention for each app, after the apps' daily backup timers.
+    # Scoped image retention after the daily backup.
     - cron: "37 4 * * *"
-    - cron: "47 4 * * *"
     # A busy CI day can add more than 50 GB of BuildKit cache, so trim it between the daily runs too.
     - cron: "57 */4 * * *"
 permissions:
@@ -52,16 +42,16 @@ permissions:
   actions: read
 jobs:
   maintenance:
-    # Scheduled daily per app without inputs: verify the backup, remove only proven old app images, then run
+    # Scheduled daily without inputs: verify the backup, remove only proven old app images, then run
     # the read-only doctor and HTTP acceptance. No backup, restart or reboot is requested.
-    if: (github.event_name == 'workflow_dispatch' && inputs.artifact_only != true) || github.event.schedule == '37 4 * * *' || github.event.schedule == '47 4 * * *'
+    if: (github.event_name == 'workflow_dispatch' && inputs.artifact_only != true) || github.event.schedule == '37 4 * * *'
     concurrency:
       group: localsinglenode-maintenance
       cancel-in-progress: false
     runs-on: [self-hosted, linux, x64, "${{ vars.LOCALSINGLENODE_RUNNER_LABEL || 'localsinglenode-books' }}"]
     timeout-minutes: 30
     environment:
-      name: ${{ (github.event.schedule == '47 4 * * *' || inputs.app_instance == 'additional') && vars.LOCALSINGLENODE_ADDITIONAL_ENVIRONMENT || vars.LOCALSINGLENODE_ENVIRONMENT || 'localsinglenode' }}
+      name: ${{ vars.LOCALSINGLENODE_ENVIRONMENT || 'localsinglenode' }}
     steps:
       - name: Require this deployment target to be enabled
         env:
@@ -70,7 +60,7 @@ jobs:
         run: |
           targets=",${DEPLOY_TARGETS// /},"
           if [[ "$targets" != *",${TARGET},"* ]]; then
-            echo "::error::Deployment target '${TARGET}' is not enabled. Add it to the DEPLOY_TARGETS repository variable (Settings > Secrets and variables > Actions > Variables), for example 'localcluster,localsinglenode'."
+            echo "::error::Deployment target '${TARGET}' is not enabled. Add 'localsinglenode' to the DEPLOY_TARGETS repository variable (Settings > Secrets and variables > Actions > Variables)."
             exit 1
           fi
 
@@ -91,7 +81,6 @@ jobs:
           RESTART_CONNECTOR: ${{ inputs.restart_connector }}
           RESTART_APP: ${{ inputs.restart_app }}
           REBOOT_CHECK: ${{ inputs.reboot_check }}
-          APP_INSTANCE: ${{ github.event.schedule == '47 4 * * *' && 'additional' || inputs.app_instance || 'primary' }}
         run: |
           if [[ ( "$RESTART_CONNECTOR" == true || "$RESTART_APP" == true ) && "$ACCEPTANCE_ONLY" != true ]]; then
             echo "Restart checks require acceptance_only=true so backups and maintenance are skipped." >&2
@@ -99,10 +88,6 @@ jobs:
           fi
           if [[ "$RESTART_CONNECTOR" == true && "$RESTART_APP" == true ]]; then
             echo "Select only one restart check per run." >&2
-            exit 1
-          fi
-          if [[ "$APP_INSTANCE" == additional && "$REBOOT_CHECK" == true ]]; then
-            echo "Additional-app maintenance cannot request a shared host reboot." >&2
             exit 1
           fi
       - name: Checkout
@@ -114,33 +99,18 @@ jobs:
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         run: python3 Deployment/Common/Scripts/verify-operation-source.py > "$RUNNER_TEMP/maintenance-ci.json"
-      - name: Check whether the selected app exists
-        id: instance
+      - name: Resolve the primary app
         env:
-          APP_INSTANCE: ${{ github.event.schedule == '47 4 * * *' && 'additional' || inputs.app_instance || 'primary' }}
-          APP_INSTANCE_CONFIG: ${{ secrets.LOCALSINGLENODE_APP_INSTANCE }}
-        run: |
-          if [[ "$APP_INSTANCE" == additional && -z "$APP_INSTANCE_CONFIG" ]]; then
-            echo "::notice::No protected additional-app configuration is present; no additional-app maintenance was selected."
-            echo "configured=false" >> "$GITHUB_OUTPUT"
-          else
-            echo "configured=true" >> "$GITHUB_OUTPUT"
-          fi
-      - name: Resolve protected application instance
-        if: steps.instance.outputs.configured == 'true'
-        env:
-          INPUT_APP_INSTANCE: ${{ github.event.schedule == '47 4 * * *' && 'additional' || inputs.app_instance || 'primary' }}
-          APP_INSTANCE_CONFIG: ${{ secrets.LOCALSINGLENODE_APP_INSTANCE }}
-          ADDITIONAL_INSTANCE_ENVIRONMENT: ${{ vars.LOCALSINGLENODE_ADDITIONAL_ENVIRONMENT }}
-          PRIMARY_INSTANCE_ENVIRONMENT: ${{ vars.LOCALSINGLENODE_ENVIRONMENT }}
+          GITHUB_SERVER_URL: ${{ github.server_url }}
+          GITHUB_REPOSITORY: ${{ github.repository }}
         run: |
           set -euo pipefail
           FRONTEND_PROFILE="$(python3 Scripts/Frontend/resolve_frontend_profile.py)"
           ACCEPTANCE_PROFILE="$(python3 Scripts/Frontend/resolve_frontend_profile.py --acceptance-profile)"
           export FRONTEND_PROFILE ACCEPTANCE_PROFILE
-          python3 Deployment/LocalSingleNode/Scripts/resolve-app-instance.py
+          python3 Deployment/LocalSingleNode/Scripts/resolve-deployment.py
       - name: Protected backup and scoped maintenance
-        if: inputs.acceptance_only != true && steps.instance.outputs.configured == 'true'
+        if: inputs.acceptance_only != true
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
           LOCALSINGLENODE_HOST: ${{ vars.LOCALSINGLENODE_HOST }}
@@ -158,10 +128,8 @@ jobs:
           bash Deployment/Common/Scripts/with-deploy-lock.sh \
             python3 Deployment/LocalSingleNode/Scripts/restart-app-check.py
       - name: Read-only native doctor
-        if: steps.instance.outputs.configured == 'true'
         run: bash Deployment/LocalSingleNode/Scripts/doctor.sh --json
       - name: Run HTTP acceptance and report uptime
-        if: steps.instance.outputs.configured == 'true'
         run: |
           bash Deployment/LocalSingleNode/Scripts/acceptance-check.sh
           uptime -s
@@ -182,18 +150,18 @@ jobs:
       - name: Remove temporary app configuration
         if: always()
         run: |
-          rm -f -- "$RUNNER_TEMP/instance-settings.yml" "$RUNNER_TEMP/instance-vars.json" \
+          rm -f -- "${DEPLOYMENT_VARS_FILE:-}" "$RUNNER_TEMP/deployment-vars.json" \
             "$RUNNER_TEMP/maintenance-ci.json"
 
   prune-release-artifacts:
-    if: github.event_name == 'workflow_dispatch' || github.event.schedule == '17 3 * * *' || github.event.schedule == '27 3 * * *'
+    if: github.event_name == 'workflow_dispatch' || github.event.schedule == '17 3 * * *'
     concurrency:
       group: template-artifact-retention
       cancel-in-progress: false
     runs-on: [self-hosted, linux, x64, "${{ vars.LOCALSINGLENODE_RUNNER_LABEL || 'localsinglenode-books' }}"]
     timeout-minutes: 40
     environment:
-      name: ${{ (github.event.schedule == '27 3 * * *' || inputs.app_instance == 'additional') && vars.LOCALSINGLENODE_ADDITIONAL_ENVIRONMENT || vars.LOCALSINGLENODE_ENVIRONMENT || 'localsinglenode' }}
+      name: ${{ vars.LOCALSINGLENODE_ENVIRONMENT || 'localsinglenode' }}
     permissions:
       actions: write
       contents: read
@@ -251,45 +219,28 @@ jobs:
           BUILD_CACHE_KEEP_GB: ${{ vars.BUILD_CACHE_KEEP_GB || '20' }}
         run: bash Deployment/Common/Scripts/with-deploy-lock.sh python3 Deployment/LocalSingleNode/Scripts/lib/build_cache.py --keep-gb "$BUILD_CACHE_KEEP_GB"
 
-      - name: Check whether the optional additional app exists
-        id: instance
+      - name: Resolve the primary app
         env:
-          APP_INSTANCE: ${{ github.event.schedule == '27 3 * * *' && 'additional' || inputs.app_instance || 'primary' }}
-          APP_INSTANCE_CONFIG: ${{ secrets.LOCALSINGLENODE_APP_INSTANCE }}
-        run: |
-          if [[ "$APP_INSTANCE" == additional && -z "$APP_INSTANCE_CONFIG" ]]; then
-            echo "::notice::No protected additional-app configuration is present; no additional-app artifact was selected."
-            echo "configured=false" >> "$GITHUB_OUTPUT"
-          else
-            echo "configured=true" >> "$GITHUB_OUTPUT"
-          fi
-
-      - name: Resolve protected application instance
-        if: steps.instance.outputs.configured == 'true'
-        env:
-          INPUT_APP_INSTANCE: ${{ github.event.schedule == '27 3 * * *' && 'additional' || inputs.app_instance || 'primary' }}
-          APP_INSTANCE_CONFIG: ${{ secrets.LOCALSINGLENODE_APP_INSTANCE }}
-          ADDITIONAL_INSTANCE_ENVIRONMENT: ${{ vars.LOCALSINGLENODE_ADDITIONAL_ENVIRONMENT }}
-          PRIMARY_INSTANCE_ENVIRONMENT: ${{ vars.LOCALSINGLENODE_ENVIRONMENT }}
+          GITHUB_SERVER_URL: ${{ github.server_url }}
+          GITHUB_REPOSITORY: ${{ github.repository }}
         run: |
           set -euo pipefail
           FRONTEND_PROFILE="$(python3 Scripts/Frontend/resolve_frontend_profile.py)"
           ACCEPTANCE_PROFILE="$(python3 Scripts/Frontend/resolve_frontend_profile.py --acceptance-profile)"
           export FRONTEND_PROFILE ACCEPTANCE_PROFILE
-          python3 Deployment/LocalSingleNode/Scripts/resolve-app-instance.py
+          python3 Deployment/LocalSingleNode/Scripts/resolve-deployment.py
 
       - name: Prune old release artifacts under the shared deployment lock
-        if: steps.instance.outputs.configured == 'true'
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
           LOCALCLUSTER_DEPLOY_LOCK_TIMEOUT_SECONDS: "300"
-          ACTIONS_ARTIFACT_RETENTION_ENABLED: ${{ (github.event.schedule == '17 3 * * *' || github.event.schedule == '27 3 * * *' || (github.event_name == 'workflow_dispatch' && inputs.apply_artifacts == true)) && (vars.ACTIONS_ARTIFACT_RETENTION_ENABLED || 'false') }}
+          ACTIONS_ARTIFACT_RETENTION_ENABLED: ${{ (github.event.schedule == '17 3 * * *' || (github.event_name == 'workflow_dispatch' && inputs.apply_artifacts == true)) && (vars.ACTIONS_ARTIFACT_RETENTION_ENABLED || 'false') }}
         run: bash Deployment/Common/Scripts/with-deploy-lock.sh bash Deployment/LocalSingleNode/Scripts/prune-release-artifacts.sh
 
       - name: Remove temporary app configuration
         if: always()
         run: |
-          rm -f -- "$RUNNER_TEMP/instance-settings.yml" "$RUNNER_TEMP/instance-vars.json"
+          rm -f -- "${DEPLOYMENT_VARS_FILE:-}" "$RUNNER_TEMP/deployment-vars.json"
 
   trim-build-cache:
     if: github.event.schedule == '57 */4 * * *'

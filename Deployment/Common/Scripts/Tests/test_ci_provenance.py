@@ -94,7 +94,7 @@ class CiSelectionTests(unittest.TestCase):
 
     def test_wrong_workflow_path_and_target_sha_are_ineligible(self) -> None:
         result = self.select([
-            run(1, "2026-09-24T10:00:00Z", path=".github/workflows/cd-localcluster.yml@refs/heads/main"),
+            run(1, "2026-09-24T10:00:00Z", path=".github/workflows/cd-localsinglenode.yml@refs/heads/main"),
             run(2, "2026-09-24T11:00:00Z", sha="b" * 40),
             run(3, "2026-09-24T12:00:00Z", path=""),
         ])

@@ -45,113 +45,13 @@ permissions:
   contents: read
 
 # Keep every release consumer, publisher and registry cleanup in one repository
-# coordination group. Each target still reads its own markers under its host lock.
+# coordination group. LocalSingleNode reads its markers under the shared host lock.
 concurrency:
   group: template-registry-payloads
   queue: max
   cancel-in-progress: false
 
 jobs:
-  localcluster_protection:
-    runs-on: [self-hosted, linux, x64, "${{ vars.LOCALCLUSTER_RUNNER_LABEL || 'localcluster-books' }}"]
-    timeout-minutes: 15
-    environment:
-      name: ${{ vars.LOCALCLUSTER_ENVIRONMENT || 'localcluster' }}
-    permissions:
-      actions: read
-      contents: read
-      packages: read
-    outputs:
-      protection_gzip_b64: ${{ steps.protect.outputs.protection_gzip_b64 }}
-    steps:
-      - name: Require main branch and enabled LocalCluster target
-        env:
-          DEPLOY_TARGETS: ${{ vars.DEPLOY_TARGETS }}
-          REGISTRY_RETENTION_APPLY: ${{ inputs.apply_registry == true }}
-          RESERVATION_RUN_ID: ${{ inputs.registry_reservation_run_id }}
-          RESERVATION_ATTEMPT: ${{ inputs.registry_reservation_attempt }}
-          CAPACITY_RECOVERY_CI_RUN_ID: ${{ inputs.capacity_recovery_ci_run_id }}
-          CAPACITY_RECOVERY_CI_ATTEMPT: ${{ inputs.capacity_recovery_ci_attempt }}
-          PRIOR_CAPACITY_CI_RUN_ID: ${{ inputs.prior_capacity_ci_run_id }}
-          PRIOR_CAPACITY_CI_ATTEMPT: ${{ inputs.prior_capacity_ci_attempt }}
-        run: |
-          set -euo pipefail
-          test "$GITHUB_REF" = refs/heads/main
-          targets=",${DEPLOY_TARGETS// /},"
-          [[ "$targets" == *,localcluster,* ]]
-          if [[ -n "$RESERVATION_RUN_ID" || -n "$RESERVATION_ATTEMPT" ]]; then
-            [[ "$RESERVATION_RUN_ID" =~ ^[1-9][0-9]*$ && "$RESERVATION_ATTEMPT" =~ ^[1-9][0-9]*$ ]]
-            [[ "$REGISTRY_RETENTION_APPLY" == true ]]
-            [[ "$CAPACITY_RECOVERY_CI_RUN_ID" =~ ^[1-9][0-9]*$ && "$CAPACITY_RECOVERY_CI_ATTEMPT" =~ ^[1-9][0-9]*$ ]]
-          fi
-          if [[ -n "$PRIOR_CAPACITY_CI_RUN_ID" || -n "$PRIOR_CAPACITY_CI_ATTEMPT" ]]; then
-            [[ "$PRIOR_CAPACITY_CI_RUN_ID" =~ ^[1-9][0-9]*$ && "$PRIOR_CAPACITY_CI_ATTEMPT" =~ ^[1-9][0-9]*$ ]]
-            [[ -n "$RESERVATION_RUN_ID" && -n "$RESERVATION_ATTEMPT" && "$REGISTRY_RETENTION_APPLY" == true ]]
-            [[ "$CAPACITY_RECOVERY_CI_RUN_ID" =~ ^[1-9][0-9]*$ && "$CAPACITY_RECOVERY_CI_ATTEMPT" =~ ^[1-9][0-9]*$ ]]
-          fi
-
-      - name: Verify node-main runner
-        run: |
-          test "$(hostname)" = node-main
-          test "$(uname -s)" = Linux
-          case "$(uname -r)" in *[Mm]icrosoft*) exit 1 ;; esac
-
-      - name: Checkout
-        uses: actions/checkout@v7
-        with:
-          ref: ${{ github.sha }}
-          fetch-depth: 0
-
-      - name: Activate validated Ansible generation
-        run: |
-          bash Deployment/LocalCluster/Scripts/install-ansible.sh --check
-          ansible_root="$(readlink -f "${HOME}/.local/share/books-ansible/current")"
-          test -x "${ansible_root}/bin/ansible"
-          echo "${ansible_root}/bin" >> "$GITHUB_PATH"
-
-      - name: Provide the existing Ansible vault secret
-        env:
-          ANSIBLE_VAULT_PASSWORD: ${{ secrets.ANSIBLE_VAULT_PASSWORD }}
-        run: |
-          set -euo pipefail
-          test -n "$ANSIBLE_VAULT_PASSWORD"
-          password_file="$(mktemp "${RUNNER_TEMP}/registry-vault-password.XXXXXX")"
-          chmod 0600 "$password_file"
-          printf '%s' "$ANSIBLE_VAULT_PASSWORD" > "$password_file"
-          echo "ANSIBLE_VAULT_PASSWORD_FILE=$password_file" >> "$GITHUB_ENV"
-
-      - name: Read LocalCluster current and recovery releases under the shared lock
-        env:
-          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-          LOCALCLUSTER_DEPLOY_LOCK_TIMEOUT_SECONDS: "300"
-          RESERVATION_RUN_ID: ${{ inputs.registry_reservation_run_id }}
-          RESERVATION_ATTEMPT: ${{ inputs.registry_reservation_attempt }}
-        run: |
-          set -euo pipefail
-          lock_dir="${LOCALCLUSTER_DEPLOY_LOCK_DIR:-/tmp/localcluster-deploy.lockdir}"
-          if [[ -n "$RESERVATION_RUN_ID" && -d "$lock_dir" ]]; then
-            lock_token="$(python3 Deployment/Common/Scripts/registry-retention-recovery.py prepare \
-              --owner-run-id "$RESERVATION_RUN_ID" --owner-attempt "$RESERVATION_ATTEMPT" \
-              --print-lock-token)"
-            export LOCALCLUSTER_DEPLOY_LOCK_DIR="$lock_dir" LOCALCLUSTER_DEPLOY_LOCK_TOKEN="$lock_token"
-            status="$(python3 Deployment/LocalCluster/Scripts/release-status.py | tail -n 1)"
-          else
-            status="$(bash Deployment/Common/Scripts/with-deploy-lock.sh \
-              python3 Deployment/LocalCluster/Scripts/release-status.py | tail -n 1)"
-          fi
-          printf '%s\n' "$status" > "$RUNNER_TEMP/localcluster-release-status.json"
-
-      - name: Export verified LocalCluster registry protections
-        id: protect
-        run: |
-          python3 Deployment/Common/Scripts/registry-protection.py \
-            --target localcluster --instance cluster \
-            --status-json "$RUNNER_TEMP/localcluster-release-status.json" --github-output >> "$GITHUB_OUTPUT"
-
-      - name: Remove temporary vault secret
-        if: always()
-        run: rm -f -- "${ANSIBLE_VAULT_PASSWORD_FILE:-}"
-
   localsinglenode_primary:
     runs-on: [self-hosted, linux, x64, "${{ vars.LOCALSINGLENODE_RUNNER_LABEL || 'localsinglenode-books' }}"]
     timeout-minutes: 15
@@ -205,18 +105,16 @@ jobs:
           ref: ${{ github.sha }}
           fetch-depth: 0
 
-      - name: Resolve the protected primary app
+      - name: Resolve the primary app
         env:
-          INPUT_APP_INSTANCE: primary
-          APP_INSTANCE_CONFIG: ${{ secrets.LOCALSINGLENODE_APP_INSTANCE }}
-          ADDITIONAL_INSTANCE_ENVIRONMENT: ${{ vars.LOCALSINGLENODE_ADDITIONAL_ENVIRONMENT }}
-          PRIMARY_INSTANCE_ENVIRONMENT: ${{ vars.LOCALSINGLENODE_ENVIRONMENT }}
+          GITHUB_SERVER_URL: ${{ github.server_url }}
+          GITHUB_REPOSITORY: ${{ github.repository }}
         run: |
           set -euo pipefail
           FRONTEND_PROFILE="$(python3 Scripts/Frontend/resolve_frontend_profile.py)"
           ACCEPTANCE_PROFILE="$(python3 Scripts/Frontend/resolve_frontend_profile.py --acceptance-profile)"
           export FRONTEND_PROFILE ACCEPTANCE_PROFILE
-          python3 Deployment/LocalSingleNode/Scripts/resolve-app-instance.py
+          python3 Deployment/LocalSingleNode/Scripts/resolve-deployment.py
 
       - name: Read primary current and recovery releases under the shared lock
         env:
@@ -244,119 +142,16 @@ jobs:
         id: protect
         run: |
           python3 Deployment/Common/Scripts/registry-protection.py \
-            --target localsinglenode --instance primary \
+            --target localsinglenode \
             --status-json "$RUNNER_TEMP/primary-release-status.json" --github-output >> "$GITHUB_OUTPUT"
 
       - name: Remove temporary primary configuration
         if: always()
-        run: rm -f -- "$RUNNER_TEMP/instance-settings.yml" "$RUNNER_TEMP/instance-vars.json"
-
-  localsinglenode_additional:
-    if: vars.LOCALSINGLENODE_ADDITIONAL_ENVIRONMENT != ''
-    runs-on: [self-hosted, linux, x64, "${{ vars.LOCALSINGLENODE_RUNNER_LABEL || 'localsinglenode-books' }}"]
-    timeout-minutes: 15
-    environment:
-      name: ${{ vars.LOCALSINGLENODE_ADDITIONAL_ENVIRONMENT }}
-    permissions:
-      actions: read
-      contents: read
-      packages: read
-    outputs:
-      protection_gzip_b64: ${{ steps.protect.outputs.protection_gzip_b64 }}
-    steps:
-      - name: Require main branch and enabled LocalSingleNode target
-        env:
-          DEPLOY_TARGETS: ${{ vars.DEPLOY_TARGETS }}
-          REGISTRY_RETENTION_APPLY: ${{ inputs.apply_registry == true }}
-          RESERVATION_RUN_ID: ${{ inputs.registry_reservation_run_id }}
-          RESERVATION_ATTEMPT: ${{ inputs.registry_reservation_attempt }}
-          CAPACITY_RECOVERY_CI_RUN_ID: ${{ inputs.capacity_recovery_ci_run_id }}
-          CAPACITY_RECOVERY_CI_ATTEMPT: ${{ inputs.capacity_recovery_ci_attempt }}
-          PRIOR_CAPACITY_CI_RUN_ID: ${{ inputs.prior_capacity_ci_run_id }}
-          PRIOR_CAPACITY_CI_ATTEMPT: ${{ inputs.prior_capacity_ci_attempt }}
-        run: |
-          set -euo pipefail
-          test "$GITHUB_REF" = refs/heads/main
-          targets=",${DEPLOY_TARGETS// /},"
-          [[ "$targets" == *,localsinglenode,* ]]
-          if [[ -n "$RESERVATION_RUN_ID" || -n "$RESERVATION_ATTEMPT" ]]; then
-            [[ "$RESERVATION_RUN_ID" =~ ^[1-9][0-9]*$ && "$RESERVATION_ATTEMPT" =~ ^[1-9][0-9]*$ ]]
-            [[ "$REGISTRY_RETENTION_APPLY" == true ]]
-            [[ "$CAPACITY_RECOVERY_CI_RUN_ID" =~ ^[1-9][0-9]*$ && "$CAPACITY_RECOVERY_CI_ATTEMPT" =~ ^[1-9][0-9]*$ ]]
-          fi
-          if [[ -n "$PRIOR_CAPACITY_CI_RUN_ID" || -n "$PRIOR_CAPACITY_CI_ATTEMPT" ]]; then
-            [[ "$PRIOR_CAPACITY_CI_RUN_ID" =~ ^[1-9][0-9]*$ && "$PRIOR_CAPACITY_CI_ATTEMPT" =~ ^[1-9][0-9]*$ ]]
-            [[ -n "$RESERVATION_RUN_ID" && -n "$RESERVATION_ATTEMPT" && "$REGISTRY_RETENTION_APPLY" == true ]]
-            [[ "$CAPACITY_RECOVERY_CI_RUN_ID" =~ ^[1-9][0-9]*$ && "$CAPACITY_RECOVERY_CI_ATTEMPT" =~ ^[1-9][0-9]*$ ]]
-          fi
-
-      - name: Verify the intended native LocalSingleNode host
-        env:
-          LOCALSINGLENODE_HOST: ${{ vars.LOCALSINGLENODE_HOST }}
-        run: |
-          test -n "$LOCALSINGLENODE_HOST"
-          test "$(hostname)" = "$LOCALSINGLENODE_HOST"
-          test "$(uname -s)" = Linux
-          case "$(uname -r)" in *[Mm]icrosoft*) exit 1 ;; esac
-
-      - name: Checkout
-        uses: actions/checkout@v7
-        with:
-          ref: ${{ github.sha }}
-          fetch-depth: 0
-
-      - name: Resolve the protected additional app
-        env:
-          INPUT_APP_INSTANCE: additional
-          APP_INSTANCE_CONFIG: ${{ secrets.LOCALSINGLENODE_APP_INSTANCE }}
-          ADDITIONAL_INSTANCE_ENVIRONMENT: ${{ vars.LOCALSINGLENODE_ADDITIONAL_ENVIRONMENT }}
-          PRIMARY_INSTANCE_ENVIRONMENT: ${{ vars.LOCALSINGLENODE_ENVIRONMENT }}
-        run: |
-          set -euo pipefail
-          FRONTEND_PROFILE="$(python3 Scripts/Frontend/resolve_frontend_profile.py)"
-          ACCEPTANCE_PROFILE="$(python3 Scripts/Frontend/resolve_frontend_profile.py --acceptance-profile)"
-          export FRONTEND_PROFILE ACCEPTANCE_PROFILE
-          python3 Deployment/LocalSingleNode/Scripts/resolve-app-instance.py
-
-      - name: Read additional current and recovery releases under the shared lock
-        env:
-          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-          LOCALSINGLENODE_HOST: ${{ vars.LOCALSINGLENODE_HOST }}
-          LOCALCLUSTER_DEPLOY_LOCK_TIMEOUT_SECONDS: "300"
-          RESERVATION_RUN_ID: ${{ inputs.registry_reservation_run_id }}
-          RESERVATION_ATTEMPT: ${{ inputs.registry_reservation_attempt }}
-        run: |
-          set -euo pipefail
-          lock_dir="${LOCALCLUSTER_DEPLOY_LOCK_DIR:-/tmp/localcluster-deploy.lockdir}"
-          if [[ -n "$RESERVATION_RUN_ID" && -d "$lock_dir" ]]; then
-            lock_token="$(python3 Deployment/Common/Scripts/registry-retention-recovery.py prepare \
-              --owner-run-id "$RESERVATION_RUN_ID" --owner-attempt "$RESERVATION_ATTEMPT" \
-              --print-lock-token)"
-            export LOCALCLUSTER_DEPLOY_LOCK_DIR="$lock_dir" LOCALCLUSTER_DEPLOY_LOCK_TOKEN="$lock_token"
-            status="$(python3 Deployment/LocalSingleNode/Scripts/release-status.py | tail -n 1)"
-          else
-            status="$(bash Deployment/Common/Scripts/with-deploy-lock.sh \
-              python3 Deployment/LocalSingleNode/Scripts/release-status.py | tail -n 1)"
-          fi
-          printf '%s\n' "$status" > "$RUNNER_TEMP/additional-release-status.json"
-
-      - name: Export verified additional registry protections
-        id: protect
-        run: |
-          python3 Deployment/Common/Scripts/registry-protection.py \
-            --target localsinglenode --instance additional \
-            --status-json "$RUNNER_TEMP/additional-release-status.json" --github-output >> "$GITHUB_OUTPUT"
-
-      - name: Remove temporary additional configuration
-        if: always()
-        run: rm -f -- "$RUNNER_TEMP/instance-settings.yml" "$RUNNER_TEMP/instance-vars.json"
+        run: rm -f -- "${DEPLOYMENT_VARS_FILE:-}" "$RUNNER_TEMP/deployment-vars.json"
 
   prune_registry:
-    needs: [localcluster_protection, localsinglenode_primary, localsinglenode_additional]
-    if: >-
-      always() && needs.localcluster_protection.result == 'success' &&
-      needs.localsinglenode_primary.result == 'success' &&
-      (vars.LOCALSINGLENODE_ADDITIONAL_ENVIRONMENT == '' || needs.localsinglenode_additional.result == 'success')
+    needs: [localsinglenode_primary]
+    if: always() && needs.localsinglenode_primary.result == 'success'
     runs-on: [self-hosted, linux, x64, "${{ vars.LOCALSINGLENODE_RUNNER_LABEL || 'localsinglenode-books' }}"]
     timeout-minutes: 120
     environment:
@@ -373,7 +168,7 @@ jobs:
           set -euo pipefail
           test "$GITHUB_REF" = refs/heads/main
           targets=",${DEPLOY_TARGETS// /},"
-          [[ "$targets" == *,localcluster,* && "$targets" == *,localsinglenode,* ]]
+          [[ "$targets" == *,localsinglenode,* ]]
 
       - name: Verify the intended native LocalSingleNode host
         env:
@@ -434,10 +229,7 @@ jobs:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
           LOCALCLUSTER_DEPLOY_LOCK_TIMEOUT_SECONDS: "300"
           REGISTRY_COORDINATION_SCOPE_COMPLETE: "true"
-          REGISTRY_PROTECTION_CLUSTER_GZIP_B64: ${{ needs.localcluster_protection.outputs.protection_gzip_b64 }}
           REGISTRY_PROTECTION_PRIMARY_GZIP_B64: ${{ needs.localsinglenode_primary.outputs.protection_gzip_b64 }}
-          REGISTRY_PROTECTION_ADDITIONAL_GZIP_B64: ${{ needs.localsinglenode_additional.outputs.protection_gzip_b64 }}
-          ADDITIONAL_ENABLED: ${{ vars.LOCALSINGLENODE_ADDITIONAL_ENVIRONMENT != '' }}
           REGISTRY_RETENTION_APPLY: ${{ github.event_name == 'schedule' || inputs.apply_registry == true }}
           RESERVATION_RUN_ID: ${{ inputs.registry_reservation_run_id }}
           RESERVATION_ATTEMPT: ${{ inputs.registry_reservation_attempt }}
@@ -456,18 +248,8 @@ jobs:
             fi
             printf '%s' "$encoded" | base64 --decode | gzip --decompress
           }
-          REGISTRY_PROTECTION_CLUSTER="$(decode_protection "$REGISTRY_PROTECTION_CLUSTER_GZIP_B64")"
-          REGISTRY_PROTECTION_PRIMARY="$(decode_protection "$REGISTRY_PROTECTION_PRIMARY_GZIP_B64")"
-          REGISTRY_PROTECTION_ADDITIONAL=""
-          if [[ -n "$REGISTRY_PROTECTION_ADDITIONAL_GZIP_B64" ]]; then
-            REGISTRY_PROTECTION_ADDITIONAL="$(decode_protection "$REGISTRY_PROTECTION_ADDITIONAL_GZIP_B64")"
-          fi
-          protections=(--protection-json "$REGISTRY_PROTECTION_CLUSTER" --protection-json "$REGISTRY_PROTECTION_PRIMARY")
-          if [[ -n "$REGISTRY_PROTECTION_ADDITIONAL" ]]; then
-            protections+=(--protection-json "$REGISTRY_PROTECTION_ADDITIONAL")
-          fi
-          additional=()
-          if [[ "$ADDITIONAL_ENABLED" == true ]]; then additional+=(--require-additional); fi
+          protection="$(decode_protection "$REGISTRY_PROTECTION_PRIMARY_GZIP_B64")"
+          protections=(--protection-json "$protection")
           if [[ -n "$RESERVATION_RUN_ID" || -n "$RESERVATION_ATTEMPT" ]]; then
             [[ "$RESERVATION_RUN_ID" =~ ^[1-9][0-9]*$ && "$RESERVATION_ATTEMPT" =~ ^[1-9][0-9]*$ ]]
             [[ "$REGISTRY_RETENTION_APPLY" == true ]]
@@ -480,7 +262,7 @@ jobs:
             export LOCALCLUSTER_DEPLOY_LOCK_DIR="$lock_dir" LOCALCLUSTER_DEPLOY_LOCK_TOKEN="$lock_token"
             retention_status=0
             python3 Deployment/Common/Scripts/registry-retention.py \
-              "${packages[@]}" "${retained_bootstraps[@]}" "${protections[@]}" "${additional[@]}" "${apply[@]}" \
+              "${packages[@]}" "${retained_bootstraps[@]}" "${protections[@]}" "${apply[@]}" \
               --reservation-id "$reservation_id" || retention_status=$?
             python3 Deployment/Common/Scripts/registry-retention-recovery.py release \
               --owner-run-id "$RESERVATION_RUN_ID" --owner-attempt "$RESERVATION_ATTEMPT" \
@@ -489,7 +271,7 @@ jobs:
           else
             bash Deployment/Common/Scripts/with-deploy-lock.sh \
               python3 Deployment/Common/Scripts/registry-retention.py \
-                "${packages[@]}" "${retained_bootstraps[@]}" "${protections[@]}" "${additional[@]}" "${apply[@]}"
+                "${packages[@]}" "${retained_bootstraps[@]}" "${protections[@]}" "${apply[@]}"
           fi
 
       - name: Remove temporary registry recovery record

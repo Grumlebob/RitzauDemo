@@ -40,7 +40,7 @@ SAFE_TAIL = {
 CAPACITY_ERRORS = {
     "an unresolved GHCR deletion reservation blocks payload selection",
 }
-LOCK_TIMEOUT = "timed out waiting for LocalCluster deployment lock: /tmp/localcluster-deploy.lockdir"
+LOCK_TIMEOUT = "timed out waiting for shared deployment lock: /tmp/localcluster-deploy.lockdir"
 CAPACITY_SOURCE_FILES = (
     "Deployment/Common/Scripts/Component/lib/registry_retention.py",
     "Deployment/Common/Scripts/Component/lib/registry_inventory.py",

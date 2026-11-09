@@ -63,7 +63,7 @@ Keep only provenance links, intentional shared names and recorded follow-ups.
 
 ## Sharing a node with another product
 
-Several apps can share a LocalSingleNode machine. Each app owns its Compose project, runtime root, Caddy site, ports and subnet, and shares Docker, Caddy and the deployment lock ([deployment overview](../Deployment/README.md)). [Application instances](../Deployment/LocalSingleNode/ApplicationInstances.md) covers only a second profile of the *same* repository.
+RitzauDemo configures one LocalSingleNode app. It keeps its own Compose project, runtime root, Caddy site, ports and subnet, and shares Docker, Caddy and the deployment lock ([deployment overview](../Deployment/README.md)).
 
 A different repository joins a node through the normal [AgentSetup](../Deployment/LocalSingleNode/AgentSetup.md), run from that repository's own checkout on the node:
 
