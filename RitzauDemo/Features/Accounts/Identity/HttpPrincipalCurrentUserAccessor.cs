@@ -4,6 +4,9 @@ namespace RitzauDemo.Features.Accounts.Identity;
 
 internal sealed class HttpPrincipalCurrentUserAccessor(IHttpContextAccessor httpContextAccessor) : ICurrentUserAccessor
 {
+    public ValueTask<ClaimsPrincipal> GetCurrentPrincipalAsync(CancellationToken cancellationToken = default) =>
+        ValueTask.FromResult(httpContextAccessor.HttpContext?.User ?? new ClaimsPrincipal(new ClaimsIdentity()));
+
     public ValueTask<string?> GetCurrentUserIdAsync(CancellationToken cancellationToken = default)
     {
         var principal = httpContextAccessor.HttpContext?.User;

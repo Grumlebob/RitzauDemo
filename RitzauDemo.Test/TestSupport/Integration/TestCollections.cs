@@ -6,6 +6,7 @@ namespace RitzauDemo.Test.TestSupport.Integration;
 public static class TestCollectionNames
 {
     public const string Integration = "IntegrationTestCollection";
+    public const string SeededAccounts = "SeededAccountsIntegrationCollection";
     public const string E2E = "E2ECollection";
 }
 

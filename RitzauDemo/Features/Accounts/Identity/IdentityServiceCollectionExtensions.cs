@@ -1,5 +1,7 @@
 using Microsoft.AspNetCore.Authentication.Cookies;
 using Microsoft.AspNetCore.Identity;
+using RitzauDemo.Core.Features.Accounts.Contracts;
+using RitzauDemo.Features.Accounts.Authorization;
 
 namespace RitzauDemo.Features.Accounts.Identity;
 
@@ -8,12 +10,19 @@ internal static class IdentityServiceCollectionExtensions
     public static IServiceCollection AddIdentityBackend(this IServiceCollection services)
     {
         services.AddHttpContextAccessor();
-        services.AddAuthorization();
+        services.AddAuthorization(options =>
+        {
+            options.AddPolicy(AccountAuthorizationPolicies.BooksRead, policy => policy
+                .RequireAuthenticatedUser()
+                .RequireRole(AccountRoleNames.User, AccountRoleNames.Admin));
+            options.AddPolicy(AccountAuthorizationPolicies.AdminOnly, policy => policy
+                .RequireAuthenticatedUser()
+                .RequireRole(AccountRoleNames.Admin));
+        });
 
         var authenticationBuilder = services.AddAuthentication(options =>
         {
             options.DefaultScheme = IdentityConstants.ApplicationScheme;
-            options.DefaultSignInScheme = IdentityConstants.ExternalScheme;
         });
         authenticationBuilder.AddIdentityCookies();
         services.Configure<CookieAuthenticationOptions>(
@@ -28,10 +37,7 @@ internal static class IdentityServiceCollectionExtensions
             })
             .AddRoles<IdentityRole>()
             .AddEntityFrameworkStores<AppDbContext>()
-            .AddSignInManager()
-            .AddDefaultTokenProviders();
-
-        services.AddSingleton<IEmailSender<ApplicationUser>, IdentityNoOpEmailSender>();
+            .AddSignInManager();
 
         return services;
     }

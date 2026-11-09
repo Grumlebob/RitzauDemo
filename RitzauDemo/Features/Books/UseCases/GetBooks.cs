@@ -1,7 +1,9 @@
 using Microsoft.AspNetCore.Http.HttpResults;
 using Microsoft.Extensions.Caching.Hybrid;
 using RitzauDemo.Core.Features.Books.UseCases.GetBooks;
+using RitzauDemo.Features.Accounts.Authorization;
 using RitzauDemo.Features.Accounts.Identity;
+using RitzauDemo.Features.Books.Authorization;
 using RitzauDemo.Features.Books.Caching;
 using RitzauDemo.Features.Books.Endpoints;
 
@@ -11,10 +13,12 @@ internal sealed class GetBooksHandler(
     IDbContextFactory<AppDbContext> dbFactory,
     HybridCache cache,
     BooksCachePolicy cachePolicy,
+    BooksAuthorizationGuard authorization,
     ICurrentUserAccessor currentUser)
 {
     public async Task<GetBooksResponse> HandleAsync(CancellationToken cancellationToken = default)
     {
+        await authorization.RequireReadAsync(cancellationToken);
         var userId = await currentUser.GetRequiredUserIdAsync(cancellationToken);
         var result = await cache.GetOrCreateAsync(
             BooksCacheKeys.List(userId),
@@ -51,7 +55,7 @@ internal static class GetBooksEndpoint
     public static RouteHandlerBuilder MapGetBooks(this RouteGroupBuilder group) =>
         group.MapGet("/", ListBooksAsync)
             .WithName("ListBooks")
-            .WithAuthorizationResponses();
+            .WithAuthorizationResponses(AccountAuthorizationPolicies.BooksRead);
 
     private static async Task<Ok<GetBooksResponse>> ListBooksAsync(
         GetBooksHandler handler,

@@ -142,9 +142,8 @@ function Login($Session, [string]$Email, [string]$Password) {
 }
 
 function Is-Authenticated($Session) {
-    $response = Request -Path '/Account/Manage' -Session $Session
-    $uri = Get-ResponseUri $response
-    return ([int]$response.StatusCode -eq 200 -and $uri.AbsolutePath -eq '/Account/Manage')
+    $response = Request -Path '/api/books' -Session $Session -FollowRedirects $false
+    return ([int]$response.StatusCode -eq 200 -and -not $response.Headers['Location'])
 }
 
 function Invoke-CommonAcceptance($Anonymous) {
@@ -166,12 +165,10 @@ function Invoke-BlazorAccountAcceptance($Uri) {
     $homeResponse = Request -Path '/' -Session $session -Headers @{ Accept = 'text/html' }
     Write-Check 'Blazor' ([int]$homeResponse.StatusCode -eq 200 -and $homeResponse.Content.Contains('_framework/blazor.web')) 'Home contains Blazor script'
 
-    $script:checkName = 'account-manage-anonymous'
+    $script:checkName = 'account-management-removed'
     $anonymous = New-Object Microsoft.PowerShell.Commands.WebRequestSession
     $manage = Request -Path '/Account/Manage' -Session $anonymous -Headers @{ Accept = 'text/html' } -FollowRedirects $false
-    $location = [string]$manage.Headers['Location']
-    $signInRedirect = $location -and ([Uri]::new([Uri]($script:site + '/'), $location)).AbsolutePath -eq '/Account/Login'
-    Write-Check 'account-manage-anonymous' ([int]$manage.StatusCode -eq 302 -and $signInRedirect) 'Anonymous account page redirects to sign-in'
+    Write-Check 'account-management-removed' ([int]$manage.StatusCode -eq 404 -and -not $manage.Headers['Location']) 'Removed account-management route returns 404'
 
     # Account forms need HTTPS: their antiforgery cookie is Secure. Plain LAN HTTP checks stop here.
     if ($Uri.Scheme -eq 'https' -or $script:forwardedProto -eq 'https') {

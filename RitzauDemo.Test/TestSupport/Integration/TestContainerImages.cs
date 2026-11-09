@@ -29,6 +29,11 @@ internal static class TestContainerImages
                 "--dbname", PostgreSqlBuilder.DefaultDatabase, "--username", PostgreSqlBuilder.DefaultUsername)
             .UntilExternalTcpPortIsAvailable(PostgreSqlBuilder.PostgreSqlPort));
 
+    public static ContainerBuilder CreateRedisFixture() => new ContainerBuilder(Redis)
+        .WithPortBinding(6379, true)
+        .WithCreateParameterModifier(ConfigureRedisData)
+        .WithWaitStrategy(Wait.ForUnixContainer().UntilCommandIsCompleted("redis-cli", "ping"));
+
     public static void ConfigurePostgreSqlData(CreateContainerParameters parameters) =>
         ConfigureDisposableData(parameters, PostgreSqlDataPath, PostgreSqlDataTmpfsOptions);
 

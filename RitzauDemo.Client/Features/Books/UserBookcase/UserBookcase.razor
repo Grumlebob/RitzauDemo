@@ -21,9 +21,11 @@ else
                    EmptyMessage="Your bookcase is empty."
                    EmptyTestId="user-book-empty-state">
         <Actions>
-            <a data-testid="add-book"
-               class="inline-flex items-center justify-center rounded-md border border-gray-800 bg-gray-800 px-3.5 py-2.5 text-sm font-bold leading-5 text-white no-underline transition-colors hover:bg-gray-950 hover:text-white focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-blue-600"
-               href="/books?bookMode=create">Add Book</a>
+            <AuthorizeView Roles="@AccountRoleNames.Admin">
+                <a data-testid="add-book"
+                   class="inline-flex items-center justify-center rounded-md border border-gray-800 bg-gray-800 px-3.5 py-2.5 text-sm font-bold leading-5 text-white no-underline transition-colors hover:bg-gray-950 hover:text-white focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-blue-600"
+                   href="/books?bookMode=create">Add Book</a>
+            </AuthorizeView>
         </Actions>
     </BookcaseShelf>
 }

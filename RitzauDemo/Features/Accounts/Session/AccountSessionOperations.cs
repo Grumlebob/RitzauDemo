@@ -11,7 +11,6 @@ internal sealed class AccountSessionOperations(
     SignInManager<ApplicationUser> signIn,
     IHttpContextAccessor accessor,
     IAntiforgery antiforgery,
-    AccountOptions options,
     TimeProvider clock)
 {
     private HttpContext Context => accessor.HttpContext ?? throw new InvalidOperationException("An account request requires an HTTP context.");
@@ -21,7 +20,7 @@ internal sealed class AccountSessionOperations(
         var user = await users.GetUserAsync(Context.User);
         var profile = user is null ? null : new AccountProfile(user.Id, user.Email ?? "", (await users.GetRolesAsync(user)).ToArray());
         var token = antiforgery.GetAndStoreTokens(Context).RequestToken!;
-        return Results.Ok(new AccountSession(true, options.RegistrationEnabled, options.EmailEnabled, token, profile));
+        return Results.Ok(new AccountSession(token, profile));
     }
 
     public async Task<IResult> LoginAsync(AccountLoginRequest request)

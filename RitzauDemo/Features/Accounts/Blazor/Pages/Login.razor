@@ -1,12 +1,10 @@
 @page "/Account/Login"
 
 @using System.ComponentModel.DataAnnotations
-@using Microsoft.AspNetCore.Authentication
 @using Microsoft.AspNetCore.Identity
 
 @inject SignInManager<ApplicationUser> SignInManager
 @inject ILogger<Login> Logger
-@inject NavigationManager NavigationManager
 @inject IdentityRedirectManager RedirectManager
 
 <PageTitle>Log in</PageTitle>
@@ -18,11 +16,11 @@
             <StatusMessage Message="@errorMessage" />
             <EditForm EditContext="editContext" method="post" OnSubmit="LoginUser" FormName="login">
                 <DataAnnotationsValidator />
-                <h2>Use a local account to log in.</h2>
+                <h2>Sign in with your account.</h2>
                 <hr class="account-divider" />
                 <ValidationSummary class="account-text-danger" role="alert" />
                 <div class="account-field">
-                    <InputText @bind-Value="Input.Email" id="Input.Email" class="account-input" autocomplete="username webauthn" aria-required="true" placeholder="name@example.com" />
+                    <InputText @bind-Value="Input.Email" id="Input.Email" class="account-input" autocomplete="username" aria-required="true" placeholder="name@example.com" />
                     <label for="Input.Email" class="account-label">Email</label>
                     <ValidationMessage For="() => Input.Email" class="account-text-danger" />
                 </div>
@@ -38,34 +36,8 @@
                         Remember me
                     </label>
                 </div>
-                <div>
-                    <button type="submit" class="account-button-primary account-button-full">Log in</button>
-                </div>
-                <hr class="account-divider" />
-                <div class="account-stack account-center">
-                    <span class="account-divider-label">OR</span>
-                    <PasskeySubmit Operation="PasskeyOperation.Request" Name="Input.Passkey" EmailName="Input.Email" class="account-button-link">Log in with a passkey</PasskeySubmit>
-                </div>
-                <hr class="account-divider" />
-                <div>
-                    <p>
-                        <a href="Account/ForgotPassword">Forgot your password?</a>
-                    </p>
-                    <p>
-                        <a href="@(NavigationManager.GetUriWithQueryParameters("Account/Register", new Dictionary<string, object?> { ["ReturnUrl"] = ReturnUrl }))">Register as a new user</a>
-                    </p>
-                    <p>
-                        <a href="Account/ResendEmailConfirmation">Resend email confirmation</a>
-                    </p>
-                </div>
+                <button type="submit" class="account-button-primary account-button-full">Log in</button>
             </EditForm>
-        </section>
-    </div>
-    <div class="account-grid-aside">
-        <section>
-            <h3>Use another service to log in.</h3>
-            <hr class="account-divider" />
-            <ExternalLoginPicker />
         </section>
     </div>
 </div>
@@ -75,53 +47,26 @@
     private bool showPassword;
     private EditContext editContext = default!;
 
-    [CascadingParameter]
-    private HttpContext HttpContext { get; set; } = default!;
-
     [SupplyParameterFromForm]
     private InputModel Input { get; set; } = default!;
 
     [SupplyParameterFromQuery]
     private string? ReturnUrl { get; set; }
 
-    protected override async Task OnInitializedAsync()
+    protected override void OnInitialized()
     {
         Input ??= new();
-
         editContext = new EditContext(Input);
-
-        if (HttpMethods.IsGet(HttpContext.Request.Method))
-        {
-            // Clear the existing external cookie to ensure a clean login process
-            await HttpContext.SignOutAsync(IdentityConstants.ExternalScheme);
-        }
     }
 
     public async Task LoginUser()
     {
-        if (!string.IsNullOrEmpty(Input.Passkey?.Error))
+        if (!editContext.Validate())
         {
-            errorMessage = "Passkey sign-in failed. Try another sign-in method.";
             return;
         }
 
-        SignInResult result;
-        if (!string.IsNullOrEmpty(Input.Passkey?.CredentialJson))
-        {
-            // When performing passkey sign-in, don't perform form validation.
-            result = await SignInManager.PasskeySignInAsync(Input.Passkey.CredentialJson);
-        }
-        else
-        {
-            // If doing a password sign-in, validate the form.
-            if (!editContext.Validate())
-            {
-                return;
-            }
-
-            result = await SignInManager.PasswordSignInAsync(Input.Email, Input.Password, Input.RememberMe, lockoutOnFailure: true);
-        }
-
+        var result = await SignInManager.PasswordSignInAsync(Input.Email, Input.Password, Input.RememberMe, lockoutOnFailure: true);
         if (result.Succeeded)
         {
             Logger.LogInformation("User logged in.");
@@ -129,9 +74,7 @@
         }
         else if (result.RequiresTwoFactor)
         {
-            RedirectManager.RedirectTo(
-                "Account/LoginWith2fa",
-                new() { ["returnUrl"] = ReturnUrl, ["rememberMe"] = Input.RememberMe });
+            errorMessage = "This sample does not support two-factor sign-in. Contact an administrator.";
         }
         else if (result.IsLockedOut)
         {
@@ -156,7 +99,5 @@
 
         [Display(Name = "Remember me?")]
         public bool RememberMe { get; set; }
-
-        public PasskeyInputModel? Passkey { get; set; }
     }
 }

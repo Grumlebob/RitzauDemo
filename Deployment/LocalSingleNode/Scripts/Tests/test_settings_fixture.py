@@ -35,33 +35,32 @@ def fixture_settings():
 
 
 class AccountSettingsTests(unittest.TestCase):
-    def test_legacy_settings_default_account_features_off(self):
+    def test_legacy_settings_default_seeded_accounts_off(self):
         values = fixture_settings()
-        self.assertFalse(values["accounts_registration_enabled"])
         self.assertFalse(values["accounts_admin_seed_enabled"])
-        self.assertEqual(587, values["accounts_email_port"])
-        self.assertEqual("StartTls", values["accounts_email_security"])
+        self.assertFalse(values["accounts_user_seed_enabled"])
 
-    def test_known_account_settings_accept_synthetic_opt_in(self):
+    def test_known_seed_settings_accept_synthetic_opt_in(self):
         with tempfile.TemporaryDirectory() as directory:
             path = Path(directory) / "settings.yml"
-            path.write_text(SETTINGS_YAML + """accounts_registration_enabled: true
-accounts_admin_seed_enabled: false
-accounts_admin_seed_email: ""
-accounts_public_origin: https://books.example.invalid
-accounts_email_host: smtp.example.invalid
-accounts_email_port: 587
-accounts_email_security: StartTls
-accounts_email_from: accounts@example.invalid
+            path.write_text(SETTINGS_YAML + """accounts_admin_seed_enabled: true
+accounts_admin_seed_email: admin@example.invalid
+accounts_user_seed_enabled: true
+accounts_user_seed_email: user@example.invalid
 """)
             values = validate_settings(path)
-        self.assertTrue(values["accounts_registration_enabled"])
-        self.assertEqual("https://books.example.invalid", values["accounts_public_origin"])
+        self.assertTrue(values["accounts_admin_seed_enabled"])
+        self.assertTrue(values["accounts_user_seed_enabled"])
+        self.assertEqual("user@example.invalid", values["accounts_user_seed_email"])
 
-    def test_unknown_account_settings_are_rejected(self):
+    def test_removed_account_settings_are_rejected(self):
         with tempfile.TemporaryDirectory() as directory:
             path = Path(directory) / "settings.yml"
-            for unknown in ("accounts_unreviewed: true\n", "accounts_enabled: true\n"):
+            for unknown in (
+                "accounts_unreviewed: true\n",
+                "accounts_registration_enabled: false\n",
+                "accounts_email_host: smtp.example.invalid\n",
+            ):
                 path.write_text(SETTINGS_YAML + unknown)
                 with self.subTest(unknown=unknown), self.assertRaisesRegex(ValueError, "missing or unknown"):
                     validate_settings(path)

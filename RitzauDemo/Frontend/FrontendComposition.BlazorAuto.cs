@@ -2,7 +2,6 @@ using RitzauDemo.Client.Features.Books.AuthorBookcase;
 using RitzauDemo.Client.Features.Books.UserBookcase;
 using RitzauDemo.Components;
 using RitzauDemo.Features.Accounts.Blazor;
-using RitzauDemo.Features.Accounts.Email;
 using RitzauDemo.Infrastructure.Hosting;
 using ClientImports = RitzauDemo.Client._Imports;
 
@@ -10,7 +9,7 @@ namespace RitzauDemo.Frontend;
 
 internal static class FrontendComposition
 {
-    public static void AddFrontendServices(IServiceCollection services, IConfiguration configuration)
+    public static void AddFrontendServices(IServiceCollection services)
     {
         services.AddRazorComponents()
             .AddInteractiveServerComponents()
@@ -18,8 +17,7 @@ internal static class FrontendComposition
             .AddAuthenticationStateSerialization(options =>
                 options.SerializationCallback = AccountAuthenticationStateSerialization.Serialize);
 
-        services.AddBlazorIdentityUi(configuration);
-        services.AddSingleton<IAccountMailFrontend>(AccountMailFrontend.BlazorAuto);
+        services.AddBlazorIdentityUi();
         services.AddScoped<AuthorBookcaseState>();
         services.AddScoped<UserBookcaseState>();
     }

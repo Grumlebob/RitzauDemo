@@ -1,6 +1,8 @@
 using Microsoft.AspNetCore.Http.HttpResults;
 using RitzauDemo.Core.Features.Books.UseCases.UpdateBook;
+using RitzauDemo.Features.Accounts.Authorization;
 using RitzauDemo.Features.Accounts.Identity;
+using RitzauDemo.Features.Books.Authorization;
 using RitzauDemo.Features.Books.Caching;
 using RitzauDemo.Features.Books.Endpoints;
 
@@ -9,12 +11,14 @@ namespace RitzauDemo.Features.Books.UseCases.UpdateBook;
 internal sealed class UpdateBookHandler(
     IDbContextFactory<AppDbContext> dbFactory,
     BooksCachePolicy cachePolicy,
+    BooksAuthorizationGuard authorization,
     ICurrentUserAccessor currentUser)
 {
     public async Task<bool> HandleAsync(
         UpdateBookRequest request,
         CancellationToken cancellationToken = default)
     {
+        await authorization.RequireAdminAsync(cancellationToken);
         var userId = await currentUser.GetRequiredUserIdAsync(cancellationToken);
         await using var db = await dbFactory.CreateDbContextAsync(cancellationToken);
         var userBook = await db.UserBooks
@@ -48,7 +52,7 @@ internal static class UpdateBookEndpoint
             .ProducesValidationProblem()
             .ProducesProblem(StatusCodes.Status400BadRequest)
             .ProducesProblem(StatusCodes.Status404NotFound)
-            .WithAuthorizationResponses();
+            .WithAuthorizationResponses(AccountAuthorizationPolicies.AdminOnly);
 
     private static async Task<Results<NoContent, ProblemHttpResult>> UpdateBookAsync(
         int id,

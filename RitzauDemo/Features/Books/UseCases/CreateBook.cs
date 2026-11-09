@@ -1,7 +1,9 @@
 using Microsoft.AspNetCore.Http.HttpResults;
 using RitzauDemo.Core.Features.Books.Domain;
 using RitzauDemo.Core.Features.Books.UseCases.CreateBook;
+using RitzauDemo.Features.Accounts.Authorization;
 using RitzauDemo.Features.Accounts.Identity;
+using RitzauDemo.Features.Books.Authorization;
 using RitzauDemo.Features.Books.Caching;
 using RitzauDemo.Features.Books.Endpoints;
 
@@ -10,12 +12,14 @@ namespace RitzauDemo.Features.Books.UseCases.CreateBook;
 internal sealed class CreateBookHandler(
     IDbContextFactory<AppDbContext> dbFactory,
     BooksCachePolicy cachePolicy,
+    BooksAuthorizationGuard authorization,
     ICurrentUserAccessor currentUser)
 {
     public async Task<CreateBookResponse> HandleAsync(
         CreateBookRequest request,
         CancellationToken cancellationToken = default)
     {
+        await authorization.RequireAdminAsync(cancellationToken);
         var userId = await currentUser.GetRequiredUserIdAsync(cancellationToken);
         await using var db = await dbFactory.CreateDbContextAsync(cancellationToken);
         var book = new Book
@@ -52,7 +56,7 @@ internal static class CreateBookEndpoint
         group.MapPost("/", CreateBookAsync)
             .WithName("CreateBook")
             .ProducesValidationProblem()
-            .WithAuthorizationResponses();
+            .WithAuthorizationResponses(AccountAuthorizationPolicies.AdminOnly);
 
     private static async Task<Created<CreateBookResponse>> CreateBookAsync(
         CreateBookRequest request,

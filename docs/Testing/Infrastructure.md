@@ -1,7 +1,7 @@
 # CRUD integration tests
 
-The Books CRUD integration test uses [WebAppFactory](../../RitzauDemo.Test/TestSupport/Integration/WebAppFactory.cs), PostgreSQL and Redis Testcontainers. Docker must be running. Container images and resource limits are defined in [TestContainerImages](../../RitzauDemo.Test/TestSupport/Integration/TestContainerImages.cs). Containers use temporary storage and are disposed by the fixture.
+Books CRUD and seeded-account integration tests use [WebAppFactory](../../RitzauDemo.Test/TestSupport/Integration/WebAppFactory.cs), PostgreSQL and Redis Testcontainers. Docker must be running. Container images and resource limits are defined in [TestContainerImages](../../RitzauDemo.Test/TestSupport/Integration/TestContainerImages.cs). Containers use temporary storage and are disposed by the fixture.
 
-The integration collection runs serially because it shares a host and database. The test creates one book, lists and reads it, updates it, checks that another user cannot read it, then deletes it. Database state resets before and after the test.
+The integration collection runs serially because scenarios share a database. It covers Admin CRUD and cache refresh, User read-only access, anonymous denial, direct handler authorization, and Redis invalidation between two app hosts. The seeded-account collection uses real Identity cookies to verify role claims, User denial, Admin success, and logout. Database state resets between scenarios.
 
 Pure request-validation unit tests do not need Docker. The packaged Blazor render smoke is documented in [Browser testing](Browser.md).

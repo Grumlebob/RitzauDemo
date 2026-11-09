@@ -430,7 +430,7 @@ class MaintenanceTests(unittest.TestCase):
         self.assertIsNone(re.search(r'\$home\s*=', text, re.IGNORECASE))
         self.assertFalse(any(ord(character) < 32 and character not in '\n\r\t' for character in text))
         self.assertIn(r'<input\b[^>]*>', text)
-        self.assertIn("'account-manage-anonymous'", text)
+        self.assertIn("'account-management-removed'", text)
         self.assertIn("'account-login-page'", text)
         self.assertIn("'default-admin-disabled'", text)
 
