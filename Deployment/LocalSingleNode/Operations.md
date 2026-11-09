@@ -20,6 +20,12 @@ bash ./Deployment/LocalSingleNode/Scripts/acceptance-check.sh
 
 For an app rollback before a migration, dispatch the prior verified `main` SHA with `run_migrations=false`; that SHA still needs its successful publishing run. After a migration, prefer a forward fix. Restoring an older backup loses later writes, and rolling back the app image does not roll back database changes. See [the release contract](../Common/ReleaseContract.md).
 
+### Failure on the first deployment
+
+The first deployment has no previously accepted app release to roll back to. Keep the failed deployment run and its available release evidence for diagnosis. Preserve this app's containers, volumes, and protected backups until recovery is understood. Do not treat an unpublished seed commit as a recovery release, delete the database volume, or run broad Docker cleanup.
+
+Inspect the same workflow run and use `doctor.sh --json` plus the independent acceptance check to identify the failure. If the app must stop serving, use only an app-scoped supported operation after verifying ownership; keep its database volume and backups. Recover forward from a corrected, successfully published `main` SHA, selecting migrations from the actual database state. Preserve all neighboring applications, routes, and data.
+
 ## Diagnose a running node
 
 `doctor.sh --json` is read-only. Run it from the node's repository checkout:
