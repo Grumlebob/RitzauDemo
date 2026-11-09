@@ -1,35 +1,32 @@
 # RitzauDemo
 
-RitzauDemo is a .NET 10 demo app with one Blazor Auto frontend. Books CRUD is the product example, backed by PostgreSQL and Redis. Account registration stays disabled by default.
+RitzauDemo is a small one-week .NET 10 demo. Its single Blazor Auto app demonstrates Books CRUD with PostgreSQL and Redis. Account registration and production observability are off by default. LocalSingleNode is the only deployment target.
 
-Run the local Docker stack:
+## Run locally
+
+From the repository root, start Docker Desktop and run:
 
 ```powershell
-.\Scripts\RunLocal.ps1
+.\Scripts\LocalDevelopment\RunLocal.ps1
 ```
 
-## Start here
+The first run creates ignored local settings and a development certificate. The app opens at `https://localhost:7186`. See [local development](docs/HowToRunLocally.md) for prerequisites, reset behavior and direct .NET commands.
 
-| Task | Guide |
-| --- | --- |
-| Understand contributor rules and product requirements | [AGENTS.md](AGENTS.md), [Requirements](docs/Requirements.md) |
-| Run the app or change local settings | [Run locally](docs/HowToRunLocally.md) |
-| Add a Blazor feature | [Feature guide](docs/HowToAddANewFeature.md) |
-| Understand the Blazor frontend | [Frontend profile](docs/FrontendProfiles.md), [Blazor feature guide](docs/Features/Blazor.md) |
-| Configure account settings | [Accounts runbook](docs/Accounts.md) |
-| Run and verify checks | [Tests](docs/Test.md) |
-| Prepare a fork or a standalone product | [Fork guide](docs/HowToForkThisRepo.md), [standalone product](docs/StandaloneProduct.md) |
-| Choose and operate a deployment target | [Deployment guide](Deployment/README.md) |
-| View or diagnose telemetry | [Observability operations](docs/Observability/Operations.md) |
-| Run optional quality audits | [Quality tools](docs/Quality/QualityTools.md), [SonarQube](docs/Quality/SonarQubeAnalysis.md) |
+## Verify changes
 
-Read only the guides needed for your task. The contributor rules point to required checks and integration steps.
+```bash
+bash Scripts/CI/validate-frontend-profiles.sh /tmp/ritzaudemo-test-results
+```
 
-## Repository map
+This runs the focused Books CRUD unit and database-backed integration tests. One packaged Blazor render/hydration smoke is optional and off by default. The full operational gate for code and configuration changes is in [Test](docs/Test.md).
 
-- `GrumPlates.Core/Features/` contains shared feature contracts and domain types.
-- `GrumPlates/Features/` contains server behavior and endpoint mappings.
-- `GrumPlates.Client/Features/` contains Blazor client behavior and UI.
-- `GrumPlates.Test/` contains Books CRUD unit/integration tests and one opt-in packaged browser smoke.
-- `Deployment/` contains the LocalSingleNode target and shared release tooling.
-- `Plans/` contains tracked plans; `Plans.local/` is ignored scratch space.
+## Product and operations
+
+- [Requirements](docs/Requirements.md) describes the demo's product and test scope.
+- [Accounts](docs/Accounts.md) documents the existing sign-in routes and disabled registration policy.
+- [Deployment](Deployment/README.md) covers the isolated LocalSingleNode release, backups and recovery.
+- `Scripts/LocalDevelopment` contains local app, certificate and status helpers.
+- `Scripts/LocalObservability` contains the optional developer-only telemetry stack.
+- `Scripts/Quality/SonarQube` contains optional local quality-analysis resources.
+
+RitzauDemo preserves the source history and is based on the [GrumPlates template](https://github.com/Grumlebob/GrumPlates).

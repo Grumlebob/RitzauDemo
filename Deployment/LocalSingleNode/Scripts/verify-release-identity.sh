@@ -50,8 +50,8 @@ for key, expected in {
         raise SystemExit('Running web image does not match verified CI label ' + key)
 profile_labels = {
     'org.opencontainers.image.revision': source_sha,
-    'com.grumplates.frontend-profile': frontend,
-    'com.grumplates.acceptance-profile': acceptance,
+    'com.ritzaudemo.frontend-profile': frontend,
+    'com.ritzaudemo.acceptance-profile': acceptance,
 }
 for key, expected in profile_labels.items():
     if labels.get(key) != expected:

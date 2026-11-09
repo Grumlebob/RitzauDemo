@@ -47,8 +47,8 @@ class ReleaseManifestFixture:
         self.labels = {
             "org.opencontainers.image.source": self.provenance["repository"],
             "org.opencontainers.image.revision": self.env["GITHUB_SHA"],
-            "com.grumplates.frontend-profile": "BlazorAuto",
-            "com.grumplates.acceptance-profile": "BlazorAutoV1",
+            "com.ritzaudemo.frontend-profile": "BlazorAuto",
+            "com.ritzaudemo.acceptance-profile": "BlazorAutoV1",
             "localcluster.ci.repository": "example/template",
             "localcluster.ci.owner": "ci-build",
             "localcluster.ci.run_id": "123",

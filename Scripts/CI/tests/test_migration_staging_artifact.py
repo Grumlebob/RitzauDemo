@@ -20,15 +20,15 @@ FIXTURE = Path(__file__).parent / "fixtures" / "dotnet-ef-migration-list.json"
 
 class MigrationStagingArtifactTests(unittest.TestCase):
     def setUp(self) -> None:
-        self.temp = tempfile.TemporaryDirectory(prefix="grumplates-migration-staging-")
+        self.temp = tempfile.TemporaryDirectory(prefix="ritzaudemo-migration-staging-")
         self.root = Path(self.temp.name)
-        self.bundle_name = "grumplates-migrations-linux-x64"
+        self.bundle_name = "ritzaudemo-migrations-linux-x64"
         self.bundle_bytes = b"verified fixture migration bundle"
         self.bundle = self.root / self.bundle_name
         self.bundle.write_bytes(self.bundle_bytes)
         self.context = {
             "GITHUB_SERVER_URL": "https://github.com",
-            "GITHUB_REPOSITORY": "Grumlebob/GrumPlates",
+            "GITHUB_REPOSITORY": "Grumlebob/RitzauDemo",
             "GITHUB_SHA": "a" * 40,
             "GITHUB_RUN_ID": "12345",
             "GITHUB_RUN_ATTEMPT": "2",
@@ -36,7 +36,7 @@ class MigrationStagingArtifactTests(unittest.TestCase):
         }
         self.provenance = {
             "schema_version": 1,
-            "repository": "https://github.com/Grumlebob/GrumPlates",
+            "repository": "https://github.com/Grumlebob/RitzauDemo",
             "source_sha": self.context["GITHUB_SHA"],
             "run_id": self.context["GITHUB_RUN_ID"],
             "run_attempt": self.context["GITHUB_RUN_ATTEMPT"],
@@ -130,13 +130,13 @@ class MigrationStagingArtifactTests(unittest.TestCase):
                 self.context,
             )
         build_command = [
-            "dotnet", "build", "GrumPlates/GrumPlates.csproj", "--configuration", "Release",
+            "dotnet", "build", "RitzauDemo/RitzauDemo.csproj", "--configuration", "Release",
             "--no-restore", "-p:FrontendProfile=BlazorAuto",
         ]
         expected_command = [
             "dotnet", "ef", "migrations", "list", "--no-connect", "--json", "--no-color",
-            "--no-build", "--project", "GrumPlates/GrumPlates.csproj",
-            "--startup-project", "GrumPlates/GrumPlates.csproj", "--configuration", "Release",
+            "--no-build", "--project", "RitzauDemo/RitzauDemo.csproj",
+            "--startup-project", "RitzauDemo/RitzauDemo.csproj", "--configuration", "Release",
         ]
         self.assertEqual(run.call_args_list, [
             call(build_command, cwd=Path(__file__).resolve().parents[3], check=True, capture_output=True, text=True),
@@ -206,7 +206,7 @@ class MigrationStagingArtifactTests(unittest.TestCase):
                 with self.assertRaises(staging.StagingArtifactError):
                     self.validate()
                 self.provenance[key] = {
-                    "repository": "https://github.com/Grumlebob/GrumPlates",
+                    "repository": "https://github.com/Grumlebob/RitzauDemo",
                     "source_sha": self.context["GITHUB_SHA"],
                     "run_id": "12345",
                     "run_attempt": "2",

@@ -165,7 +165,7 @@ def create_staging_artifact(
     build_command = [
         "dotnet",
         "build",
-        "GrumPlates/GrumPlates.csproj",
+        "RitzauDemo/RitzauDemo.csproj",
         "--configuration",
         "Release",
         "--no-restore",
@@ -181,9 +181,9 @@ def create_staging_artifact(
         "--no-color",
         "--no-build",
         "--project",
-        "GrumPlates/GrumPlates.csproj",
+        "RitzauDemo/RitzauDemo.csproj",
         "--startup-project",
-        "GrumPlates/GrumPlates.csproj",
+        "RitzauDemo/RitzauDemo.csproj",
         "--configuration",
         "Release",
     ]

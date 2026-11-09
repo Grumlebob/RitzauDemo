@@ -27,7 +27,7 @@ class PinReleasePayloadTests(unittest.TestCase):
         self.pin_root = self.root / "pins"
         self.selection_path = self.root / "selection.json"
         self.identity = registry_payload.ReleasePayloadIdentity(
-            repository="https://github.com/grumlebob/GrumPlates",
+            repository="https://github.com/grumlebob/RitzauDemo",
             commit_sha="1" * 40,
             run_id="123",
             run_attempt="2",

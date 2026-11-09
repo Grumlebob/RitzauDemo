@@ -113,7 +113,7 @@
 # Bound the system journal so logs cannot fill the disk; journald trims the oldest entries itself.
 - name: Bound the system journal
   ansible.builtin.copy:
-    dest: /etc/systemd/journald.conf.d/50-grumplates-size.conf
+    dest: /etc/systemd/journald.conf.d/50-ritzaudemo-size.conf
     content: |
       [Journal]
       SystemMaxUse=1G

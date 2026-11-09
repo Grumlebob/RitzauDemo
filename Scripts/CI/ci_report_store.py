@@ -16,7 +16,7 @@ import xml.etree.ElementTree as ET
 from typing import Any
 
 
-DEFAULT_REPOSITORY = "Grumlebob/GrumPlates"
+DEFAULT_REPOSITORY = "Grumlebob/RitzauDemo"
 SCHEMA_VERSION = 1
 SUCCESS_RETENTION = timedelta(days=3)
 FAILURE_RETENTION = timedelta(days=7)

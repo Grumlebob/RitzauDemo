@@ -31,7 +31,7 @@ $failure = $null
 $analysisToken = $null
 $readerToken = $null
 $summary = [ordered]@{
-    schema = 'grumplates.sonar-analysis/1'
+    schema = 'ritzaudemo.sonar-analysis/1'
     repositoryIdentity = $Context.RepositoryIdentity
     frontendProfile = $FrontendProfile
     projectKey = $ProjectKey
@@ -290,7 +290,7 @@ try {
     $analysisSettingsPath = Join-Path $repoRoot 'Scripts/Quality/SonarQube/SonarQube.Analysis.xml'
     $profileOverridesPath = Join-Path $repoRoot 'Scripts/Quality/SonarQube/profile-overrides.json'
     $effectiveSettings = [ordered]@{
-        schema = 'grumplates.sonar-effective-settings/1'
+        schema = 'ritzaudemo.sonar-effective-settings/1'
         repositoryIdentity = $Context.RepositoryIdentity
         frontendProfile = $FrontendProfile
         projectKey = $ProjectKey
@@ -328,16 +328,16 @@ try {
     $null = Invoke-QualityStep -Name 'scanner-begin' -Executable $scanner -Arguments $beginArguments `
         -WorkingDirectory $repoRoot -Environment $environment -Secrets @($analysisToken) -MaximumSeconds 1200
 
-    $restoreArgs = @('restore', (Join-Path $repoRoot 'GrumPlates.sln'), '--verbosity', 'minimal',
+    $restoreArgs = @('restore', (Join-Path $repoRoot 'RitzauDemo.sln'), '--verbosity', 'minimal',
         "-p:FrontendProfile=$FrontendProfile", '-p:RunSonarAnalyzers=false')
     $null = Invoke-QualityStep -Name 'dotnet-restore' -Executable $Context.DotnetExecutable -Arguments $restoreArgs `
         -WorkingDirectory $repoRoot -Environment $environment -MaximumSeconds 1200
-    $buildArgs = @('build', (Join-Path $repoRoot 'GrumPlates.sln'), '--configuration', 'Release', '--no-restore',
+    $buildArgs = @('build', (Join-Path $repoRoot 'RitzauDemo.sln'), '--configuration', 'Release', '--no-restore',
         '--no-incremental', '--disable-build-servers', '-nr:false', "-p:FrontendProfile=$FrontendProfile", '-p:RunSonarAnalyzers=false')
     $null = Invoke-QualityStep -Name 'dotnet-build' -Executable $Context.DotnetExecutable -Arguments $buildArgs `
         -WorkingDirectory $repoRoot -Environment $environment -MaximumSeconds 1200
 
-    $testArgs = @('test', (Join-Path $repoRoot 'GrumPlates.Test/GrumPlates.Test.csproj'),
+    $testArgs = @('test', (Join-Path $repoRoot 'RitzauDemo.Test/RitzauDemo.Test.csproj'),
         '--configuration', 'Release', '--no-build', '--no-restore', '--disable-build-servers', '-nr:false',
         "-p:FrontendProfile=$FrontendProfile", '-p:RunSonarAnalyzers=false',
         '--collect', 'Code Coverage;Format=Xml', '--logger', 'trx;LogFileName=suite.trx', '--results-directory', $testsDirectory)
@@ -446,7 +446,7 @@ try {
     $reportPath = Join-Path $runDirectory 'report.json'
     if (-not (Test-Path -LiteralPath $reportPath -PathType Leaf)) { throw 'Sonar report exporter did not write report.json.' }
     $report = Get-Content -LiteralPath $reportPath -Raw | ConvertFrom-Json
-    if ($report.schema -ne 'grumplates.sonar-report/1' -or
+    if ($report.schema -ne 'ritzaudemo.sonar-report/1' -or
         $report.repositoryIdentity -ne $Context.RepositoryIdentity -or
         $report.frontendProfile -ne $FrontendProfile -or $report.projectKey -ne $ProjectKey -or
         $report.analysisId -ne $summary.analysisId -or $report.sha -ne $AnalyzedSha -or

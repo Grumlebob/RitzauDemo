@@ -641,12 +641,12 @@
       {
         "current": {
           "selected": false,
-          "text": "GrumPlates",
-          "value": "GrumPlates"
+          "text": "RitzauDemo",
+          "value": "RitzauDemo"
         },
         "label": "Trace service",
         "name": "service_name",
-        "query": "GrumPlates",
+        "query": "RitzauDemo",
         "type": "textbox"
       }
     ]

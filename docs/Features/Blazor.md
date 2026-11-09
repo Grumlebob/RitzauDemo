@@ -1,33 +1,21 @@
-# Blazor feature client
+# Blazor client
 
-Use this page for `.razor` UI in `GrumPlates.Client`. `BlazorAuto` is the only supported profile. Product rendering and accessibility rules live in [Requirements](../Requirements.md).
+The Blazor client is the only frontend. Build it with the `BlazorAuto` profile. Pages prerender on the server and then use server or WebAssembly interactivity.
 
-## Client service and route
+## Features and API calls
 
-Put UI and state under `GrumPlates.Client/Features/{Feature}`. When server data is needed, implement the shared Core API contract using relative API paths. Register client implementations and state in [client Program.cs](../../GrumPlates.Client/Program.cs). Components inject the contract or feature state, not `HttpClient` directly. UI-only behavior needs no API implementation.
+Keep client UI and state under `RitzauDemo.Client/Features/{Feature}`. Put shared requests and response types in `RitzauDemo.Core/Features/{Feature}`. Client services implement those contracts; Razor components do not inject raw `HttpClient`.
 
-Put routable components under `GrumPlates.Client/Features/{Feature}/Routes`. Keep markup focused; move reusable UI and nontrivial loading, error, and navigation state into feature components or state classes. Add navigation only when users need it. Model loading, empty, error, unauthorized, and not-found states when reachable. Mark protected routes with `[Authorize]`; use `AuthorizeView` for protected UI fragments. Enforce data access on the server. Add stable `data-testid` hooks only when browser tests cannot select workflow controls reliably. Keep route, state, and feature tests next to their feature.
+Put server behavior under `RitzauDemo/Features/{Feature}` and enforce authorization and data ownership there. Handle loading, empty, error, unauthorized and not-found states where reachable. Keep the Books CRUD example as the reference for client and server requests.
 
-[BooksClientService](../../GrumPlates.Client/Features/Books/BooksClientService.cs) is the API implementation example. [AuthorBookcaseState](../../GrumPlates.Client/Features/Books/AuthorBookcase/AuthorBookcaseState.cs), [UserBookcaseState](../../GrumPlates.Client/Features/Books/UserBookcase/UserBookcaseState.cs), and [BookModalRouteState](../../GrumPlates.Client/Features/Books/BookModal/BookModalRouteState.cs) show different state shapes; do not copy Books-specific behavior as a universal rule.
+## Rendering and style
 
-[BookModalHost](../../GrumPlates.Client/Features/Books/BookModal/BookModalHost.razor) owns rendering, URI parsing, navigation subscription, focus, Escape handling and disposal. Each component constructs its own [BookModalLifecycle](../../GrumPlates.Client/Features/Books/BookModal/BookModalLifecycle.cs) for load/editor/save/delete state, cancellation and stale-completion guards. Keep that lifecycle component-owned and reuse the existing Books APIs and bookcase state. Modal behavior tests and packaged browser journeys cover navigation, operations, focus and prerender controls; the lifecycle does not replace those boundaries.
-
-## Prerender and interactivity
-
-Interactive Auto prerenders on the server, then usually starts server interactivity on the first visit while downloading WebAssembly. Later visits can run in WebAssembly; an existing server component does not switch runtime when the download finishes. The server contract implementation serves prerender and server interactivity; the client implementation serves WebAssembly. Keep both implementations consistent. See [Microsoft's render-mode guidance](https://learn.microsoft.com/en-us/aspnet/core/blazor/components/render-modes?view=aspnetcore-10.0#interactive-auto).
-
-Use `PersistentComponentState` only for bounded public data that prevents a duplicate fetch after prerender. Do not persist user-specific response data into the page. Disable controls until `RendererInfo.IsInteractive` is true; do not wait specifically for WebAssembly. Make authentication-dependent UI resilient to the transition from prerender to interactivity.
-
-For important workflows, test prerender controls, an initial uncached visit and a later WebAssembly visit; check the actual renderer. State examples include [UserBookcaseStateTests](../../GrumPlates.Test/Features/Books/Client/UserBookcaseStateTests.cs) and [BookModalRouteStateTests](../../GrumPlates.Test/Features/Books/Client/BookModalRouteStateTests.cs); browser examples are [RenderModeE2ETests](../../GrumPlates.Test/E2E/AppShell/RenderModeE2ETests.cs) and [PreHydrationControlsE2ETests](../../GrumPlates.Test/E2E/AppShell/PreHydrationControlsE2ETests.cs).
-
-## Styling and verification
-
-Reuse nearby Tailwind styles. When Razor classes or `GrumPlates.Client/Styles` change, rebuild and commit `GrumPlates/wwwroot/tailwind.css`. Use the lockfile from `GrumPlates.Client`:
+Keep prerender data small and public. Do not serialize private user data into the page. Disable interactive controls until Blazor becomes interactive. Use the existing Tailwind utilities and rebuild `RitzauDemo/wwwroot/tailwind.css` when Razor classes or client styles change:
 
 ```powershell
-Set-Location .\GrumPlates.Client
+Set-Location .\RitzauDemo.Client
 npm ci
 npm run css:build
 ```
 
-See [local development](../HowToRunLocally.md#tailwind), [integration tests](../Testing/Infrastructure.md), [browser smoke](../Testing/Browser.md), and the [local gate](../Test.md#local-gate).
+The optional packaged E2E smoke checks Blazor hydration. Product behavior tests otherwise stay focused on Books CRUD; see [Test](../Test.md).

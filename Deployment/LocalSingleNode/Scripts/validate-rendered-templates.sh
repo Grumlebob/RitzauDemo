@@ -11,7 +11,7 @@ import tempfile
 from jinja2 import Environment, StrictUndefined
 
 
-DOCKERFILE = (Path(sys.argv[1]).resolve().parents[1] / 'GrumPlates/Dockerfile').read_text(encoding='utf-8')
+DOCKERFILE = (Path(sys.argv[1]).resolve().parents[1] / 'RitzauDemo/Dockerfile').read_text(encoding='utf-8')
 ASPNET_IMAGE_MATCH = re.search(r'^FROM (mcr\.microsoft\.com/dotnet/aspnet:[^\s]+) AS base$', DOCKERFILE, re.M)
 if ASPNET_IMAGE_MATCH is None:
     raise SystemExit('rendered template validation failed: ASP.NET runtime image is missing from the product Dockerfile')

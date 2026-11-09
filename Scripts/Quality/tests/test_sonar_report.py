@@ -14,15 +14,15 @@ from Scripts.Quality import sonar_report as sr
 
 
 FIXTURES = Path(__file__).resolve().parent / "fixtures" / "sonar"
-PROJECT = "grumplates-abc12345-BlazorAuto"
-IDENTITY = "github.com/grumlebob/grumplates"
+PROJECT = "ritzaudemo-abc12345-BlazorAuto"
+IDENTITY = "github.com/grumlebob/ritzaudemo"
 SHA = "ed87fedcaf09ab7e3c8b62303ae8b64325b30aea"
 ANALYSIS_ID = "7d5ec4c9-f501-46e1-91fd-44f653016317"
 PROJECT_VERSION = "20261008-ed87fedcaf09"
 SETTINGS_DIGEST = "a" * 64
 REPO_ROOT = "C:/fake/repo"
-GEOMETRY = "GrumPlates.Client/Features/Books/Shared/BookCoverGeometry.cs"
-CORE = "GrumPlates.Core/Features/Books/UseCases/GetBooks/GetBooksResponse.cs"
+GEOMETRY = "RitzauDemo.Client/Features/Books/Shared/BookCoverGeometry.cs"
+CORE = "RitzauDemo.Core/Features/Books/UseCases/GetBooks/GetBooksResponse.cs"
 
 
 def load(name: str) -> dict:
@@ -198,10 +198,10 @@ class PaginationTests(unittest.TestCase):
         self.assertTrue(any(params.get("facets") == "rules" for _, params in client.calls))
 
     def test_oversized_rule_splits_by_component_and_checks_counts(self) -> None:
-        issue_a = {**ISSUES[0], "key": "a", "component": f"{PROJECT}:GrumPlates.Client/A.cs"}
-        issue_b = {**ISSUES[0], "key": "b", "component": f"{PROJECT}:GrumPlates.Client/B.cs"}
+        issue_a = {**ISSUES[0], "key": "a", "component": f"{PROJECT}:RitzauDemo.Client/A.cs"}
+        issue_b = {**ISSUES[0], "key": "b", "component": f"{PROJECT}:RitzauDemo.Client/B.cs"}
         items = [issue_a, issue_b]
-        file_tree = [{"key": f"{PROJECT}:GrumPlates.Client/A.cs"}, {"key": f"{PROJECT}:GrumPlates.Client/B.cs"}]
+        file_tree = [{"key": f"{PROJECT}:RitzauDemo.Client/A.cs"}, {"key": f"{PROJECT}:RitzauDemo.Client/B.cs"}]
 
         def issue_route(params: dict) -> dict:
             quality = params.get("impactSoftwareQualities")
@@ -236,7 +236,7 @@ class ReportCompletenessTests(unittest.TestCase):
             path_exists=lambda path: True,
         )
         self.assertTrue(report["complete"])
-        self.assertEqual(report["schema"], "grumplates.sonar-report/1")
+        self.assertEqual(report["schema"], "ritzaudemo.sonar-report/1")
         self.assertEqual(report["repositoryIdentity"], IDENTITY)
         self.assertEqual(report["frontendProfile"], "BlazorAuto")
         self.assertEqual(report["analysisId"], ANALYSIS_ID)

@@ -29,7 +29,7 @@ class RegistryPayloadTests(unittest.TestCase):
         self.app_digest = "sha256:" + "a" * 64
         self.manifest = {
             "schema_version": 2,
-            "repository": "https://github.com/grumlebob/GrumPlates",
+            "repository": "https://github.com/grumlebob/RitzauDemo",
             "commit_sha": "1" * 40,
             "frontend_profile": "BlazorAuto",
             "acceptance_profile": "BlazorAutoV1",

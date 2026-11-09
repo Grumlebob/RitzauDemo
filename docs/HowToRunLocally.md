@@ -14,13 +14,13 @@ Use the repository wrapper for normal local setup. It prepares Docker, local con
 From the repository root, create local configuration and a development certificate:
 
 ```powershell
-pwsh -File ./docker/setup-local.ps1
+pwsh -File ./Scripts/LocalDevelopment/setup-local.ps1
 ```
 
 Then start the app:
 
 ```powershell
-.\Scripts\RunLocal.ps1
+.\Scripts\LocalDevelopment\RunLocal.ps1
 ```
 
 Use `-NoBrowser` to keep the browser closed, `-Observability` to start the optional local telemetry stack, and `-StopStack` to stop containers while retaining their volumes. Local Docker values belong in `.env`; use [`.env.example`](../.env.example) as the authority and do not commit `.env`. It contains the default host ports and service settings.
@@ -32,12 +32,12 @@ Local setup seeds a local Admin and a local User; their emails are printed by se
 ## Reset local data
 
 ```powershell
-.\Scripts\RunLocal.ps1 -ResetDatabase -NoBrowser
+.\Scripts\LocalDevelopment\RunLocal.ps1 -ResetDatabase -NoBrowser
 ```
 
 Reset removes this Compose project's named volumes before rebuilding. This deletes the local PostgreSQL database and stored state for Redis Insight and optional observability services. It cannot be undone. Use it only when you intend to recreate local service data, such as after an incompatible database image upgrade. Ordinary start and stop keep the volumes. Do not delete another clone's data.
 
-After pulling the migration squash (a single `InitialSchema` migration), reset your local database once with the command above. By hand: `docker compose down`, then `docker volume rm grumplates_pgdata`; `docker volume ls` shows the name for your clone. This applies to local Docker only, never to deployment nodes.
+After pulling the migration squash (a single `InitialSchema` migration), reset your local database once with the command above. By hand: `docker compose down`, then `docker volume rm ritzaudemo_pgdata`; `docker volume ls` shows the name for your clone. This applies to local Docker only, never to deployment nodes.
 
 ## Run without Docker
 
@@ -47,7 +47,7 @@ Use this only when compatible local PostgreSQL and Redis services already run:
 $env:ConnectionStrings__DefaultConnection = "Host=localhost;Port=5432;Database=app;Username=postgres;Password=postgres"
 $env:Redis__Configuration = "localhost:6379"
 $env:Database__RunMigrationsAtStartup = "true"
-dotnet run --project .\GrumPlates\GrumPlates.csproj -- --urls https://localhost:7186
+dotnet run --project .\RitzauDemo\RitzauDemo.csproj -- --urls https://localhost:7186
 ```
 
 To seed the local accounts without Docker, set the six `Accounts__AdminSeed__*` and `Accounts__UserSeed__*` keys from `.env` as environment variables in the same shell. If the HTTPS port is busy, choose another URL with `--urls` and set `E2E_BASE_URL` to the same URL for the packaged browser smoke.
@@ -57,12 +57,12 @@ To seed the local accounts without Docker, set the six `Accounts__AdminSeed__*` 
 Use the client lockfile for repeatable installs:
 
 ```powershell
-Set-Location .\GrumPlates.Client
+Set-Location .\RitzauDemo.Client
 npm ci
 npm run css:build
 ```
 
-During active CSS work, use `npm run css:watch`. Generated output is `GrumPlates/wwwroot/tailwind.css`; commit it when Razor classes or `GrumPlates.Client/Styles` change.
+During active CSS work, use `npm run css:watch`. Generated output is `RitzauDemo/wwwroot/tailwind.css`; commit it when Razor classes or `RitzauDemo.Client/Styles` change.
 
 ## Migrations
 
@@ -70,8 +70,8 @@ Create and apply a local schema migration with:
 
 ```powershell
 dotnet tool restore
-dotnet ef migrations add <MigrationName> --project GrumPlates --startup-project GrumPlates --output-dir Infrastructure\Persistence\Migrations
-dotnet ef database update --project GrumPlates --startup-project GrumPlates
+dotnet ef migrations add <MigrationName> --project RitzauDemo --startup-project RitzauDemo --output-dir Infrastructure\Persistence\Migrations
+dotnet ef database update --project RitzauDemo --startup-project RitzauDemo
 ```
 
 Production uses the release workflow's verified migration bundle; follow the relevant [deployment guide](../Deployment/README.md). Do not import another system's data from application startup.

@@ -7,11 +7,11 @@ The CI image smoke starts PostgreSQL, Redis and the built app with run-owned dis
 Run the local app, then run the single browser test:
 
 ```powershell
-.\Scripts\RunLocal.ps1 -NoBrowser
-pwsh .\GrumPlates.Test\bin\Debug\net10.0\playwright.ps1 install chromium
+.\Scripts\LocalDevelopment\RunLocal.ps1 -NoBrowser
+pwsh .\RitzauDemo.Test\bin\Debug\net10.0\playwright.ps1 install chromium
 $env:RUN_E2E='1'
 $env:E2E_BASE_URL='https://localhost:7186'
-dotnet test .\GrumPlates.Test\GrumPlates.Test.csproj --filter "FullyQualifiedName~RenderModeE2ETests"
+dotnet test .\RitzauDemo.Test\RitzauDemo.Test.csproj --filter "FullyQualifiedName~RenderModeE2ETests"
 Remove-Item Env:\RUN_E2E,Env:\E2E_BASE_URL -ErrorAction SilentlyContinue
 ```
 

@@ -2,7 +2,7 @@
 
 Accounts are part of the Blazor app. Registration, the Admin seed and email are opt-in. The server remains authoritative: hiding a link or route never replaces authentication, authorization, antiforgery or cache policy.
 
-Server implementation and Blazor Identity UI live under `GrumPlates/Features/Accounts`; shared DTOs live in `GrumPlates.Core/Features/Accounts/Contracts`. `ApplicationUser` lives in the feature's `Identity` folder and namespace. The shared context, design-time factory and migrations stay under `Infrastructure/Persistence`. The outbox entity and operations belong to Accounts; its EF mapping remains inline in the shared `AppDbContext`. See [architecture](Architecture.md) for composition and the deliberate Books-to-Accounts integration.
+Server implementation and Blazor Identity UI live under `RitzauDemo/Features/Accounts`; shared DTOs live in `RitzauDemo.Core/Features/Accounts/Contracts`. `ApplicationUser` lives in the feature's `Identity` folder and namespace. The shared context, design-time factory and migrations stay under `Infrastructure/Persistence`. The outbox entity and operations belong to Accounts; its EF mapping remains inline in the shared `AppDbContext`. See [architecture](Architecture.md) for composition and the deliberate Books-to-Accounts integration.
 
 ## Capabilities
 
@@ -21,10 +21,10 @@ Keep user-owned Books data scoped to its owner on the server. Client state must 
 
 ## Local seeded accounts
 
-Local setup seeds one Admin and one User for both frontends. Run it once, or again if `.env` or the local certificate is missing:
+Local setup seeds one Admin and one User for the Blazor app. Run it once, or again if `.env` or the local certificate is missing:
 
 ```powershell
-pwsh -File ./docker/setup-local.ps1
+pwsh -File ./Scripts/LocalDevelopment/setup-local.ps1
 ```
 
 Setup fills `Accounts__AdminSeed__*` with `admin@localhost.test` and `Accounts__UserSeed__*` with `user@localhost.test` in the ignored `.env`, each with a generated 24-character password. It prints the emails, never the passwords. It leaves a seed alone when its email or password is already set, so your own values are kept. Startup creates each account once, confirmed, with the `Admin` or `User` role. It never changes an existing password or email, and it refuses an email that belongs to an account without that role. Local self-registration stays off because there is no local mail server.
@@ -32,7 +32,7 @@ Setup fills `Accounts__AdminSeed__*` with `admin@localhost.test` and `Accounts__
 Start the app and sign in at `https://localhost:7186/Account/Login`:
 
 ```powershell
-.\Scripts\RunLocal.ps1 -NoBrowser
+.\Scripts\LocalDevelopment\RunLocal.ps1 -NoBrowser
 ```
 
 | Setting | Meaning |

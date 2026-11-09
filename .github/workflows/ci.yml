@@ -250,10 +250,10 @@ jobs:
           package-manager-cache: false
 
       - name: Audit .NET packages for vulnerabilities
-        run: bash "$GITHUB_WORKSPACE/Deployment/Common/Scripts/with-runner-build-admission.sh" --pool "$CI_ADMISSION_POOL" dotnet list GrumPlates.sln package --vulnerable --include-transitive
+        run: bash "$GITHUB_WORKSPACE/Deployment/Common/Scripts/with-runner-build-admission.sh" --pool "$CI_ADMISSION_POOL" dotnet list RitzauDemo.sln package --vulnerable --include-transitive
 
       - name: Audit .NET packages for deprecations
-        run: bash "$GITHUB_WORKSPACE/Deployment/Common/Scripts/with-runner-build-admission.sh" --pool "$CI_ADMISSION_POOL" dotnet list GrumPlates.sln package --deprecated
+        run: bash "$GITHUB_WORKSPACE/Deployment/Common/Scripts/with-runner-build-admission.sh" --pool "$CI_ADMISSION_POOL" dotnet list RitzauDemo.sln package --deprecated
 
       - name: Docker preflight for integration tests
         run: |
@@ -270,19 +270,19 @@ jobs:
         run: bash "$GITHUB_WORKSPACE/Deployment/Common/Scripts/with-runner-build-admission.sh" --pool "$CI_ADMISSION_POOL" bash Scripts/CI/validate-frontend-profiles.sh "$RUNNER_TEMP/test-results/${GITHUB_RUN_ID}-${GITHUB_RUN_ATTEMPT}/validate/profiles"
 
       - name: Install frontend dependencies
-        working-directory: GrumPlates.Client
+        working-directory: RitzauDemo.Client
         run: bash "$GITHUB_WORKSPACE/Deployment/Common/Scripts/with-runner-build-admission.sh" --pool "$CI_ADMISSION_POOL" npm ci
 
       - name: Audit frontend dependencies
-        working-directory: GrumPlates.Client
+        working-directory: RitzauDemo.Client
         run: bash "$GITHUB_WORKSPACE/Deployment/Common/Scripts/with-runner-build-admission.sh" --pool "$CI_ADMISSION_POOL" npm audit
 
       - name: Build Tailwind CSS
-        working-directory: GrumPlates.Client
+        working-directory: RitzauDemo.Client
         run: bash "$GITHUB_WORKSPACE/Deployment/Common/Scripts/with-runner-build-admission.sh" --pool "$CI_ADMISSION_POOL" npm run css:build
 
       - name: Verify generated CSS is current
-        run: git diff --exit-code -- GrumPlates/wwwroot/tailwind.css GrumPlates.Client/package-lock.json
+        run: git diff --exit-code -- RitzauDemo/wwwroot/tailwind.css RitzauDemo.Client/package-lock.json
 
       - name: Load release settings
         run: |
@@ -305,7 +305,7 @@ jobs:
           acceptance_profile="$(python3 Scripts/Frontend/resolve_frontend_profile.py --acceptance-profile)"
           image_tag="$CI_IMAGE_TAG"
 
-          dotnet build GrumPlates.Test/GrumPlates.Test.csproj \
+          dotnet build RitzauDemo.Test/RitzauDemo.Test.csproj \
             --configuration Release "-p:FrontendProfile=${profile}"
           docker build \
             --pull \
@@ -317,7 +317,7 @@ jobs:
             --label localcluster.ci.owner=ci-build \
             --label "localcluster.ci.run_id=${GITHUB_RUN_ID}" \
             --label "localcluster.ci.run_attempt=${GITHUB_RUN_ATTEMPT}" \
-            -f GrumPlates/Dockerfile \
+            -f RitzauDemo/Dockerfile \
             -t "${APP_IMAGE}:${image_tag}" \
             .
           FRONTEND_PROFILE="$profile" \
@@ -357,10 +357,10 @@ jobs:
         run: |
           report_source="${RUNNER_TEMP}/test-results/${GITHUB_RUN_ID}-${GITHUB_RUN_ATTEMPT}/validate"
           mkdir -p "$report_source"
-          if [[ -e GrumPlates.Test/TestResults/Playwright || -L GrumPlates.Test/TestResults/Playwright ]]; then
+          if [[ -e RitzauDemo.Test/TestResults/Playwright || -L RitzauDemo.Test/TestResults/Playwright ]]; then
             test ! -e "$report_source/playwright"
             test ! -L "$report_source/playwright"
-            cp -a -- GrumPlates.Test/TestResults/Playwright "$report_source/playwright"
+            cp -a -- RitzauDemo.Test/TestResults/Playwright "$report_source/playwright"
           fi
           python3 Scripts/CI/ci_report_store.py save \
             --source "$report_source" \
@@ -486,7 +486,7 @@ jobs:
       - name: Restore .NET projects for this publisher run
         env:
           RESOLVED_FRONTEND_PROFILE: ${{ needs.validate.outputs.frontend_profile }}
-        run: bash "$GITHUB_WORKSPACE/Deployment/Common/Scripts/with-runner-build-admission.sh" --pool "$CI_ADMISSION_POOL" dotnet restore GrumPlates.sln "-p:FrontendProfile=${RESOLVED_FRONTEND_PROFILE}"
+        run: bash "$GITHUB_WORKSPACE/Deployment/Common/Scripts/with-runner-build-admission.sh" --pool "$CI_ADMISSION_POOL" dotnet restore RitzauDemo.sln "-p:FrontendProfile=${RESOLVED_FRONTEND_PROFILE}"
 
       - name: Restore .NET tools
         run: bash "$GITHUB_WORKSPACE/Deployment/Common/Scripts/with-runner-build-admission.sh" --pool "$CI_ADMISSION_POOL" dotnet tool restore
@@ -496,8 +496,8 @@ jobs:
           bash "$GITHUB_WORKSPACE/Deployment/Common/Scripts/with-runner-build-admission.sh" --pool "$CI_ADMISSION_POOL" bash -e -o pipefail <<'ADMITTED'
           mkdir -p artifacts/migrations
           dotnet ef migrations bundle \
-            --project GrumPlates/GrumPlates.csproj \
-            --startup-project GrumPlates/GrumPlates.csproj \
+            --project RitzauDemo/RitzauDemo.csproj \
+            --startup-project RitzauDemo/RitzauDemo.csproj \
             --configuration Release \
             --self-contained \
             --runtime "${MIGRATION_RUNTIME}" \
@@ -527,8 +527,8 @@ jobs:
           RESOLVED_FRONTEND_PROFILE: ${{ needs.validate.outputs.frontend_profile }}
         run: |
           bash "$GITHUB_WORKSPACE/Deployment/Common/Scripts/with-runner-build-admission.sh" --pool "$CI_ADMISSION_POOL" bash -e -o pipefail <<'ADMITTED'
-          dotnet build GrumPlates.Test/GrumPlates.Test.csproj --configuration Release "-p:FrontendProfile=${RESOLVED_FRONTEND_PROFILE}"
-          test -s GrumPlates.Test/bin/Release/net10.0/playwright.ps1
+          dotnet build RitzauDemo.Test/RitzauDemo.Test.csproj --configuration Release "-p:FrontendProfile=${RESOLVED_FRONTEND_PROFILE}"
+          test -s RitzauDemo.Test/bin/Release/net10.0/playwright.ps1
 
           ADMITTED
 
@@ -554,7 +554,7 @@ jobs:
             --label localcluster.ci.owner=ci-build \
             --label "localcluster.ci.run_id=${GITHUB_RUN_ID}" \
             --label "localcluster.ci.run_attempt=${GITHUB_RUN_ATTEMPT}" \
-            -f GrumPlates/Dockerfile \
+            -f RitzauDemo/Dockerfile \
             -t "${APP_IMAGE}:${CI_IMAGE_TAG}" \
             .
 
@@ -666,10 +666,10 @@ jobs:
         run: |
           report_source="${RUNNER_TEMP}/test-results/${GITHUB_RUN_ID}-${GITHUB_RUN_ATTEMPT}/publish-main"
           mkdir -p "$report_source"
-          if [[ -e GrumPlates.Test/TestResults/Playwright || -L GrumPlates.Test/TestResults/Playwright ]]; then
+          if [[ -e RitzauDemo.Test/TestResults/Playwright || -L RitzauDemo.Test/TestResults/Playwright ]]; then
             test ! -e "$report_source/playwright"
             test ! -L "$report_source/playwright"
-            cp -a -- GrumPlates.Test/TestResults/Playwright "$report_source/playwright"
+            cp -a -- RitzauDemo.Test/TestResults/Playwright "$report_source/playwright"
           fi
           python3 Scripts/CI/ci_report_store.py save \
             --source "$report_source" \

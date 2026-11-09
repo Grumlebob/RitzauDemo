@@ -64,12 +64,12 @@ class OperationSourceTests(unittest.TestCase):
             module.select_source([self.current]*101,query=lambda sha:{'outcome':'no_eligible_run'},unchanged=lambda *_:True)
 
     def test_only_ordinary_documentation_paths_qualify(self):
-        for path in ('AGENTS.md','README.md','docs/Test.md','Plans/Delivery.md','Deployment/LocalSingleNode/AgentSetup.md','docs/Guide.mdx'):
+        for path in ('AGENTS.md','README.md','docs/Test.md','docs/Requirements.md','Deployment/LocalSingleNode/AgentSetup.md','docs/Guide.mdx'):
             with self.subTest(path=path):
                 self.assertTrue(module.ordinary_documentation(path))
-        for path in ('Scripts/source.md','.github/workflows/source.md','Deployment/LocalSingleNode/ansible/template.md',
+        for path in ('Plans/Delivery.md','Scripts/source.md','.github/workflows/source.md','Deployment/LocalSingleNode/ansible/template.md',
                      'Deployment/LocalSingleNode/Scripts/Tests/fixture.md','docs/../build.md','/docs/Guide.md',
-                     'docs\\Guide.md','docs/config.yml','GrumPlates/source.md','config.md'):
+                     'docs\\Guide.md','docs/config.yml','RitzauDemo/source.md','config.md'):
             with self.subTest(path=path):
                 self.assertFalse(module.ordinary_documentation(path))
 

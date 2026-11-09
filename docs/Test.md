@@ -32,11 +32,11 @@ Run every command successfully before pushing non-Markdown changes. Use Linux or
 
 ```bash
 git diff --check
-dotnet restore GrumPlates.sln
+dotnet restore RitzauDemo.sln
 python3 -m unittest discover -s Scripts/Quality/tests -v
 python3 -m unittest discover -s Scripts/CI/tests -v
 python3 Scripts/CI/workflow_policy.py --repo-root .
-dotnet format GrumPlates.sln --verify-no-changes --verbosity minimal --no-restore
+dotnet format RitzauDemo.sln --verify-no-changes --verbosity minimal --no-restore
 bash Scripts/CI/validate-frontend-profiles.sh /tmp/frontend-profile-results # needs Docker
 bash Scripts/CI/tests/test_check_runner_capacity.sh
 bash Deployment/Common/Scripts/validate-common-release.sh
@@ -50,4 +50,4 @@ find Deployment/LocalSingleNode Deployment/Common/Scripts Scripts/CI -type f -na
 bash Scripts/CI/run-actionlint.sh
 ```
 
-If `GrumPlates.Client/Styles` or Razor classes change, run `npm ci && npm run css:build` from the client project and commit generated `GrumPlates/wwwroot/tailwind.css` when it changes. The `discover` commands run the same Python suites as CI's `validate` job; the shell suites are listed there. Optional static/source audits are in [Quality tools](Quality/QualityTools.md) and [SonarQube](Quality/SonarQubeAnalysis.md); they are not merge gates.
+If `RitzauDemo.Client/Styles` or Razor classes change, run `npm ci && npm run css:build` from the client project and commit generated `RitzauDemo/wwwroot/tailwind.css` when it changes. The `discover` commands run the same Python suites as CI's `validate` job; the shell suites are listed there. Optional static/source audits are in [Quality tools](Quality/QualityTools.md) and [SonarQube](Quality/SonarQubeAnalysis.md); they are not merge gates.
