@@ -10,6 +10,8 @@ from pathlib import Path
 SUPPORTED_PROFILES = ("BlazorAuto",)
 ACCEPTANCE_PROFILE_BY_FRONTEND = {
     "BlazorAuto": "BlazorAutoV1",
+    # Keep the legacy contract for independently deployed Books React instances on shared hosts.
+    "React": "ReactPublicV1",
 }
 
 
