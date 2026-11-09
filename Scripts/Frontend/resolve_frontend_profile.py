@@ -10,7 +10,9 @@ from pathlib import Path
 SUPPORTED_PROFILES = ("BlazorAuto",)
 ACCEPTANCE_PROFILE_BY_FRONTEND = {
     "BlazorAuto": "BlazorAutoV1",
-    # Keep the legacy contract for independently deployed Books React instances on shared hosts.
+}
+LEGACY_INSTANCE_ACCEPTANCE_PROFILE_BY_FRONTEND = {
+    # Existing shared-host React instances keep their acceptance contract during this product cleanup.
     "React": "ReactPublicV1",
 }
 
@@ -42,6 +44,13 @@ def acceptance_profile_for_frontend(frontend_profile: str) -> str:
         return ACCEPTANCE_PROFILE_BY_FRONTEND[frontend_profile]
     except KeyError as exc:
         raise ValueError(f"unsupported frontend profile for acceptance: {frontend_profile!r}") from exc
+
+
+def acceptance_profile_for_legacy_instance(frontend_profile: str) -> str:
+    """Resolve legacy acceptance contracts used by existing independent deployment instances."""
+    if frontend_profile in LEGACY_INSTANCE_ACCEPTANCE_PROFILE_BY_FRONTEND:
+        return LEGACY_INSTANCE_ACCEPTANCE_PROFILE_BY_FRONTEND[frontend_profile]
+    return acceptance_profile_for_frontend(frontend_profile)
 
 
 def main(argv: list[str] | None = None) -> int:
