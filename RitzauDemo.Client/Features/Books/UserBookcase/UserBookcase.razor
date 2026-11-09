@@ -1,49 +1,159 @@
 @implements IDisposable
 
 @inject UserBookcaseState UserBooks
+@inject AuthenticationStateProvider AuthenticationStateProvider
 
-@if (UserBooks.IsLoading)
-{
-    <p class="mt-6 text-gray-600">Loading your bookcase...</p>
-}
-else if (UserBooks.Error is not null)
-{
-    <p class="mt-6 text-red-600">@UserBooks.Error</p>
-}
-else
-{
-    <BookcaseShelf Title="Your Bookcase"
-                   Description="Only books you have saved."
-                   TestId="user-bookcase"
-                   Books="UserBooks.ShelfBooks"
-                   LinkBooks="true"
-                   LimitItems="false"
-                   EmptyMessage="Your bookcase is empty."
-                   EmptyTestId="user-book-empty-state">
-        <Actions>
-            <AuthorizeView Roles="@AccountRoleNames.Admin">
+<section class="mt-6 rounded-xl border border-gray-200 bg-white p-4 shadow-sm sm:p-6"
+         data-testid="user-books-panel"
+         aria-labelledby="user-books-title">
+    <div class="flex flex-col gap-3 sm:flex-row sm:items-end sm:justify-between">
+        <div>
+            <h2 id="user-books-title" class="text-xl font-bold text-gray-900">Your books</h2>
+            <p class="mt-1 text-sm text-gray-600">Only books saved to your account are shown here.</p>
+        </div>
+        <AuthorizeView Roles="@AccountRoleNames.Admin">
+            <Authorized>
                 <a data-testid="add-book"
-                   class="inline-flex items-center justify-center rounded-md border border-gray-800 bg-gray-800 px-3.5 py-2.5 text-sm font-bold leading-5 text-white no-underline transition-colors hover:bg-gray-950 hover:text-white focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-blue-600"
-                   href="/books?bookMode=create">Add Book</a>
-            </AuthorizeView>
-        </Actions>
-    </BookcaseShelf>
-}
+                   class="inline-flex min-h-11 items-center justify-center rounded-md bg-gray-900 px-4 py-2 text-sm font-semibold text-white no-underline hover:bg-gray-700 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-blue-600"
+                   href="/books/new">Add a book</a>
+            </Authorized>
+        </AuthorizeView>
+    </div>
+
+    @if (UserBooks.IsLoading)
+    {
+        <p class="mt-4 rounded-md border border-gray-200 bg-gray-50 px-4 py-5 text-sm text-gray-600" role="status">Loading your books...</p>
+    }
+    else if (UserBooks.Error is not null)
+    {
+        <p class="mt-4 rounded-md border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-800" role="alert">@UserBooks.Error</p>
+    }
+    else if (UserBooks.Books.Count == 0)
+    {
+        <p class="mt-4 rounded-md border border-gray-200 bg-gray-50 px-4 py-5 text-sm text-gray-600" data-testid="user-book-empty-state">No books are saved to your account.</p>
+    }
+    else
+    {
+        <div class="mt-4 flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+            <p class="text-sm text-gray-600" data-testid="user-book-count">Showing @VisibleBooks.Count of @UserBooks.Books.Count books.</p>
+            <form class="flex w-full gap-2 sm:max-w-md" role="search" @onsubmit="SearchAsync" @onsubmit:preventDefault>
+                <label class="sr-only" for="user-book-search">Search your books</label>
+                <input id="user-book-search" data-testid="user-book-search" type="search"
+                       class="min-w-0 flex-1 rounded-md border border-gray-300 px-3 py-2 text-sm text-gray-900 shadow-sm focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-blue-600"
+                       placeholder="Search title or author" @bind="_searchTerm" @bind:event="oninput"
+                       disabled="@(!RendererInfo.IsInteractive)" />
+                <button class="rounded-md bg-gray-800 px-3 py-2 text-sm font-semibold text-white hover:bg-gray-950 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-blue-600 disabled:cursor-not-allowed disabled:opacity-60"
+                        type="submit" disabled="@(!RendererInfo.IsInteractive)">Search</button>
+                @if (!string.IsNullOrWhiteSpace(_searchTerm))
+                {
+                    <button class="rounded-md border border-gray-300 px-3 py-2 text-sm font-semibold text-gray-700 hover:bg-gray-50 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-blue-600 disabled:cursor-not-allowed disabled:opacity-60"
+                            type="button" disabled="@(!RendererInfo.IsInteractive)" @onclick="ClearSearchAsync">Clear</button>
+                }
+            </form>
+        </div>
+
+        @if (VisibleBooks.Count == 0)
+        {
+            <p class="mt-4 rounded-md border border-gray-200 bg-gray-50 px-4 py-5 text-sm text-gray-600" data-testid="user-book-no-results">No books match your search.</p>
+        }
+        else
+        {
+            <div class="mt-4 space-y-3" data-testid="user-book-list" aria-live="polite">
+                @foreach (var book in VisibleBooks)
+                {
+                    <BookListRow Id="@book.Id"
+                                 Title="@book.Title"
+                                 Author="@book.Author"
+                                 DetailsHref="@GetDetailsHref(book.Id)"
+                                 EditHref="@GetEditHref(book.Id)" />
+                }
+            </div>
+        }
+    }
+</section>
 
 @code {
     private readonly CancellationTokenSource _loadCancellation = new();
+    private string _searchTerm = string.Empty;
+    private string _appliedSearch = string.Empty;
+    private bool _disposed;
+
+    private IReadOnlyList<BookListItemResponse> VisibleBooks =>
+        string.IsNullOrWhiteSpace(_appliedSearch)
+            ? UserBooks.Books
+            : UserBooks.Books.Where(book =>
+                    book.Title.Contains(_appliedSearch, StringComparison.OrdinalIgnoreCase) ||
+                    (book.Author?.Contains(_appliedSearch, StringComparison.OrdinalIgnoreCase) ?? false))
+                .ToList();
 
     protected override async Task OnInitializedAsync()
     {
         UserBooks.Changed += HandleBooksChanged;
+        AuthenticationStateProvider.AuthenticationStateChanged += HandleAuthenticationStateChanged;
         await UserBooks.LoadForCurrentUserAsync(_loadCancellation.Token);
     }
 
+    private Task SearchAsync()
+    {
+        _appliedSearch = _searchTerm.Trim();
+        return Task.CompletedTask;
+    }
+
+    private Task ClearSearchAsync()
+    {
+        _searchTerm = string.Empty;
+        _appliedSearch = string.Empty;
+        return Task.CompletedTask;
+    }
+
+    private static string GetDetailsHref(int id) => $"/books/{id.ToString(System.Globalization.CultureInfo.InvariantCulture)}";
+
+    private static string GetEditHref(int id) => $"/books/{id.ToString(System.Globalization.CultureInfo.InvariantCulture)}/edit";
+
     private void HandleBooksChanged() => _ = InvokeAsync(StateHasChanged);
+
+    private void HandleAuthenticationStateChanged(Task<AuthenticationState> authenticationStateTask) =>
+        _ = RefreshAfterAuthenticationChangeAsync(authenticationStateTask);
+
+    private async Task RefreshAfterAuthenticationChangeAsync(Task<AuthenticationState> authenticationStateTask)
+    {
+        try
+        {
+            var authenticationState = await authenticationStateTask;
+            if (_disposed)
+            {
+                return;
+            }
+
+            await InvokeAsync(async () =>
+            {
+                if (_disposed)
+                {
+                    return;
+                }
+
+                UserBooks.ResetForIdentity(authenticationState.User);
+                if (authenticationState.User.Identity?.IsAuthenticated == true)
+                {
+                    await UserBooks.LoadForCurrentUserAsync(_loadCancellation.Token);
+                }
+            });
+        }
+        catch (OperationCanceledException) when (_loadCancellation.IsCancellationRequested)
+        {
+            // Navigation or disposal canceled the current identity's reload.
+        }
+        catch (ObjectDisposedException) when (_disposed)
+        {
+            // The component was removed while the authentication update was being delivered.
+        }
+    }
 
     public void Dispose()
     {
+        _disposed = true;
         UserBooks.Changed -= HandleBooksChanged;
+        AuthenticationStateProvider.AuthenticationStateChanged -= HandleAuthenticationStateChanged;
         _loadCancellation.Cancel();
         _loadCancellation.Dispose();
     }

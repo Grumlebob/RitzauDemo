@@ -3,9 +3,9 @@
   "baseComponent": {"key": "ritzaudemo-abc12345-BlazorAuto", "name": "BlazorAuto", "qualifier": "TRK", "measures": []},
   "components": [
     {
-      "key": "ritzaudemo-abc12345-BlazorAuto:RitzauDemo.Client/Features/Books/Shared/BookCoverGeometry.cs",
-      "name": "BookCoverGeometry.cs", "qualifier": "FIL",
-      "path": "RitzauDemo.Client/Features/Books/Shared/BookCoverGeometry.cs", "language": "cs",
+      "key": "ritzaudemo-abc12345-BlazorAuto:RitzauDemo.Client/Features/Books/Shared/BookDetailsView.razor",
+      "name": "BookDetailsView.razor", "qualifier": "FIL",
+      "path": "RitzauDemo.Client/Features/Books/Shared/BookDetailsView.razor", "language": "cs",
       "measures": [
         {"metric": "ncloc", "value": "1813"}, {"metric": "cognitive_complexity", "value": "478"},
         {"metric": "coverage", "value": "58.5"}, {"metric": "lines_to_cover", "value": "900"},
@@ -14,9 +14,9 @@
       ]
     },
     {
-      "key": "ritzaudemo-abc12345-BlazorAuto:RitzauDemo.Client/Features/Books/Shared/BookCoverRenderer.razor",
-      "name": "BookCoverRenderer.razor", "qualifier": "FIL",
-      "path": "RitzauDemo.Client/Features/Books/Shared/BookCoverRenderer.razor", "language": "cs",
+      "key": "ritzaudemo-abc12345-BlazorAuto:RitzauDemo.Client/Features/Books/Shared/BookForm.razor",
+      "name": "BookForm.razor", "qualifier": "FIL",
+      "path": "RitzauDemo.Client/Features/Books/Shared/BookForm.razor", "language": "cs",
       "measures": [{"metric": "ncloc", "value": "84"}, {"metric": "cognitive_complexity", "value": "14"}]
     },
     {

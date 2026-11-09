@@ -116,14 +116,28 @@ public sealed class BooksCrudIntegrationTests : IAsyncLifetime
         using var userReadResponse = await _userClient.GetAsync($"/api/books/{userBookId}");
         Assert.Equal(HttpStatusCode.OK, userReadResponse.StatusCode);
 
-        var userBookPage = await _userClient.GetStringAsync($"/books?bookId={userBookId}&bookMode=view");
-        Assert.Contains("data-testid=\"book-page-view\"", userBookPage, StringComparison.Ordinal);
-        Assert.DoesNotContain("data-testid=\"book-edit-pencil\"", userBookPage, StringComparison.Ordinal);
-        Assert.DoesNotContain("data-testid=\"book-delete\"", userBookPage, StringComparison.Ordinal);
+        var userBookPage = await _userClient.GetStringAsync($"/books/{userBookId}");
+        Assert.Contains("data-testid=\"book-details\"", userBookPage, StringComparison.Ordinal);
+        Assert.DoesNotContain($"data-testid=\"book-edit-{userBookId}\"", userBookPage, StringComparison.Ordinal);
+        Assert.DoesNotContain("data-testid=\"book-delete-request\"", userBookPage, StringComparison.Ordinal);
 
-        var userEditPage = await _userClient.GetStringAsync($"/books?bookId={userBookId}&bookMode=edit");
-        Assert.Contains("Administrator access required", userEditPage, StringComparison.Ordinal);
-        Assert.DoesNotContain("data-testid=\"book-save\"", userEditPage, StringComparison.Ordinal);
+        using var userEditResponse = await _userClient.GetAsync($"/books/{userBookId}/edit");
+        Assert.Equal(HttpStatusCode.Forbidden, userEditResponse.StatusCode);
+        var userEditPage = await userEditResponse.Content.ReadAsStringAsync();
+        Assert.DoesNotContain("data-testid=\"book-form\"", userEditPage, StringComparison.Ordinal);
+
+        using var userCreateResponse = await _userClient.GetAsync("/books/new");
+        Assert.Equal(HttpStatusCode.Forbidden, userCreateResponse.StatusCode);
+        var userCreatePage = await userCreateResponse.Content.ReadAsStringAsync();
+        Assert.DoesNotContain("data-testid=\"book-form\"", userCreatePage, StringComparison.Ordinal);
+
+        var adminBookPage = await _adminClient.GetStringAsync($"/books/{adminBookId}");
+        Assert.Contains("data-testid=\"book-details\"", adminBookPage, StringComparison.Ordinal);
+        Assert.Contains("data-testid=\"book-delete-request\"", adminBookPage, StringComparison.Ordinal);
+        Assert.Contains($"/books/{adminBookId}/edit", adminBookPage, StringComparison.Ordinal);
+
+        var adminCreatePage = await _adminClient.GetStringAsync("/books/new");
+        Assert.Contains("data-testid=\"book-form\"", adminCreatePage, StringComparison.Ordinal);
 
         using var hiddenReadResponse = await _userClient.GetAsync($"/api/books/{adminBookId}");
         Assert.Equal(HttpStatusCode.NotFound, hiddenReadResponse.StatusCode);

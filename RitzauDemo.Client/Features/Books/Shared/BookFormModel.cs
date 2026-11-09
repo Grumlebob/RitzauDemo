@@ -2,9 +2,9 @@ using System.ComponentModel.DataAnnotations;
 using RitzauDemo.Core.Features.Books.Contracts;
 using RitzauDemo.Core.Features.Books.UseCases.Shared;
 
-namespace RitzauDemo.Client.Features.Books.BookPage;
+namespace RitzauDemo.Client.Features.Books.Shared;
 
-public sealed class BookPageEditorModel : IValidatableObject
+public sealed class BookFormModel : IValidatableObject
 {
     [Required]
     [StringLength(BookRules.TitleMaxLength)]

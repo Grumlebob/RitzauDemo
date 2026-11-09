@@ -1,6 +1,6 @@
 # Interview case starter: vertical slices, RBAC, and focused tests
 
-Status: in progress. R00–R06 are verified on the integrated product base; R07–R13 are implemented and passed the local gate. R14–R16 remain in progress pending the upstream UI, product port, and final integration. Prepared 2026-11-09. This document authorizes no deployment.
+Status: in progress. R00–R14 (upstream handoff) are verified on the integrated product base. R15–R16 remain in progress pending the product port and final integration. Prepared 2026-11-09. This document authorizes no deployment.
 
 ## 1. Outcome and scope
 
@@ -269,11 +269,30 @@ Exit: the normal application test tree is easy to browse; every removed test has
 
 ### R14 — Prepare the UI port without applying it
 
-- [ ] Wait for GrumPlates `ReusableCrudUi.md` implementation PRs to be integrated and verified on its exact main.
-- [ ] Record upstream base/head SHAs, relevant PRs, and explicit changed paths. Verify the actual code, not merely a closed PR status.
-- [ ] Map `GrumPlates` namespaces, project names, Core contracts, feature DI, user state, account links, and authorization visibility to the renamed product.
-- [ ] Identify which source files carry only UI changes and which mix template/backend changes. Prepare an explicit path-by-path adaptation list.
-- [ ] Record the role-specific UI adjustment required by R07/R08. Do not import a template permission model over product RBAC.
+- [x] Wait for GrumPlates `ReusableCrudUi.md` implementation PRs to be integrated and verified on its exact main.
+- [x] Record upstream base/head SHAs, relevant PRs, and explicit changed paths. Verify the actual code, not merely a closed PR status.
+- [x] Map `GrumPlates` namespaces, project names, Core contracts, feature DI, user state, account links, and authorization visibility to the renamed product.
+- [x] Identify which source files carry only UI changes and which mix template/backend changes. Prepare an explicit path-by-path adaptation list.
+- [x] Record the role-specific UI adjustment required by R07/R08. Do not import a template permission model over product RBAC.
+
+#### Verified GrumPlates handoff
+
+The upstream UI is integrated and verified as of 2026-11-09. [GrumPlates PR #455](https://github.com/Grumlebob/GrumPlates/pull/455) was based on `b2dd255cea8c95f496b241b5517d246938e2d681`, with PR head `39349002c1008b5b9196ef8e5f9321272e4bb729`, and squash-integrated on `origin/main` as `555cc103e33ae18838129cd79be8ec738a8a6d68`. The exact-head `build-test-push` run `42683644193` and CodeQL run `42683644261` passed. Exact-main `build-test-push` run `42686724906` and CodeQL run `42686724951` passed.
+
+The [upstream path manifest and route contract](https://github.com/Grumlebob/GrumPlates/blob/main/Plans/ReusableCrudUi.md#7-port-manifest-for-ritzaudemo) list each added, updated, and removed file. The UI PR changes Blazor pages, list state, form/detail components, styles, focused tests, small template docs, and Sonar mapping fixtures. It does not change Core/API contracts, backend handlers, service registrations, or migrations. The UI uses `IBooksApi.SearchAsync(SearchBooksRequest)` from the separately integrated PR #454 and the existing `IAuthorBooksApi`. The source routes are `/` and `/books` for public catalog plus private own-books list, `/books/catalog/{id:int}` for public detail, `/books/author/{SeedKey}` as a bounded legacy redirect, and `/books/new`, `/books/{id:int}`, and `/books/{id:int}/edit` for private CRUD.
+
+#### RitzauDemo adaptation map
+
+| Upstream paths or contract | RitzauDemo adaptation |
+| --- | --- |
+| New and updated `GrumPlates.Client/Features/Books/Routes/*` and `Shared/*` pages, forms, and rows | Port selected components into `RitzauDemo.Client/Features/Books`; use `RitzauDemo.Client`/`RitzauDemo.Core` namespaces, current DTOs, and product routes. Keep the existing `/books/author/{SeedKey}` public author route and product `/Account/Login?returnUrl=...` links. |
+| Updated `AuthorBookcase`, `UserBookcase`, their state types, and `_Imports.razor` | Adapt existing product state and imports. Reuse current `IBooksApi`, `IAuthorBooksApi`, and state registrations in `RitzauDemo.Client/Program.cs`; retain server feature registrations and handlers. |
+| Source private list uses owner-scoped `IBooksApi.SearchAsync(SearchBooksRequest)` | Product `IBooksApi` currently exposes `GetAsync`, `GetByIdAsync`, `CreateAsync`, `UpdateAsync`, and `DeleteAsync`, with no `SearchAsync`. In R15, confirm the list bound before choosing local filtering or a minimal owner-scoped search/pagination adapter; preserve ownership, `BooksCachePolicy`, and invalidation behavior. Do not copy the template API wholesale. |
+| Removed `BookModal`, `BookPage`, `BookCover*`, `BookcaseShelf*`, and mapper files | Remove corresponding product presentation code only after a repository-wide consumer search; preserve public catalog data and non-UI API behavior. |
+| Added/updated Books E2E, state, pre-hydration, and visual tests; removed modal/geometry tests | Port a small set of semantic navigation, CRUD, role, and render-mode checks within the existing test budget. Keep User read-only, Admin CRUD on owned records, direct write-route denial, and server-handler enforcement. Do not import the full template E2E suite. |
+| Updated `GrumPlates/wwwroot/app.css` and generated `tailwind.css` | Adapt authored styles as needed and rebuild `RitzauDemo/wwwroot/tailwind.css` with the product lockfile. Never copy generated upstream CSS wholesale. |
+| `Scripts/Quality/sonar_*`, template architecture/feature docs, and `Plans/ReusableCrudUi.md` | Do not copy these files. Update only product-specific docs if the port makes current behavior inaccurate; retain the single product architecture test and its current quality tooling. |
+| No Core/API/backend/DI/migration changes in the UI PR | Preserve existing product handlers, both client adapters, role policies, real-cookie account behavior, and cache configuration. The product's `User` role stays read-only; `Admin` may CRUD only its own books. UI visibility supplements server/direct-handler authorization. |
 
 Exit: reviewed port manifest; no broad upstream merge is necessary.
 
@@ -342,6 +361,6 @@ For each PR, record: packet IDs, base SHA, full PR-head SHA, PR URL, local gate 
 | PR / packets | Head and integration | Checks | Remaining dependency |
 | --- | --- | --- | --- |
 | PR #17 / R00–R06 | Base `dff50c37cfd6cde870ef314c25fac518d12a40a3`; head `2ed3d08788fdb53800b2ffe0c8895f3ae0d09176`; integrated on `origin/main` at `1b99bcc0a9a07fd29dc1b6099e27af3339ec0ca0` | PR CI run `42641461708` and exact-main CI run `42642496818` succeeded | None |
-| R07–R13 | Based on `1b99bcc0a9a07fd29dc1b6099e27af3339ec0ca0`; implementation branch head and PR pending | Full local gate passed; focused real-cookie account tests passed 2/2 | PR exact-head CI and main integration pending |
+| [PR #18](https://github.com/Grumlebob/RitzauDemo/pull/18) / R07–R13 | Base `1b99bcc0a9a07fd29dc1b6099e27af3339ec0ca0`; head `1d91200ebd0af27b9b18fb9a0e95934e7ed4362b`; squash-integrated on `origin/main` at `9f56957a16a65a10afd4be2d29afb9b324c42ee4` | Full local gate passed; focused real-cookie account tests passed 2/2; exact-head `build-test-push` run `42666220451` and CodeQL run `42666220487` succeeded; exact-main CI run `42667087078` and CodeQL run `42667087396` succeeded | None |
 
 Completion requires visible slices with thin transport adapters, unchanged useful caching, real role differences, preserved ownership/security, a focused Testcontainers suite, one architecture test, a verified upstream UI port, minimal accurate docs, green required code checks on integrated main, and owned-resource closeout. Do not mark the whole plan complete while the UI port or another required packet is merely scheduled.

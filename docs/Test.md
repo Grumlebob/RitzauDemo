@@ -1,6 +1,6 @@
 # Test
 
-Use the full local gate for code, configuration, and other non-Markdown changes. Keep product tests focused on request validation, Admin/User ownership and CRUD, real-cookie sign-in and sign-out, cache refresh (including Redis cross-node invalidation), and one compiled project-boundary test. At most one packaged Blazor render/hydration smoke is optional and off by default. CI, release, single-node deployment, backup/recovery, and host-safety checks remain operational gates. Grafana/observability suites are out of scope while deployed observability is disabled. See [Browser testing](Testing/Browser.md) and [Infrastructure testing](Testing/Infrastructure.md) for the optional smoke and integration fixtures.
+Use the full local gate for code, configuration, and other non-Markdown changes. Keep product tests focused on request validation, Admin/User ownership and CRUD, real-cookie sign-in and sign-out, cache refresh (including Redis cross-node invalidation), and one compiled project-boundary test. The packaged Blazor Playwright suite is opt-in and off by default; it covers render-mode hydration and focused anonymous/User/Admin book journeys. CI, release, single-node deployment, backup/recovery, and host-safety checks remain operational gates. Grafana/observability suites are out of scope while deployed observability is disabled. See [Browser testing](Testing/Browser.md) and [Infrastructure testing](Testing/Infrastructure.md) for the optional browser suite and integration fixtures.
 
 ## Normal run
 

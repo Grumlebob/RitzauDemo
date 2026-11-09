@@ -513,8 +513,8 @@ def build_scope_evidence(profile: str, tree: list[dict[str, Any]]) -> dict[str, 
     by_path = {normalize_component_path(item.get("path", ""), ""): item for item in tree}
     paths = set(by_path)
     expected = {
-        "bookGeometry": "RitzauDemo.Client/Features/Books/Shared/BookCoverGeometry.cs",
-        "bookRazor": "RitzauDemo.Client/Features/Books/Shared/BookCoverRenderer.razor",
+        "bookDetails": "RitzauDemo.Client/Features/Books/Shared/BookDetailsView.razor",
+        "bookForm": "RitzauDemo.Client/Features/Books/Shared/BookForm.razor",
         "sharedCore": next((path for path in sorted(paths) if path.startswith("RitzauDemo.Core/")), ""),
         "handwrittenCss": "RitzauDemo.Client/Styles/input.css",
     }

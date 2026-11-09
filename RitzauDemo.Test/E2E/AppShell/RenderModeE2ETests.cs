@@ -12,17 +12,25 @@ public sealed class RenderModeE2ETests : PackagedBlazorSmokeBase
     {
         await RunWithFailureScreenshotAsync(async () =>
         {
+            var response = await GoToAsync("/");
+            Assert.NotNull(response);
+            var prerenderedHtml = await response!.TextAsync();
+            Assert.Contains("data-testid=\"public-catalog-panel\"", prerenderedHtml, StringComparison.Ordinal);
+            Assert.Contains("data-interactive=\"false\"", prerenderedHtml, StringComparison.Ordinal);
+
             await GoHomeAndWaitForInteractivityAsync();
 
-            var assignedMode = (await Page.GetByTestId("assigned-render-mode").InnerTextAsync()).Trim();
-            Assert.True(
-                assignedMode is "Interactive Server" or "Interactive WebAssembly" or "Interactive Auto",
-                $"Expected assigned render mode to be interactive, but was '{assignedMode}'.");
+            var configuredMode = (await Page.GetByTestId("configured-render-mode").InnerTextAsync()).Trim();
+            Assert.Equal("Interactive Auto", configuredMode);
 
             var currentRenderer = (await Page.GetByTestId("current-renderer").InnerTextAsync()).Trim();
-            Assert.True(
-                currentRenderer is "Server" or "WebAssembly",
-                $"Expected hydrated renderer to be Server or WebAssembly, but was '{currentRenderer}'.");
+            Assert.Equal("Server", currentRenderer);
+
+            await Page.WaitForLoadStateAsync(Microsoft.Playwright.LoadState.NetworkIdle);
+            await ReloadAndWaitForInteractivityAsync();
+
+            var laterRenderer = (await Page.GetByTestId("current-renderer").InnerTextAsync()).Trim();
+            Assert.Equal("WebAssembly", laterRenderer);
         });
     }
 }

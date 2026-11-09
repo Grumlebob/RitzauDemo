@@ -19,11 +19,28 @@ public abstract class PackagedBlazorSmokeBase : PageTest
         ViewportSize = new ViewportSize { Width = 1280, Height = 900 }
     };
 
+    protected Task<IResponse?> GoToAsync(string path)
+    {
+        var target = new Uri(BaseUri, path.TrimStart('/'));
+        return Page.GotoAsync(target.ToString(), new PageGotoOptions { WaitUntil = WaitUntilState.DOMContentLoaded });
+    }
+
     protected async Task GoHomeAndWaitForInteractivityAsync()
     {
-        await Page.GotoAsync(BaseUri.ToString(), new PageGotoOptions { WaitUntil = WaitUntilState.DOMContentLoaded });
+        await GoToAsync("/");
+        await WaitForInteractivityAsync();
+    }
+
+    protected async Task WaitForInteractivityAsync()
+    {
         await Expect(Page.GetByTestId("app-interactivity-probe"))
             .ToHaveAttributeAsync("data-interactive", "true", new LocatorAssertionsToHaveAttributeOptions { Timeout = 45_000 });
+    }
+
+    protected async Task ReloadAndWaitForInteractivityAsync()
+    {
+        await Page.ReloadAsync(new PageReloadOptions { WaitUntil = WaitUntilState.DOMContentLoaded });
+        await WaitForInteractivityAsync();
     }
 
     protected async Task RunWithFailureScreenshotAsync(Func<Task> test)
