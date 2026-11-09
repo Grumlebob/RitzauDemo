@@ -1,6 +1,5 @@
 using System.Security.Claims;
 using Microsoft.AspNetCore.Components.Authorization;
-using RitzauDemo.Client.Features.Books.Shared;
 using RitzauDemo.Core.Features.Books.Contracts;
 using RitzauDemo.Core.Features.Books.UseCases.DeleteBook;
 using RitzauDemo.Core.Features.Books.UseCases.GetBooks;
@@ -15,6 +14,7 @@ public sealed class UserBookcaseState(
     private readonly IBooksApi _books = books;
     private readonly AuthenticationStateProvider _authenticationStateProvider = authenticationStateProvider;
     private readonly ILogger<UserBookcaseState> _logger = logger;
+    private string? _currentUserId;
     private int _version;
 
     public event Action? Changed;
@@ -23,9 +23,7 @@ public sealed class UserBookcaseState(
 
     public string? Error { get; private set; }
 
-    private IReadOnlyList<BookListItemResponse> Books { get; set; } = [];
-
-    public IReadOnlyList<BookcaseBook> ShelfBooks { get; private set; } = [];
+    public IReadOnlyList<BookListItemResponse> Books { get; private set; } = [];
 
     public async Task LoadForCurrentUserAsync(CancellationToken cancellationToken = default)
     {
@@ -34,22 +32,42 @@ public sealed class UserBookcaseState(
         Error = null;
         NotifyChanged();
 
-        var authState = await _authenticationStateProvider.GetAuthenticationStateAsync();
-        var userId = GetUserKey(authState.User);
+        var authenticationState = await _authenticationStateProvider.GetAuthenticationStateAsync();
+        if (version != Volatile.Read(ref _version))
+        {
+            return;
+        }
+
+        var userId = GetUserKey(authenticationState.User);
+        SetCurrentUser(userId);
         if (string.IsNullOrWhiteSpace(userId))
         {
-            ApplyLoadResult(version, []);
+            IsLoading = false;
+            NotifyChanged();
             return;
         }
 
         try
         {
             var response = await _books.GetAsync(cancellationToken);
+            var latestAuthenticationState = await _authenticationStateProvider.GetAuthenticationStateAsync();
+            if (version != Volatile.Read(ref _version))
+            {
+                return;
+            }
+
+            var latestUserId = GetUserKey(latestAuthenticationState.User);
+            if (!string.Equals(userId, latestUserId, StringComparison.Ordinal))
+            {
+                ResetForIdentity(latestAuthenticationState.User);
+                return;
+            }
+
             ApplyLoadResult(version, response.Books);
         }
         catch (OperationCanceledException) when (cancellationToken.IsCancellationRequested)
         {
-            // Component disposal cancels this load; it is not a user-visible failure.
+            // Component disposal cancels this request; keep expected cancellation out of the error state.
         }
         catch (Exception ex)
         {
@@ -58,23 +76,37 @@ public sealed class UserBookcaseState(
                 return;
             }
 
-            _logger.LogWarning(ex, "User bookcase load failed for user {UserId}", userId);
-            Error = "Your bookcase could not be loaded.";
+            _logger.LogWarning(ex, "User books load failed for user {UserId}", userId);
+            Error = "Your books could not be loaded.";
             IsLoading = false;
             NotifyChanged();
         }
     }
 
+    public void ResetForIdentity(ClaimsPrincipal user)
+    {
+        var userId = GetUserKey(user);
+        if (string.Equals(userId, _currentUserId, StringComparison.Ordinal))
+        {
+            return;
+        }
+
+        Interlocked.Increment(ref _version);
+        _currentUserId = userId;
+        Books = [];
+        Error = null;
+        IsLoading = false;
+        NotifyChanged();
+    }
+
     public void ApplySavedBook(BookListItemResponse savedBook)
     {
         Interlocked.Increment(ref _version);
-        var next = Books
+        Books = Books
             .Where(book => book.Id != savedBook.Id)
             .Append(savedBook)
             .OrderBy(book => book.Id)
             .ToList();
-
-        ApplyBooks(next);
         IsLoading = false;
         Error = null;
         NotifyChanged();
@@ -83,6 +115,7 @@ public sealed class UserBookcaseState(
     public async Task<bool> DeleteAsync(int id, CancellationToken cancellationToken = default)
     {
         var version = Interlocked.Increment(ref _version);
+        var userId = _currentUserId;
         try
         {
             var success = await _books.DeleteAsync(new DeleteBookRequest { Id = id }, cancellationToken);
@@ -91,9 +124,11 @@ public sealed class UserBookcaseState(
                 return false;
             }
 
-            if (version == Volatile.Read(ref _version))
+            var authenticationState = await _authenticationStateProvider.GetAuthenticationStateAsync();
+            if (version == Volatile.Read(ref _version) &&
+                string.Equals(userId, GetUserKey(authenticationState.User), StringComparison.Ordinal))
             {
-                ApplyBooks(Books.Where(book => book.Id != id).ToList());
+                Books = Books.Where(book => book.Id != id).ToList();
                 IsLoading = false;
                 Error = null;
                 NotifyChanged();
@@ -103,7 +138,6 @@ public sealed class UserBookcaseState(
         }
         catch (OperationCanceledException) when (cancellationToken.IsCancellationRequested)
         {
-            // The modal ignores canceled deletes when navigation or disposal supersedes them.
             return false;
         }
         catch (Exception ex)
@@ -127,16 +161,21 @@ public sealed class UserBookcaseState(
             return;
         }
 
-        ApplyBooks(books.OrderBy(book => book.Id).ToList());
+        Books = books.OrderBy(book => book.Id).ToList();
         Error = null;
         IsLoading = false;
         NotifyChanged();
     }
 
-    private void ApplyBooks(IReadOnlyList<BookListItemResponse> books)
+    private void SetCurrentUser(string? userId)
     {
-        Books = books;
-        ShelfBooks = UserBookcaseBookMapper.ToBookcaseBooks(books);
+        if (string.Equals(userId, _currentUserId, StringComparison.Ordinal))
+        {
+            return;
+        }
+
+        _currentUserId = userId;
+        Books = [];
     }
 
     private void NotifyChanged() => Changed?.Invoke();

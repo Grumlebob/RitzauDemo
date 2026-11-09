@@ -81,9 +81,11 @@ public sealed class SeededRoleLoginTests(SeededAccountsWebAppFactory factory)
         Assert.True(userCreate.StatusCode == HttpStatusCode.Forbidden,
             $"Expected a forbidden response, received {(int)userCreate.StatusCode}: {await userCreate.Content.ReadAsStringAsync()}");
 
-        var userCreatePage = await client.GetStringAsync("/books?bookMode=create");
-        Assert.Contains("Administrator access required", userCreatePage, StringComparison.Ordinal);
-        Assert.DoesNotContain("data-testid=\"book-save\"", userCreatePage, StringComparison.Ordinal);
+        using var userCreatePageResponse = await client.GetAsync("/books/new");
+        var userCreatePage = await userCreatePageResponse.Content.ReadAsStringAsync();
+        Assert.Equal("/Account/AccessDenied", userCreatePageResponse.RequestMessage?.RequestUri?.AbsolutePath);
+        Assert.Contains("Access denied", userCreatePage, StringComparison.Ordinal);
+        Assert.DoesNotContain("data-testid=\"book-form\"", userCreatePage, StringComparison.Ordinal);
 
         using var logout = await PostLogoutAsync(client, user);
         Assert.Equal(HttpStatusCode.OK, logout.StatusCode);
@@ -96,7 +98,8 @@ public sealed class SeededRoleLoginTests(SeededAccountsWebAppFactory factory)
         Assert.NotNull(admin.User);
         Assert.Equal(AccountRoleNames.Admin, Assert.Single(admin.User!.Roles));
 
-        var adminCreatePage = await client.GetStringAsync("/books?bookMode=create");
+        var adminCreatePage = await client.GetStringAsync("/books/new");
+        Assert.Contains("data-testid=\"book-form\"", adminCreatePage, StringComparison.Ordinal);
         Assert.Contains("data-testid=\"book-save\"", adminCreatePage, StringComparison.Ordinal);
 
         using var adminCreate = await PostBookAsync(client, admin, new CreateBookRequest
