@@ -31,5 +31,5 @@ Read only the guides needed for your task. The contributor rules point to requir
 - `GrumPlates/Features/` contains server behavior and endpoint mappings.
 - `GrumPlates.Client/Features/` contains Blazor client behavior and UI.
 - `GrumPlates.Test/` contains Books CRUD unit/integration tests and one opt-in packaged browser smoke.
-- `Deployment/` contains the three deployment targets and shared release tooling.
+- `Deployment/` contains the LocalSingleNode target and shared release tooling.
 - `Plans/` contains tracked plans; `Plans.local/` is ignored scratch space.

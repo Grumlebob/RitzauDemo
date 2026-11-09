@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Validate the immutable CI release contract consumed by LocalCluster CD."""
+"""Validate the immutable CI release contract consumed by LocalSingleNode CD."""
 
 from __future__ import annotations
 

@@ -25,7 +25,7 @@ def variable(name: str) -> dict[str, Any]:
             "multi": True,
             "name": "deployment_target",
             "options": [],
-            "query": "local,localcluster,cloud",
+            "query": "local",
             "type": "custom",
         },
         "service_job": query_variable(

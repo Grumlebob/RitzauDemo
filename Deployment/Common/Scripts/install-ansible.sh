@@ -2,7 +2,7 @@
 set -euo pipefail
 
 # Routine jobs use --check. Provisioning is explicit (the no-argument form is
-# retained for existing control-machine and Cloud setup callers).
+# retained for the per-app LocalSingleNode setup route).
 MODE="provision"
 USER_ONLY=false
 for option in "$@"; do

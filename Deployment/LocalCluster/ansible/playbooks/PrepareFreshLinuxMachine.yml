@@ -1,9 +1,0 @@
----
-- name: Prepare fresh Linux Mint machines
-  hosts: all
-  become: true
-  roles:
-    - mint_base
-    - ssh_hardening
-    - docker
-    - firewall

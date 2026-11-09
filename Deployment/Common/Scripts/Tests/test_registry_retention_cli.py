@@ -36,19 +36,19 @@ def make_inventory(ages=(30, 3, 2, 1), sizes=None):
         digest = "sha256:" + f"{run_id:064x}"
         version = Version(
             PACKAGE, 100 + run_id, digest,
-            frozenset({f"run-{run_id}-attempt-1-kind-final-profile-react"}),
+            frozenset({f"run-{run_id}-attempt-1-kind-final-profile-blazorauto"}),
             created, frozenset(), (("sha256:" + f"{run_id + 100:064x}", size),), 10,
         )
-        payload = Payload(PACKAGE, digest, "final", "React", run_id, 1, created, f"{run_id:040x}")
+        payload = Payload(PACKAGE, digest, "final", "BlazorAuto", run_id, 1, created, f"{run_id:040x}")
         versions.append(version)
         payloads.append(payload)
         states[(run_id, 1)] = "completed"
     return Inventory("https://github.com/" + REPOSITORY, tuple(versions), tuple(payloads), frozenset({PACKAGE}), True), states
 
 
-def snapshot(target: str, instance: str, consumers=(), references=()):
+def snapshot(target: str, consumers=(), references=()):
     return json.dumps({
-        "schema_version": 1, "target": target, "instance": instance, "complete": True,
+        "schema_version": 1, "target": target, "complete": True,
         "consumers": list(consumers), "registry_payload_references": list(references),
     }, separators=(",", ":"))
 
@@ -93,18 +93,21 @@ class RegistryRetentionCliTests(unittest.TestCase):
         return Namespace(
             repository=REPOSITORY, username="runner", package=[PACKAGE + "=private"],
             retain_manifest=[], protection_json=protections or [
-                snapshot("localcluster", "cluster"), snapshot("localsinglenode", "primary"),
-            ], require_additional=False, reservation_id="", max_deletions=100,
+                snapshot("localsinglenode"),
+            ], reservation_id="", max_deletions=100,
             publication_kind=publication_kind, incoming_bundle_bytes=incoming_bundle_bytes,
             assert_clear=False, apply=apply,
         )
 
-    def test_required_targets_and_optional_instance_must_be_explicitly_complete(self):
+    def test_primary_snapshot_is_required_and_other_or_duplicate_targets_fail(self):
         with self.assertRaises(RetentionError):
-            CLI._parse_protections([snapshot("localsinglenode", "primary")], require_additional=False)
-        values = [snapshot("localcluster", "cluster"), snapshot("localsinglenode", "primary")]
+            CLI._parse_protections([])
+        values = [snapshot("localsinglenode")]
+        self.assertEqual("localsinglenode", CLI._parse_protections(values)[0]["target"])
         with self.assertRaises(RetentionError):
-            CLI._parse_protections(values, require_additional=True)
+            CLI._parse_protections(values + values)
+        with self.assertRaises(RetentionError):
+            CLI._parse_protections([snapshot("localcluster")])
 
     def test_publication_measurement_reports_large_store_without_enforcing_a_byte_cap(self):
         inventory, states = make_inventory(ages=(30,), sizes=(10 * 1024**3,))
@@ -233,10 +236,9 @@ class RegistryRetentionCliTests(unittest.TestCase):
             "run_attempt": item.run_attempt, "source_sha": item.commit_sha,
         }
         protections = [
-            snapshot("localcluster", "cluster", [consumer(current)], [reference(current)]),
-            snapshot("localsinglenode", "primary", [consumer(recovery)], [reference(recovery)]),
+            snapshot("localsinglenode", [consumer(current), consumer(recovery)], [reference(current), reference(recovery)]),
         ]
-        parsed = CLI._parse_protections(protections, require_additional=False)
+        parsed = CLI._parse_protections(protections)
         result = CLI._protection(parsed, states, inventory, repository=REPOSITORY, token="fixture",
                                  active_runs_provider=lambda *args, **kwargs: [])
         self.assertEqual(result.digests, {(current.package, current.digest), (recovery.package, recovery.digest)})

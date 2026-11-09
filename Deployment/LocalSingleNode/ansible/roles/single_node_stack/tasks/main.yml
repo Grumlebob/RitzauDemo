@@ -36,8 +36,7 @@
       - vault_data_protection_certificate_password is defined
     fail_msg: >-
       /etc/{{ app_name }}/secrets.yml has no vault_data_protection_certificate_password (nodes prepared
-      before 2026-10-16). Re-run the node's prepare step (PrepareSingleNode.yml, or prepare-additional-app.sh
-      for an additional app); it only adds missing secrets.
+      before 2026-10-16). Re-run the node's prepare step (PrepareSingleNode.yml); it only adds missing secrets.
 - name: Validate account environment values before rendering dotenv
   ansible.builtin.assert:
     that:
@@ -140,7 +139,6 @@
       - --source-repo-url
       - "{{ source_repo_url }}"
   environment:
-    LOCALSINGLENODE_SETTINGS_FILE: "{{ instance_settings_file | default('') }}"
   changed_when: false
 - name: Stage the exact app image before app interruption
   ansible.builtin.shell: |

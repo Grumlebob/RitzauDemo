@@ -418,17 +418,16 @@ class RegistryCapacityRecoveryTests(unittest.TestCase):
 
         jobs = workflow["jobs"]
         self.assertGreaterEqual(jobs["prune_registry"]["timeout-minutes"], 120)
-        status_reads = [step for job_name in ("localcluster_protection", "localsinglenode_primary",
-                                               "localsinglenode_additional")
+        status_reads = [step for job_name in ("localsinglenode_primary",)
                         for step in jobs[job_name]["steps"]
                         if step.get("name", "").startswith("Read ")]
-        self.assertEqual(len(status_reads), 3)
+        self.assertEqual(len(status_reads), 1)
         for step in status_reads:
             self.assertIn("registry-retention-recovery.py prepare", step["run"])
             self.assertIn("with-deploy-lock.sh", step["run"])
             self.assertEqual(step["env"]["RESERVATION_RUN_ID"], "${{ inputs.registry_reservation_run_id }}")
 
-        for job_name in ("localcluster_protection", "localsinglenode_primary", "localsinglenode_additional"):
+        for job_name in ("localsinglenode_primary",):
             gate = jobs[job_name]["steps"][0]
             self.assertEqual(gate["env"]["PRIOR_CAPACITY_CI_RUN_ID"], "${{ inputs.prior_capacity_ci_run_id }}")
             self.assertEqual(gate["env"]["PRIOR_CAPACITY_CI_ATTEMPT"], "${{ inputs.prior_capacity_ci_attempt }}")
@@ -445,8 +444,8 @@ class RegistryCapacityRecoveryTests(unittest.TestCase):
         self.assertEqual(cleanup["if"], "always()")
         self.assertIn("registry-retention-recovery.json", cleanup["run"])
 
-        gate = jobs["localcluster_protection"]["steps"][0]["run"]
-        base = dict(os.environ, GITHUB_REF="refs/heads/main", DEPLOY_TARGETS="localcluster,localsinglenode",
+        gate = jobs["localsinglenode_primary"]["steps"][0]["run"]
+        base = dict(os.environ, GITHUB_REF="refs/heads/main", DEPLOY_TARGETS="localsinglenode",
                     REGISTRY_RETENTION_APPLY="false", RESERVATION_RUN_ID="", RESERVATION_ATTEMPT="",
                     CAPACITY_RECOVERY_CI_RUN_ID="", CAPACITY_RECOVERY_CI_ATTEMPT="",
                     PRIOR_CAPACITY_CI_RUN_ID="", PRIOR_CAPACITY_CI_ATTEMPT="")

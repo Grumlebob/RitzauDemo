@@ -74,7 +74,7 @@
           "showLineNumbers": false,
           "showMiniMap": false
         },
-        "content": "Local Docker intentionally has limited node-exporter coverage in V1. Local PostgreSQL and Redis exporter panels should still show data. LocalCluster and Cloud show the full four-node fleet.",
+        "content": "Local Docker has limited node-exporter coverage. PostgreSQL and Redis panels appear when their local exporters are available.",
         "mode": "markdown"
       }
     },
@@ -574,7 +574,7 @@
         "multi": true,
         "name": "deployment_target",
         "options": [],
-        "query": "local,localcluster,cloud",
+        "query": "local",
         "type": "custom"
       },
       {

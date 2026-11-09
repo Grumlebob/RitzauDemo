@@ -45,8 +45,7 @@ The agent edits this private JSON with the account ID, active zone, unique tunne
 
    This verifies ownership state, tunnel-token identity and the repository's native host. It refuses different existing public variables. It encrypts `LOCALSINGLENODE_PUBLIC_TUNNEL_TOKEN` through `gh secret set` using standard input and sets `LOCALSINGLENODE_PUBLIC_HOSTNAME`, `LOCALSINGLENODE_PUBLIC_TUNNEL_ID` and `LOCALSINGLENODE_PUBLIC_ORIGIN_PORT`. Tokens are not command arguments.
 
-   For a prepared [additional app](ApplicationInstances.md), append both `--environment <additional-environment>` and `--instance-config-file <private-instance.json>` to this command. The helper writes its public metadata and connector secret only to the additional environment. Use that app's distinct hostname, tunnel and origin port.
-5. Dispatch **CD - Deploy LocalSingleNode** from `main`, selecting the intended `app_instance` and the publishing SHA as `target_sha`. Record the returned run ID before watching. Never redispatch because a watcher stops.
+5. Dispatch **CD - Deploy LocalSingleNode** from `main`, using the publishing SHA as `target_sha`. Record the returned run ID before watching. Never redispatch because a watcher stops.
 6. CD installs the checksum-pinned binary in `/usr/local/libexec/cloudflared-<app_name>/<version>/`, with traversable root-owned parent directories, then enables `cloudflared-<app_name>.service`. A bounded systemd check requires the service to be active and running before public acceptance. It uses systemd credentials and a protected root-owned token file. Only `<app_name>-public.caddy` is added to shared Caddy, bound to the configured loopback port. HTTPS and Cloudflare client IP forwarding apply only there. The existing LAN listener remains unchanged.
 7. Require LAN and public acceptance. From the independent controller, replace the quoted profile placeholders with the verified manifest's values and use the deployed HTTPS origin:
 

@@ -145,12 +145,12 @@ class DeploymentReferenceTests(unittest.TestCase):
 
         def runs(api_root, repo, token, workflow_file, status, *, max_runs=None):
             calls.append((workflow_file, status))
-            if workflow_file == "cd-localcluster.yml" and status == "success":
+            if workflow_file == "cd-localsinglenode.yml" and status == "success":
                 return [
-                    {"display_title": f"CD LocalCluster @ {newest_target}"},
-                    {"display_title": f"CD LocalCluster @ {newest_target}"},
-                    {"display_title": f"CD LocalCluster @ {recovery_target}"},
-                    {"display_title": f"CD LocalCluster @ {historical_target}"},
+                    {"display_title": f"CD LocalSingleNode @ {newest_target}"},
+                    {"display_title": f"CD LocalSingleNode @ {newest_target}"},
+                    {"display_title": f"CD LocalSingleNode @ {recovery_target}"},
+                    {"display_title": f"CD LocalSingleNode @ {historical_target}"},
                 ]
             if workflow_file == "cd-localsinglenode.yml" and status == "in_progress":
                 return [{"display_title": f"CD LocalSingleNode @ {live_target}"}]
@@ -158,11 +158,10 @@ class DeploymentReferenceTests(unittest.TestCase):
 
         with mock.patch.object(prune, "list_workflow_runs", side_effect=runs):
             shas = prune.list_deployment_shas(
-                "https://api.example", "owner/repo", "token", ["cd-localcluster.yml", "cd-localsinglenode.yml"]
+                "https://api.example", "owner/repo", "token", ["cd-localsinglenode.yml"]
             )
         self.assertEqual({live_target, newest_target, recovery_target}, shas)
-        self.assertIn(("cd-localcluster.yml", "success"), calls)
-        self.assertNotIn(("cd-localcluster.yml", "completed"), calls)
+        self.assertIn(("cd-localsinglenode.yml", "success"), calls)
         self.assertIn(("cd-localsinglenode.yml", "in_progress"), calls)
         self.assertTrue(all(any(observed == active for _, observed in calls) for active in prune.ACTIVE_STATUSES))
 
@@ -171,7 +170,7 @@ class DeploymentReferenceTests(unittest.TestCase):
 
         def runs(api_root, repo, token, workflow_file, status, *, max_runs=None):
             if status == "success":
-                return [{"display_title": f"CD LocalCluster @ {target}"}] * 100
+                return [{"display_title": f"CD LocalSingleNode @ {target}"}] * 100
             return []
 
         with mock.patch.object(prune, "list_workflow_runs", side_effect=runs):

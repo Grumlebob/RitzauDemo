@@ -1,53 +1,23 @@
 # Fork This Repository
 
-Use this page to choose the fork's identity, decide what to do with the sample feature, and enter the deployment guide for each target. For target capabilities and `DEPLOY_TARGETS`, start with the [deployment chooser](../Deployment/README.md).
+RitzauDemo is a small Blazor CRUD demo with one deployment target: [LocalSingleNode](../Deployment/LocalSingleNode/HowToDeployLocalSingleNode.md). It runs on a native Linux host and serves the app over the LAN. Start with the [deployment guide](../Deployment/README.md) and [requirements](Requirements.md).
 
-## Choose the target route
+## Prepare the fork
 
-- **One native Linux PC:** follow [LocalSingleNode setup](../Deployment/LocalSingleNode/AgentSetup.md) and [deployment](../Deployment/LocalSingleNode/HowToDeployLocalSingleNode.md).
-- **Four prepared LocalCluster nodes:** follow [Fork onto an existing LocalCluster](../Deployment/LocalCluster/ForkExistingCluster.md).
-- **New LocalCluster nodes:** follow [LocalCluster setup](../Deployment/LocalCluster/HowToDeployLocalCluster.md).
-- **Cloud:** follow [Cloud setup](../Deployment/Cloud/HowToDeployCloud.md).
+Choose a new repository identity and GHCR image before publishing a release. Update `Deployment/Common/release.yml`, the product defaults, and `.env.example` together. Keep account registration and admin seeding disabled for the demo unless its requirements change.
 
-For a multi-target fork, keep all target folders and customize only the targets you enable. A clone intended to support only LocalSingleNode can remove the other targets by following [Single-node-only clone](../Deployment/LocalSingleNode/SingleNodeOnlyClone.md); deleting their folders alone leaves CI dependencies behind.
+Before the first code PR, configure the repository's native CI runner by following [AgentSetup](../Deployment/LocalSingleNode/AgentSetup.md). Use its `--ci-runner` path and set the repository runner variables it reports. A clone does not grant access to another repository's runners.
 
-Before the first code PR, register an online self-hosted Linux x64 runner. Set repository variables `CI_RUNNER_LABEL` to its label and `CI_RUNNER_HOST` to its hostname. CI runs only on `CI_RUNNER_LABEL` and fails its runner check until both variables are set. Unset deployment labels fall back to template runners and can leave a fork's jobs queued indefinitely. Set `LOCALSINGLENODE_RUNNER_LABEL` or `LOCALCLUSTER_RUNNER_LABEL` for enabled targets. Use [AgentSetup `--ci-runner`](../Deployment/LocalSingleNode/AgentSetup.md) for a new single-node fork, or the existing-cluster route above for prepared LocalCluster nodes. Cloud CD requires an existing runner on `node-main`; Cloud setup does not install it.
+## Change the Books demo
 
-Cloning this template does not grant access to another repository's runners.
+The app uses one frontend, Blazor Auto. Keep `frontend-profile.txt` set to `BlazorAuto`. The Books CRUD feature can remain as the product example or be replaced in small slices using [How to add a feature](HowToAddANewFeature.md). Update the server, Blazor client, focused tests, and documentation together.
 
-## Choose shared identity
+## Run and publish
 
-Choose these values once and use them consistently:
+Use the [local gate](Test.md#local-gate), open a pull request, and merge only after the required workflow succeeds on that exact head. Main CI publishes an immutable image and migration bundle. Follow the [release contract](../Deployment/Common/ReleaseContract.md) before deployment.
 
-| Value | Rule |
-| --- | --- |
-| `APP_SLUG` | Lowercase deployment name; start with a letter and use only letters, numbers, and hyphens. |
-| `APP_IDENTITY_NAME` | Usually the same as `APP_SLUG`; choose it before users exist because it scopes Data Protection and cache channels. |
-| `GITHUB_OWNER` and `GITHUB_REPO` | The owner and repository name for the fork. |
-| `APP_IMAGE` | Lowercase GHCR image owned by the fork. |
-| `PUBLIC_HOSTNAME` | The hostname configured for the selected target. |
-| `MIGRATION_BUNDLE_NAME` | Unique name for the fork's migration bundle. |
-
-Update the first README paragraph and the local settings in `.env.example`, `GrumPlates/appsettings.json`, and `GrumPlates/appsettings.Docker.json`. Keep internal project and namespace names unless you are doing a planned rebrand. See [running locally](HowToRunLocally.md) for creating the ignored `.env` file.
-
-## Frontend and sample feature
-
-RitzauDemo supports one frontend: Blazor Auto. Keep `frontend-profile.txt` set to `BlazorAuto`. The Books CRUD example can stay while the fork is deployed, then be replaced in small slices using [How to add a feature](HowToAddANewFeature.md). Update the server, Blazor client, focused tests and documentation together when replacing it.
-
-## Set shared release settings
-
-Edit `Deployment/Common/release.yml` with the fork's `app_image`, `migration_bundle_name`, and the supported `linux-x64` migration runtime. Validate it with:
-
-```bash
-bash ./Deployment/Common/Scripts/validate-common-release.sh
-```
-
-Read the [release contract](../Deployment/Common/ReleaseContract.md) before choosing a commit to deploy. A pull request check validates the fork but does not publish a deployable release.
-
-## Make and verify the fork changes
-
-Make customization changes on a branch. Run the [local gate](Test.md#local-gate), open a pull request, and merge only after `build-test-push` succeeds on that exact head. Merging alone does not deploy; enter the selected target's guide after main CI publishes the release.
+Public hostname setup is a separate optional extension. Keep it disabled until the exact hostname and public exposure are approved.
 
 ## Make a standalone product
 
-When the fork becomes a product of its own rather than a configured copy, follow [Standalone product](StandaloneProduct.md). It orders target removal, the rename and template-material cleanup. If the clone keeps the template as an `upstream` remote, run `gh repo set-default <owner>/<repo>` first; otherwise `gh` acts on the template.
+When the fork becomes a product of its own, follow [Standalone product](StandaloneProduct.md) for the rename and template-material cleanup. If the clone keeps the template as an `upstream` remote, run `gh repo set-default <owner>/<repo>` first; otherwise `gh` acts on the template.

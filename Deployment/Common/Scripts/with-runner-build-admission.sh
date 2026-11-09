@@ -11,7 +11,7 @@ fail() {
 
 usage() {
   echo "usage: $0 --pool native|desktop <command> [args...]" >&2
-  echo "       $0 --runner-label <localsinglenode|localcluster label> <command> [args...]" >&2
+  echo "       $0 --runner-label <localsinglenode label> <command> [args...]" >&2
   exit 2
 }
 

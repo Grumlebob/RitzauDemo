@@ -1,7 +1,7 @@
 #!/usr/bin/env bash
 set -euo pipefail
 
-# Inspect or manually release the shared LocalCluster deployment lock on
+# Inspect or manually release the shared deployment lock on
 # node-main. Run it on node-main. The lock is never released automatically.
 
 usage() {

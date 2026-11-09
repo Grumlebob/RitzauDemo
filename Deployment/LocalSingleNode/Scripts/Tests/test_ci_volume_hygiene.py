@@ -2,7 +2,7 @@ from pathlib import Path
 from unittest import TestCase
 
 ROOT = Path(__file__).resolve().parents[4]
-CI_SMOKE = ROOT / "Deployment/LocalCluster/Scripts/ci-docker-smoke.sh"
+CI_SMOKE = ROOT / "Deployment/Common/Scripts/ci-docker-smoke.sh"
 
 
 class CiVolumeHygieneTests(TestCase):

@@ -24,25 +24,6 @@ import pin_release_payload
 import release_status
 
 
-class CrossRepositoryDispatchContractTests(TestCase):
-    def test_localcluster_dispatch_accepts_and_binds_exact_coordinator_provenance(self):
-        repo_root = Path(__file__).resolve().parents[4]
-        workflow = (repo_root / ".github/workflows/cd-localcluster.yml").read_text(encoding="utf-8")
-        input_block = workflow.split("    inputs:\n", 1)[1].split("\npermissions:\n", 1)[0]
-        declared = set(re.findall(r"^      ([a-z][a-z0-9_]*):$", input_block, re.MULTILINE))
-        required = {
-            "target_sha", "run_migrations", "refresh_rating_ranks", "workflow_sha",
-            "ci_run_id", "ci_run_attempt", "payload_transport", "payload_image",
-            "payload_digest", "artifact_id", "artifact_digest", "manifest_sha256",
-            "image_digest", "operation_id", "request_id",
-        }
-        self.assertTrue(required.issubset(declared), required - declared)
-        self.assertIn("inputs.request_id", workflow.splitlines()[1])
-        self.assertIn('--expected-run-id "$INPUT_CI_RUN_ID"', workflow)
-        self.assertIn('--expected-run-attempt "$INPUT_CI_RUN_ATTEMPT"', workflow)
-        self.assertIn("Selected release payload", workflow)
-
-
 class JsonResponse:
     def __init__(self, value: dict):
         self.body = json.dumps(value).encode("utf-8")
@@ -289,12 +270,12 @@ class ReleaseStatusTests(TestCase):
     def test_lists_active_deployment_runs_and_freezes_dispatch_target_sha(self):
         target_sha = "e" * 40
         run = {
-            "path": ".github/workflows/cd-localcluster.yml",
+            "path": ".github/workflows/cd-localsinglenode.yml",
             "id": 77,
             "status": "queued",
             "head_sha": "f" * 40,
             "run_attempt": 1,
-            "display_title": f"CD LocalCluster @ {target_sha}",
+            "display_title": f"CD LocalSingleNode @ {target_sha}",
         }
 
         def response(request, timeout):
@@ -310,7 +291,7 @@ class ReleaseStatusTests(TestCase):
             )
 
         self.assertEqual(result, [{
-            "workflow": "cd-localcluster.yml",
+            "workflow": "cd-localsinglenode.yml",
             "run_id": "77",
             "status": "queued",
             "head_sha": "f" * 40,
@@ -318,7 +299,7 @@ class ReleaseStatusTests(TestCase):
             "run_attempt": 1,
         }])
 
-    def test_repo_scan_covers_both_deployment_workflows_in_five_queries(self):
+    def test_repo_scan_covers_the_supported_deployment_workflow_in_five_queries(self):
         runs = [{"id": 77 + index, "status": "queued", "head_sha": "a" * 40, "run_attempt": 1,
                  "path": f".github/workflows/{workflow}"}
                 for index, workflow in enumerate(release_status.CD_WORKFLOWS)]
@@ -338,7 +319,7 @@ class ReleaseStatusTests(TestCase):
     def test_repo_scan_paginates_unrelated_runs_before_a_deployment(self):
         unrelated = [{"path": ".github/workflows/ci.yml"} for _ in range(100)]
         deployment = {"id": 77, "status": "queued", "head_sha": "a" * 40, "run_attempt": 1,
-                      "path": ".github/workflows/cd-localcluster.yml"}
+                      "path": ".github/workflows/cd-localsinglenode.yml"}
 
         def response(request, timeout):
             if "status=queued" not in request.full_url:
@@ -362,7 +343,7 @@ class ReleaseStatusTests(TestCase):
                 )
 
     def test_fails_closed_when_active_run_has_incomplete_identity(self):
-        run = {"path": ".github/workflows/cd-localcluster.yml", "id": 77, "status": "in_progress", "head_sha": "not-a-sha", "run_attempt": 1}
+        run = {"path": ".github/workflows/cd-localsinglenode.yml", "id": 77, "status": "in_progress", "head_sha": "not-a-sha", "run_attempt": 1}
 
         with patch("release_status.urllib.request.urlopen", return_value=JsonResponse({"workflow_runs": [run]})):
             with self.assertRaises(ReleaseStatusError):

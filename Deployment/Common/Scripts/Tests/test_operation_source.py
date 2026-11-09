@@ -146,7 +146,7 @@ class OperationSourceTests(unittest.TestCase):
 
     def test_release_consumers_retain_exact_provenance(self):
         root=Path(__file__).resolve().parents[4]
-        for filename in ('cd-localsinglenode.yml','cd-localcluster.yml','cd-cloud.yml'):
+        for filename in ('cd-localsinglenode.yml',):
             text=(root/'.github/workflows'/filename).read_text()
             self.assertNotIn('verify-operation-source.py',text)
             self.assertIn('find-successful-ci-run',text)

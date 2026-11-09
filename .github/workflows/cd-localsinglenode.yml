@@ -4,14 +4,6 @@ run-name: "CD LocalSingleNode @ ${{ inputs.target_sha || github.sha }}"
 on:
   workflow_dispatch:
     inputs:
-      app_instance:
-        description: Deploy the primary app or the additional app configured in its protected environment
-        required: true
-        default: primary
-        type: choice
-        options:
-          - primary
-          - additional
       run_migrations:
         description: Run the EF migration bundle before starting app servers
         required: true
@@ -46,7 +38,7 @@ jobs:
     runs-on: [self-hosted, linux, x64, "${{ vars.LOCALSINGLENODE_RUNNER_LABEL || 'localsinglenode-books' }}"]
     timeout-minutes: 45
     environment:
-      name: ${{ inputs.app_instance == 'additional' && vars.LOCALSINGLENODE_ADDITIONAL_ENVIRONMENT || vars.LOCALSINGLENODE_ENVIRONMENT || 'localsinglenode' }}
+      name: ${{ vars.LOCALSINGLENODE_ENVIRONMENT || 'localsinglenode' }}
 
     steps:
       - name: Require this deployment target to be enabled
@@ -56,7 +48,7 @@ jobs:
         run: |
           targets=",${DEPLOY_TARGETS// /},"
           if [[ "$targets" != *",${TARGET},"* ]]; then
-            echo "::error::Deployment target '${TARGET}' is not enabled. Add it to the DEPLOY_TARGETS repository variable (Settings > Secrets and variables > Actions > Variables), for example 'localcluster,localsinglenode'."
+            echo "::error::Deployment target '${TARGET}' is not enabled. Add 'localsinglenode' to the DEPLOY_TARGETS repository variable (Settings > Secrets and variables > Actions > Variables)."
             exit 1
           fi
 
@@ -127,15 +119,10 @@ jobs:
       - name: Common release settings validation
         run: bash Deployment/Common/Scripts/validate-common-release.sh
 
-      - name: Load deployment settings
-        env:
-          INPUT_APP_INSTANCE: ${{ inputs.app_instance || 'primary' }}
-          APP_INSTANCE_CONFIG: ${{ secrets.LOCALSINGLENODE_APP_INSTANCE }}
-          ADDITIONAL_INSTANCE_ENVIRONMENT: ${{ vars.LOCALSINGLENODE_ADDITIONAL_ENVIRONMENT }}
-          PRIMARY_INSTANCE_ENVIRONMENT: ${{ vars.LOCALSINGLENODE_ENVIRONMENT }}
+      - name: Resolve the primary app and release
         run: |
           set -euo pipefail
-          python3 Deployment/LocalSingleNode/Scripts/resolve-app-instance.py
+          python3 Deployment/LocalSingleNode/Scripts/resolve-deployment.py
           migration_runtime="$(bash Deployment/Common/Scripts/read-release-setting.sh migration_runtime)"
           release_payload_prefix="$(bash Deployment/Common/Scripts/read-release-setting.sh release_payload_prefix)"
           {
@@ -277,7 +264,7 @@ jobs:
           fi
 
       # Check only: CI/CD jobs never run apt. Provision on the control machine with
-      # Deployment/LocalCluster/Scripts/install-ansible.sh --provision.
+      # Deployment/Common/Scripts/install-ansible.sh --provision.
       - name: Activate validated Ansible generation
         run: |
           bash Deployment/Common/Scripts/install-ansible.sh --check
@@ -321,12 +308,6 @@ jobs:
         run: |
           public_vars="$RUNNER_TEMP/public-${GITHUB_RUN_ID}-${GITHUB_RUN_ATTEMPT}.json"
           echo "PUBLIC_EXTRA_VARS_FILE=$public_vars" >> "$GITHUB_ENV"
-          if [[ "$APP_INSTANCE" == additional ]]; then
-            export PUBLIC_HOSTNAME="$INSTANCE_PUBLIC_HOSTNAME"
-            export PUBLIC_TUNNEL_ID="$INSTANCE_PUBLIC_TUNNEL_ID"
-            export PUBLIC_ORIGIN_PORT="$INSTANCE_PUBLIC_ORIGIN_PORT"
-            if [[ -z "$PUBLIC_HOSTNAME" ]]; then export PUBLIC_TUNNEL_TOKEN=; fi
-          fi
           python3 Deployment/LocalSingleNode/Scripts/lib/public_config.py --output "$public_vars"
 
       - name: Deploy the verified release under the shared lock
@@ -337,7 +318,7 @@ jobs:
           bash ../../Common/Scripts/with-deploy-lock.sh \
             ansible-playbook -i "$RUNNER_TEMP/hosts.yml" playbooks/site.yml \
             -e @"/etc/$APP_NAME/secrets.yml" -e @"$GHCR_EXTRA_VARS_FILE" \
-            -e @"$PUBLIC_EXTRA_VARS_FILE" -e @"$INSTANCE_EXTRA_VARS_FILE" \
+            -e @"$PUBLIC_EXTRA_VARS_FILE" -e @"$DEPLOYMENT_VARS_FILE" \
             -e "app_version=$TARGET_SHA" -e "release_image_digest=$RELEASE_IMAGE_DIGEST" \
             -e "release_payload_transport=$RELEASE_PAYLOAD_TRANSPORT" \
             -e "release_payload_pin_key=$RELEASE_PAYLOAD_PIN_KEY" \
@@ -366,4 +347,4 @@ jobs:
           if [ -n "${DOCKER_CONFIG:-}" ] && [ -d "${DOCKER_CONFIG}" ]; then
             rm -rf "${DOCKER_CONFIG}"
           fi
-          rm -f -- "$RUNNER_TEMP/machine.yml" "$RUNNER_TEMP/hosts.yml" "$RUNNER_TEMP/instance-settings.yml" "$RUNNER_TEMP/instance-vars.json"
+          rm -f -- "$RUNNER_TEMP/machine.yml" "$RUNNER_TEMP/hosts.yml" "$RUNNER_TEMP/deployment-vars.json"

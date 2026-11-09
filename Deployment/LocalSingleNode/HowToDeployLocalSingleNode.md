@@ -8,7 +8,6 @@ LocalSingleNode runs on a native Linux Mint PC. It serves HTTP on the LAN by def
 - Pair the main PC with an existing node: follow [Controller SSH](ControllerSsh.md).
 - Check a candidate without changing the node: follow [readiness](Readiness.md).
 - Publish an existing LAN app through HTTPS: follow [Public setup](PublicSetup.md).
-- Add or select another app on this node: follow [application instances](ApplicationInstances.md).
 - Release, diagnose, maintain, back up, restore, roll back or remove an app: use [operations](Operations.md).
 - Change the target's checked settings in [all.yml](inventory/group_vars/all.yml). Use the [shared release contract](../Common/ReleaseContract.md) for image, migration and CI provenance rules.
 

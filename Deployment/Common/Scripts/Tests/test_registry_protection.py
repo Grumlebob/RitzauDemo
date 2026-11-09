@@ -19,7 +19,7 @@ class RegistryProtectionTests(unittest.TestCase):
     def status(self):
         return {
             "schema_version": 1,
-            "target": "localcluster",
+            "target": "localsinglenode",
             "shared_lock": "held",
             "mutation": "none",
             "live_identity": "verified",
@@ -43,7 +43,7 @@ class RegistryProtectionTests(unittest.TestCase):
         }
 
     def test_extracts_current_and_recovery_consumer_attempts_and_exact_registry_digest(self):
-        result = CLI.protection(self.status(), target="localcluster", instance="cluster")
+        result = CLI.protection(self.status(), target="localsinglenode")
         self.assertEqual(result["consumers"], [
             {"run_id": 123, "run_attempt": 2, "target_sha": "a" * 40},
             {"run_id": 456, "run_attempt": 1, "target_sha": "b" * 40},
@@ -55,7 +55,7 @@ class RegistryProtectionTests(unittest.TestCase):
         self.assertTrue(result["complete"])
 
     def test_github_output_encodes_only_the_validated_protection_snapshot(self):
-        value = CLI.protection(self.status(), target="localcluster", instance="cluster")
+        value = CLI.protection(self.status(), target="localsinglenode")
         line = CLI.format_output(value, github_output=True)
         name, encoded = line.split("=", 1)
 
@@ -71,15 +71,15 @@ class RegistryProtectionTests(unittest.TestCase):
                 value = self.status()
                 value["registry_payload_references"] = [value["registry_payload_references"][i] for i in kept]
                 with self.assertRaises(CLI.ProtectionError):
-                    CLI.protection(value, target="localcluster", instance="cluster")
+                    CLI.protection(value, target="localsinglenode")
 
     def test_unverified_live_identity_or_wrong_target_fails_closed(self):
         value = self.status()
         value["live_identity"] = "failed"
         with self.assertRaises(CLI.ProtectionError):
-            CLI.protection(value, target="localcluster", instance="cluster")
+            CLI.protection(value, target="localcluster")
         with self.assertRaises(CLI.ProtectionError):
-            CLI.protection(self.status(), target="localsinglenode", instance="cluster")
+            CLI.protection(self.status(), target="localcluster")
 
 
 if __name__ == "__main__":

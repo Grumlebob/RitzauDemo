@@ -31,13 +31,13 @@ PENDING_SIGNAL_STATUS=0
 release_lock() {
   [[ "$LOCK_ACQUIRED" == "1" ]] || return 0
   if [[ "$(cat "$LOCK_DIR/token" 2>/dev/null || true)" != "$LOCK_TOKEN" ]]; then
-    echo "LocalCluster lock token changed while held; leaving $LOCK_DIR for inspection" >&2
+    echo "Shared deployment lock token changed while held; leaving $LOCK_DIR for inspection" >&2
     return 75
   fi
   local unexpected
   unexpected="$(find "$LOCK_DIR" -mindepth 1 -maxdepth 1 ! -name token ! -name owner ! -name created_epoch -print -quit)"
   if [[ -n "$unexpected" ]]; then
-    echo "LocalCluster lock contains unexpected file $unexpected; leaving it for inspection" >&2
+    echo "Shared deployment lock contains unexpected file $unexpected; leaving it for inspection" >&2
     return 75
   fi
   rm -f "$LOCK_DIR/token" "$LOCK_DIR/owner" "$LOCK_DIR/created_epoch"
@@ -89,17 +89,17 @@ trap 'handle_signal 143' TERM
 trap 'handle_signal 130' INT
 
 deadline=$((SECONDS + LOCK_TIMEOUT_SECONDS))
-echo "waiting for LocalCluster deployment lock: $LOCK_DIR"
+echo "waiting for shared deployment lock: $LOCK_DIR"
 # 0755 so other apps' runners can read the owner line when they time out.
 while ! (umask 022; mkdir "$LOCK_DIR") 2>/dev/null; do
   if (( SECONDS >= deadline )); then
-    echo "timed out waiting for LocalCluster deployment lock: $LOCK_DIR" >&2
+    echo "timed out waiting for shared deployment lock: $LOCK_DIR" >&2
     for file in owner owner.json; do
       if [[ -r "$LOCK_DIR/$file" ]]; then
         echo "lock $file: $(head -c 2000 "$LOCK_DIR/$file")" >&2
       fi
     done
-    echo "Do not delete the lock by hand. Follow 'Deployment lock' in Deployment/LocalCluster/HowToDeployLocalCluster.md." >&2
+    echo "Do not delete the lock by hand. Follow 'Deployment lock' in Deployment/LocalSingleNode/Operations.md." >&2
     exit 1
   fi
   sleep 2
@@ -110,7 +110,7 @@ export LOCALCLUSTER_DEPLOY_LOCK_DIR="$LOCK_DIR" LOCALCLUSTER_DEPLOY_LOCK_TOKEN="
 printf '%s\n' "$LOCK_TOKEN" > "$LOCK_DIR/token"
 printf '%s\n' "$LOCK_OWNER" > "$LOCK_DIR/owner"
 date +%s > "$LOCK_DIR/created_epoch"
-echo "LocalCluster deployment lock acquired: $LOCK_DIR"
+echo "shared deployment lock acquired: $LOCK_DIR"
 
 [[ "$PENDING_SIGNAL_STATUS" == "0" ]] || exit "$PENDING_SIGNAL_STATUS"
 # Explicit stdin: background commands in a non-interactive shell otherwise read /dev/null.

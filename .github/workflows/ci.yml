@@ -79,37 +79,10 @@ jobs:
 
       - name: Activate validated Ansible generation
         run: |
-          bash Deployment/LocalCluster/Scripts/install-ansible.sh --check
+          bash Deployment/Common/Scripts/install-ansible.sh --check
           ansible_root="$(readlink -f "${HOME}/.local/share/books-ansible/current")"
           test -x "${ansible_root}/bin/ansible-playbook"
           echo "${ansible_root}/bin" >> "$GITHUB_PATH"
-
-      - name: Validate LocalCluster Ansible playbook syntax
-        run: |
-          set -euo pipefail
-          syntax_root="$(mktemp -d "${RUNNER_TEMP:-/tmp}/ansible_syntax.XXXXXX")"
-          trap 'rm -rf -- "$syntax_root"' EXIT
-          mkdir -p \
-            "$syntax_root/Deployment/LocalCluster/ansible/playbooks" \
-            "$syntax_root/Deployment/LocalCluster/inventory/prod" \
-            "$syntax_root/Deployment/Common"
-          cp Deployment/LocalCluster/ansible/playbooks/site.yml \
-            "$syntax_root/Deployment/LocalCluster/ansible/playbooks/site.yml"
-          cp Deployment/Common/release.yml \
-            "$syntax_root/Deployment/Common/release.yml"
-          printf '%s\n' '---' '{}' > \
-            "$syntax_root/Deployment/LocalCluster/inventory/prod/vault.yml"
-          printf '%s\n' \
-            '[all]' 'localhost' '' \
-            '[node_db]' 'localhost' '' \
-            '[load_balancer]' 'localhost' '' \
-            '[app_servers]' 'localhost' \
-            > "$syntax_root/inventory.ini"
-          ANSIBLE_ROLES_PATH="$GITHUB_WORKSPACE/Deployment/LocalCluster/ansible/roles:$GITHUB_WORKSPACE/Deployment/Common/ansible/roles" \
-            ansible-playbook \
-              --inventory "$syntax_root/inventory.ini" \
-              --syntax-check \
-              "$syntax_root/Deployment/LocalCluster/ansible/playbooks/site.yml"
 
       - name: Validate LocalSingleNode playbook syntax
         run: bash Deployment/LocalSingleNode/Scripts/validate-playbooks.sh
@@ -150,6 +123,9 @@ jobs:
           command -v pwsh
           python3 -m unittest discover -s Scripts/CI/tests -v
 
+      - name: Test runner capacity guard
+        run: bash Scripts/CI/tests/test_check_runner_capacity.sh
+
       - name: Restore
         env:
           RESOLVED_FRONTEND_PROFILE: ${{ steps.frontend_profile.outputs.profile }}
@@ -161,16 +137,12 @@ jobs:
       - name: Deployment shell lint
         run: |
           {
-            find Deployment/LocalSingleNode/Scripts Deployment/LocalCluster/Scripts Deployment/Common/Scripts -type f -name '*.sh' -print0
-            find Deployment/Cloud/Scripts -type f -name '*.sh' -print0
+            find Deployment/LocalSingleNode/Scripts Deployment/Common/Scripts -type f -name '*.sh' -print0
             find Deployment/Common/observability/scripts -type f -name '*.sh' -print0
             find Scripts/CI -type f -name '*.sh' -print0
           } | xargs -0 shellcheck --severity=warning
 
-      - name: Test Cloud account environment loading
-        run: bash Deployment/Cloud/Scripts/Tests/test-cloud-account-env.sh
-
-      - name: Test LocalCluster deployment lock
+      - name: Test shared deployment lock
         run: bash Deployment/Common/Scripts/Tests/test-with-deploy-lock.sh
 
       - name: Test node browser lock
@@ -183,10 +155,10 @@ jobs:
         run: bash Deployment/Common/Scripts/Tests/test-install-ansible-user-only.sh
 
       - name: Test Ansible check-only setup
-        run: bash Deployment/LocalCluster/Scripts/Tests/test-install-ansible-check.sh
+        run: bash Deployment/Common/Scripts/Tests/test-install-ansible-check.sh
 
       - name: Test Docker smoke resource lifecycle
-        run: bash Deployment/LocalCluster/Scripts/Tests/test-ci-docker-smoke.sh
+        run: bash Deployment/Common/Scripts/Tests/test-ci-docker-smoke.sh
 
       - name: Validate local Compose Blazor target
         run: |
@@ -202,19 +174,11 @@ jobs:
           python3 -c 'import json,sys; actual=json.loads(sys.stdin.read())["services"]["web"]["build"]["target"]; expected="final-blazor"; actual == expected or sys.exit(f"Compose target is {actual!r}, expected {expected!r}")' \
             <<< "$compose_config"
 
-      - name: Test LocalCluster deployment scripts
-        run: python3 -m unittest discover -s Deployment/LocalCluster/Scripts/Tests -p 'test_*.py' -v
-
-      - name: Test release identity verification
-        run: bash Deployment/LocalCluster/Scripts/Tests/test-verify-release-identity.sh
-
       - name: Test LocalSingleNode release identity verification
         run: bash Deployment/LocalSingleNode/Scripts/Tests/test-verify-release-identity.sh
 
       - name: Test maintenance and cleanup safeguards
         run: |
-          bash Deployment/LocalCluster/Scripts/Tests/test-localcluster-maintenance.sh
-          bash Deployment/LocalCluster/Scripts/Tests/test-prune-docker-residue-low-disk.sh
           bash Deployment/Common/Scripts/Tests/test-prune-actions-runner-residue.sh
           bash Deployment/Common/Scripts/Tests/test-ensure-actions-runner-prereqs.sh
 
@@ -224,11 +188,8 @@ jobs:
       - name: Common release settings validation
         run: bash Deployment/Common/Scripts/validate-common-release.sh
 
-      - name: Cloud deployment settings validation
-        run: bash Deployment/Cloud/Scripts/validate-cloud-settings.sh
-
       - name: Deployment audit
-        run: bash Deployment/LocalCluster/Scripts/audit-deployment.sh
+        run: bash Deployment/Common/Scripts/audit-deployment.sh
 
       - name: Setup Python
         run: |
@@ -259,7 +220,7 @@ jobs:
         run: |
           bash "$GITHUB_WORKSPACE/Deployment/Common/Scripts/with-runner-build-admission.sh" --pool "$CI_ADMISSION_POOL" bash -e -o pipefail <<'ADMITTED'
           python -m pip install --constraint "$CI_PYTHON_CONSTRAINTS" jinja2
-          bash Deployment/LocalCluster/Scripts/validate-rendered-templates.sh
+          bash Deployment/LocalSingleNode/Scripts/validate-rendered-templates.sh
 
           ADMITTED
 
@@ -362,13 +323,13 @@ jobs:
           FRONTEND_PROFILE="$profile" \
             FRONTEND_ACCEPTANCE_PROFILE="$acceptance_profile" \
             APP_VERSION="$image_tag" \
-            bash Deployment/LocalCluster/Scripts/ci-docker-smoke.sh
+            bash Deployment/Common/Scripts/ci-docker-smoke.sh
 
           ADMITTED
 
       - name: Remove this run's smoke resources after interruption
         if: ${{ always() && steps.ci_smoke.outcome != 'skipped' && steps.ci_smoke.outcome != '' }}
-        run: bash "$GITHUB_WORKSPACE/Deployment/Common/Scripts/with-runner-build-admission.sh" --pool "$CI_ADMISSION_POOL" bash Deployment/LocalCluster/Scripts/ci-docker-smoke.sh --cleanup-only
+        run: bash "$GITHUB_WORKSPACE/Deployment/Common/Scripts/with-runner-build-admission.sh" --pool "$CI_ADMISSION_POOL" bash Deployment/Common/Scripts/ci-docker-smoke.sh --cleanup-only
 
       # Owned cleanup only: remove the exact image tag this run built.
       # Unscoped prunes are not allowed on the shared CI runner.
@@ -605,11 +566,11 @@ jobs:
           FRONTEND_PROFILE: ${{ needs.validate.outputs.frontend_profile }}
           FRONTEND_ACCEPTANCE_PROFILE: ${{ needs.validate.outputs.acceptance_profile }}
           APP_VERSION: ${{ github.sha }}-${{ github.run_id }}-${{ github.run_attempt }}
-        run: bash "$GITHUB_WORKSPACE/Deployment/Common/Scripts/with-runner-build-admission.sh" --pool "$CI_ADMISSION_POOL" bash Deployment/LocalCluster/Scripts/ci-docker-smoke.sh
+        run: bash "$GITHUB_WORKSPACE/Deployment/Common/Scripts/with-runner-build-admission.sh" --pool "$CI_ADMISSION_POOL" bash Deployment/Common/Scripts/ci-docker-smoke.sh
 
       - name: Remove this run's smoke resources after interruption
         if: ${{ always() && steps.ci_smoke.outcome != 'skipped' && steps.ci_smoke.outcome != '' }}
-        run: bash "$GITHUB_WORKSPACE/Deployment/Common/Scripts/with-runner-build-admission.sh" --pool "$CI_ADMISSION_POOL" bash Deployment/LocalCluster/Scripts/ci-docker-smoke.sh --cleanup-only
+        run: bash "$GITHUB_WORKSPACE/Deployment/Common/Scripts/with-runner-build-admission.sh" --pool "$CI_ADMISSION_POOL" bash Deployment/Common/Scripts/ci-docker-smoke.sh --cleanup-only
 
       - name: Login to GHCR
         uses: docker/login-action@v4.7.0

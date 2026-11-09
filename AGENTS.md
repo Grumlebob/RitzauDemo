@@ -16,10 +16,10 @@ Portable rules for people and coding agents working in this repository. Machine-
   ```bash
   dotnet format GrumPlates.sln --verify-no-changes
   bash Scripts/CI/validate-frontend-profiles.sh /tmp/frontend-profile-results # needs Docker
-  bash Deployment/LocalCluster/Scripts/audit-deployment.sh
+  bash Deployment/Common/Scripts/audit-deployment.sh
   ```
 - Keep `dotnet build` and `dotnet test` sequential in one checkout. Never run them at the same time against the same files.
-- When you change behaviour that the deployment audit (`Deployment/LocalCluster/Scripts/Component/lib/audit_deployment.py`) checks, update the audit in the same change: replace the old rule with a rule for the new behaviour, never just delete it.
+- When you change behavior covered by the deployment audit (`Deployment/Common/Scripts/Component/lib/audit_deployment.py`), update the audit in the same change. Replace obsolete rules with checks for the supported single-node behavior; do not remove operational coverage.
 - Rebuild and commit `GrumPlates/wwwroot/tailwind.css` when Razor classes or `GrumPlates.Client/Styles` change.
 - Product requirements are in [docs/Requirements.md](docs/Requirements.md).
 - Keep durable docs focused on current template behavior. Link canonical rules and commands instead of duplicating them; keep execution history in plans or PRs and use generic examples unless project-specific details explain template behavior.
@@ -30,7 +30,7 @@ Portable rules for people and coding agents working in this repository. Machine-
 - Never delete or reclaim a deployment lock automatically. Use `Deployment/Common/Scripts/release-deploy-lock.sh` after verifying the owner is gone.
 - Never commit secrets, tokens, passwords, private keys, vault contents or real `.env` files.
 - Never force-push `main` or rewrite history others have pulled.
-- Never dispatch a deployment (`CD - Deploy LocalCluster`, `CD - Deploy LocalSingleNode`, `CD - Cloud`) without the operator's authorisation.
+- Never dispatch `CD - Deploy LocalSingleNode` without the operator's authorization.
 - Stage explicit paths. Do not use `git add -A` or `git add .` for integration commits.
 - Do not stash, reset or overwrite someone else's uncommitted work.
 
@@ -50,7 +50,7 @@ Portable rules for people and coding agents working in this repository. Machine-
 
 ## Shared deployment hosts
 
-- LocalCluster and LocalSingleNode hosts can run several apps. Host-level services (Docker, Caddy, cloudflared, the deployment lock) are shared: change them only through the deployment scripts, and only remove resources you can prove this repository owns.
+- A LocalSingleNode host can run several apps. Host-level services (Docker, Caddy, Avahi, and the deployment lock) are shared: change them only through the deployment scripts, and only remove resources you can prove this repository owns.
 - Never hard-code a cluster value (node IPs, DNS suffix, domain, ports). Forks read them from their own `machines.yml`, inventory and settings.
 
 ## Setting up this machine as a deployment node

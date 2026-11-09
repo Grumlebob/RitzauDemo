@@ -86,19 +86,17 @@ jobs:
           BACKUP: ${{ inputs.backup }}
         run: bash Deployment/Common/Scripts/with-deploy-lock.sh sudo -n python3 Deployment/LocalSingleNode/Scripts/lib/docker_gc.py rollback --backup "$BACKUP"
 
-      - name: Resolve protected application instance
+      - name: Resolve the primary app
         if: inputs.mode != 'report'
         env:
-          INPUT_APP_INSTANCE: primary
-          APP_INSTANCE_CONFIG: ${{ secrets.LOCALSINGLENODE_APP_INSTANCE }}
-          ADDITIONAL_INSTANCE_ENVIRONMENT: ${{ vars.LOCALSINGLENODE_ADDITIONAL_ENVIRONMENT }}
-          PRIMARY_INSTANCE_ENVIRONMENT: ${{ vars.LOCALSINGLENODE_ENVIRONMENT }}
+          GITHUB_SERVER_URL: ${{ github.server_url }}
+          GITHUB_REPOSITORY: ${{ github.repository }}
         run: |
           set -euo pipefail
           FRONTEND_PROFILE="$(python3 Scripts/Frontend/resolve_frontend_profile.py)"
           ACCEPTANCE_PROFILE="$(python3 Scripts/Frontend/resolve_frontend_profile.py --acceptance-profile)"
           export FRONTEND_PROFILE ACCEPTANCE_PROFILE
-          python3 Deployment/LocalSingleNode/Scripts/resolve-app-instance.py
+          python3 Deployment/LocalSingleNode/Scripts/resolve-deployment.py
 
       - name: Run HTTP acceptance after the restart
         if: inputs.mode != 'report'
@@ -112,4 +110,4 @@ jobs:
 
       - name: Remove temporary app configuration
         if: always()
-        run: rm -f -- "$RUNNER_TEMP/instance-settings.yml" "$RUNNER_TEMP/instance-vars.json"
+        run: rm -f -- "${DEPLOYMENT_VARS_FILE:-}" "$RUNNER_TEMP/deployment-vars.json"

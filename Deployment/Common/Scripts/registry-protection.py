@@ -22,7 +22,7 @@ class ProtectionError(ValueError):
     pass
 
 
-def protection(status: object, *, target: str, instance: str) -> dict:
+def protection(status: object, *, target: str) -> dict:
     if not isinstance(status, dict) or type(status.get("schema_version")) is not int or status["schema_version"] != 1:
         raise ProtectionError("release status schema is unavailable")
     if (status.get("target") != target or status.get("shared_lock") != "held"
@@ -77,7 +77,6 @@ def protection(status: object, *, target: str, instance: str) -> dict:
     return {
         "schema_version": 1,
         "target": target,
-        "instance": instance,
         "complete": True,
         "consumers": consumers,
         "registry_payload_references": normalized,
@@ -95,8 +94,7 @@ def format_output(value: dict, *, github_output: bool) -> str:
 def main(argv=None) -> int:
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("--status-json", type=Path, required=True)
-    parser.add_argument("--target", choices=("localcluster", "localsinglenode"), required=True)
-    parser.add_argument("--instance", choices=("cluster", "primary", "additional"), required=True)
+    parser.add_argument("--target", choices=("localsinglenode",), required=True)
     parser.add_argument("--github-output", action="store_true",
                         help="Emit the validated protection snapshot as gzip-compressed base64 for a cross-job GitHub output")
     args = parser.parse_args(argv)
@@ -104,7 +102,7 @@ def main(argv=None) -> int:
         if args.status_json.is_symlink() or not args.status_json.is_file() or args.status_json.stat().st_size > 1024 * 1024:
             raise ProtectionError("release status file is unsafe or exceeds its bound")
         status = json.loads(args.status_json.read_text(encoding="utf-8"))
-        value = protection(status, target=args.target, instance=args.instance)
+        value = protection(status, target=args.target)
         print(format_output(value, github_output=args.github_output))
         return 0
     except (OSError, UnicodeError, json.JSONDecodeError, ProtectionError) as error:

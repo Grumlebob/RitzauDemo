@@ -199,7 +199,7 @@ def dashboards() -> list[DashboardSpec]:
             variables=DETAIL_VARIABLES,
             links=[("Command Center", "books-command-center"), ("Application And Books", "books-application-and-books"), ("Telemetry And Alerts", "books-telemetry-and-alerts"), ("Logs And Traces", "books-logs-and-traces")],
             panels=[
-                text("Local Node Metrics Note", "Local Docker intentionally has limited node-exporter coverage in V1. Local PostgreSQL and Redis exporter panels should still show data. LocalCluster and Cloud show the full four-node fleet.", 0, 0, h=3),
+                text("Local Node Metrics Note", "Local Docker has limited node-exporter coverage. PostgreSQL and Redis panels appear when their local exporters are available.", 0, 0, h=3),
                 table("Node Target Health", 'up{deployment_target=~"$deployment_target", job=~"node-exporter|postgres-exporter|redis-exporter"}', 0, 3, w=12, h=7),
                 timeseries("CPU Usage By Node", '100 * (1 - avg by (node) (rate(node_cpu_seconds_total{deployment_target=~"$deployment_target", mode="idle"}[5m])))', 12, 3, legend="{{node}}", unit="percent"),
                 timeseries("Memory Available", 'node_memory_MemAvailable_bytes{deployment_target=~"$deployment_target"}', 0, 10, legend="{{node}}", unit="bytes"),
