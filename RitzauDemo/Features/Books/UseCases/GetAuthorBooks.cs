@@ -2,7 +2,6 @@ using Microsoft.AspNetCore.Http.HttpResults;
 using Microsoft.Extensions.Caching.Hybrid;
 using RitzauDemo.Core.Features.Books.UseCases.GetAuthorBooks;
 using RitzauDemo.Features.Books.Caching;
-using RitzauDemo.Features.Books.Endpoints;
 
 namespace RitzauDemo.Features.Books.UseCases.GetAuthorBooks;
 
