@@ -192,4 +192,4 @@ if RUNNER_TEMP="$TMP_ROOT/runner-temp" GITHUB_RUN_ID=123 GITHUB_RUN_ATTEMPT=2 ba
   echo "smoke unexpectedly replaced a foreign colliding resource" >&2
   exit 1
 fi
-grep -Fq '"localcluster.ci.repository": "other/repo"' "$SMOKE_STATE/sample-ci-web-123-2"
+grep -Fq '"localcluster.ci.repository":"other/repo"' "$SMOKE_STATE/sample-ci-web-123-2"
