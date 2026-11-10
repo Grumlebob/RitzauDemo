@@ -3,7 +3,6 @@
 @implements IDisposable
 
 @inject IBooksApi Books
-@inject UserBookcaseState UserBooks
 @inject AuthenticationStateProvider AuthenticationStateProvider
 @inject NavigationManager Nav
 @inject ILogger<BookEdit> Logger
@@ -62,7 +61,7 @@
     protected override async Task OnParametersSetAsync()
     {
         var authenticationState = await AuthenticationStateProvider.GetAuthenticationStateAsync();
-        await LoadForIdentityAsync(GetUserKey(authenticationState.User));
+        await LoadForIdentityAsync(authenticationState.User.GetStableUserId());
     }
 
     private async Task LoadForIdentityAsync(string? userId)
@@ -90,7 +89,7 @@
             var book = await Books.GetByIdAsync(new GetBookRequest { Id = Id }, load.Token);
             var latestAuthenticationState = await AuthenticationStateProvider.GetAuthenticationStateAsync();
             if (!IsCurrentLoad(load, version) ||
-                !string.Equals(userId, GetUserKey(latestAuthenticationState.User), StringComparison.Ordinal))
+                !string.Equals(userId, latestAuthenticationState.User.GetStableUserId(), StringComparison.Ordinal))
             {
                 return;
             }
@@ -157,19 +156,11 @@
             }
 
             var latestAuthenticationState = await AuthenticationStateProvider.GetAuthenticationStateAsync();
-            if (!string.Equals(userId, GetUserKey(latestAuthenticationState.User), StringComparison.Ordinal))
+            if (!string.Equals(userId, latestAuthenticationState.User.GetStableUserId(), StringComparison.Ordinal))
             {
                 return;
             }
 
-            UserBooks.ApplySavedBook(new BookListItemResponse
-            {
-                Id = Id,
-                Title = model.Title.Trim(),
-                Author = NormalizeOptional(model.Author),
-                Url = NormalizeOptional(model.Url)
-            });
-            await UserBooks.LoadForCurrentUserAsync(operation.Token);
             if (IsCurrentOperation(operation, version))
             {
                 Nav.NavigateTo($"/books/{Id}");
@@ -216,7 +207,7 @@
         try
         {
             var authenticationState = await authenticationStateTask;
-            var userId = GetUserKey(authenticationState.User);
+            var userId = authenticationState.User.GetStableUserId();
             if (_disposed || string.Equals(userId, _loadedUserId, StringComparison.Ordinal))
             {
                 return;
@@ -257,11 +248,6 @@
         {
         }
     }
-
-    private static string? GetUserKey(ClaimsPrincipal user) =>
-        user.Identity?.IsAuthenticated == true
-            ? user.FindFirst(ClaimTypes.NameIdentifier)?.Value ?? user.FindFirst(ClaimTypes.Name)?.Value ?? user.Identity.Name
-            : null;
 
     private void CancelActiveLoad()
     {

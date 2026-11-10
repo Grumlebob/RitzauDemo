@@ -15,7 +15,7 @@ public class BooksClientService(HttpClient http) : IBooksApi
     public async Task<GetBooksResponse> GetAsync(CancellationToken cancellationToken = default)
     {
         var res = await _http.GetFromJsonAsync<GetBooksResponse>("api/books", cancellationToken);
-        return res ?? new GetBooksResponse { Books = [] };
+        return res ?? throw new InvalidDataException("The Books API returned an empty list response.");
     }
 
     public async Task<GetBookResponse?> GetByIdAsync(GetBookRequest req, CancellationToken cancellationToken = default)
@@ -27,14 +27,16 @@ public class BooksClientService(HttpClient http) : IBooksApi
         }
 
         res.EnsureSuccessStatusCode();
-        return await res.Content.ReadFromJsonAsync<GetBookResponse>(cancellationToken);
+        return await res.Content.ReadFromJsonAsync<GetBookResponse>(cancellationToken)
+            ?? throw new InvalidDataException("The Books API returned an empty book response.");
     }
 
     public async Task<CreateBookResponse> CreateAsync(CreateBookRequest req, CancellationToken cancellationToken = default)
     {
         using var res = await _http.PostAsJsonAsync("api/books", req, cancellationToken);
         res.EnsureSuccessStatusCode();
-        return (await res.Content.ReadFromJsonAsync<CreateBookResponse>(cancellationToken))!;
+        return await res.Content.ReadFromJsonAsync<CreateBookResponse>(cancellationToken)
+            ?? throw new InvalidDataException("The Books API returned an empty create response.");
     }
 
     public async Task<bool> UpdateAsync(UpdateBookRequest req, CancellationToken cancellationToken = default)

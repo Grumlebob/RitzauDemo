@@ -1,5 +1,5 @@
-using System.Security.Claims;
 using Microsoft.AspNetCore.Components.Authorization;
+using RitzauDemo.Client.Features.Accounts;
 using RitzauDemo.Core.Features.Accounts.Contracts;
 
 namespace RitzauDemo.Client.Features.Books;
@@ -17,7 +17,7 @@ public sealed class BooksAntiforgeryHandler(AuthenticationStateProvider authenti
         // Capture the owner before any network request. A later session refresh must not
         // silently change the owner associated with this Books operation.
         var authentication = await authenticationStateProvider.GetAuthenticationStateAsync();
-        var capturedUserId = GetImmutableUserId(authentication.User);
+        var capturedUserId = authentication.User.GetStableUserId();
 
         var configurationUri = new Uri(request.RequestUri!, "/api/client-config");
         using var configurationRequest = new HttpRequestMessage(HttpMethod.Get, configurationUri);
@@ -56,13 +56,4 @@ public sealed class BooksAntiforgeryHandler(AuthenticationStateProvider authenti
     private static bool IsBooksRequest(Uri? requestUri) => requestUri is not null
         && requestUri.AbsolutePath.StartsWith("/api/books", StringComparison.OrdinalIgnoreCase);
 
-    private static string? GetImmutableUserId(ClaimsPrincipal user)
-    {
-        if (user.Identity?.IsAuthenticated != true)
-        {
-            return null;
-        }
-
-        return user.FindFirst(ClaimTypes.NameIdentifier)?.Value ?? user.FindFirst("sub")?.Value;
-    }
 }

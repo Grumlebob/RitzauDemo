@@ -3,7 +3,6 @@
 @implements IDisposable
 
 @inject IBooksApi Books
-@inject UserBookcaseState UserBooks
 @inject AuthenticationStateProvider AuthenticationStateProvider
 @inject NavigationManager Nav
 @inject ILogger<BookCreate> Logger
@@ -29,19 +28,19 @@
 
     private async Task SaveAsync(BookFormModel model)
     {
-        if (_saving) return;
-        var authenticationState = await AuthenticationStateProvider.GetAuthenticationStateAsync();
-        var userId = GetUserKey(authenticationState.User);
-        if (!authenticationState.User.IsInRole(AccountRoleNames.Admin) || string.IsNullOrWhiteSpace(userId))
-        {
-            _error = "Administrator access is required to add a book.";
-            return;
-        }
-
+        if (!RendererInfo.IsInteractive || _saving) return;
         _saving = true;
         _error = null;
         try
         {
+            var authenticationState = await AuthenticationStateProvider.GetAuthenticationStateAsync();
+            var userId = authenticationState.User.GetStableUserId();
+            if (!authenticationState.User.IsInRole(AccountRoleNames.Admin) || string.IsNullOrWhiteSpace(userId))
+            {
+                _error = "Administrator access is required to add a book.";
+                return;
+            }
+
             var created = await Books.CreateAsync(new CreateBookRequest
             {
                 Title = model.Title.Trim(),
@@ -50,20 +49,12 @@
             }, _operationCancellation.Token);
 
             var latestAuthenticationState = await AuthenticationStateProvider.GetAuthenticationStateAsync();
-            if (!string.Equals(userId, GetUserKey(latestAuthenticationState.User), StringComparison.Ordinal) ||
+            if (!string.Equals(userId, latestAuthenticationState.User.GetStableUserId(), StringComparison.Ordinal) ||
                 !latestAuthenticationState.User.IsInRole(AccountRoleNames.Admin))
             {
                 return;
             }
 
-            UserBooks.ApplySavedBook(new BookListItemResponse
-            {
-                Id = created.Id,
-                Title = created.Title,
-                Author = created.Author,
-                Url = created.Url
-            });
-            await UserBooks.LoadForCurrentUserAsync(_operationCancellation.Token);
             Nav.NavigateTo($"/books/{created.Id}");
         }
         catch (OperationCanceledException) when (_operationCancellation.IsCancellationRequested)
@@ -82,11 +73,6 @@
 
     private static string? NormalizeOptional(string? value) =>
         string.IsNullOrWhiteSpace(value) ? null : value.Trim();
-
-    private static string? GetUserKey(ClaimsPrincipal user) =>
-        user.FindFirst(ClaimTypes.NameIdentifier)?.Value ??
-        user.FindFirst(ClaimTypes.Name)?.Value ??
-        user.Identity?.Name;
 
     public void Dispose()
     {
