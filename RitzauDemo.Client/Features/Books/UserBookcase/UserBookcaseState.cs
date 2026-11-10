@@ -1,7 +1,7 @@
 using System.Security.Claims;
 using Microsoft.AspNetCore.Components.Authorization;
+using RitzauDemo.Client.Features.Accounts;
 using RitzauDemo.Core.Features.Books.Contracts;
-using RitzauDemo.Core.Features.Books.UseCases.DeleteBook;
 using RitzauDemo.Core.Features.Books.UseCases.GetBooks;
 
 namespace RitzauDemo.Client.Features.Books.UserBookcase;
@@ -38,7 +38,7 @@ public sealed class UserBookcaseState(
             return;
         }
 
-        var userId = GetUserKey(authenticationState.User);
+        var userId = authenticationState.User.GetStableUserId();
         SetCurrentUser(userId);
         if (string.IsNullOrWhiteSpace(userId))
         {
@@ -56,7 +56,7 @@ public sealed class UserBookcaseState(
                 return;
             }
 
-            var latestUserId = GetUserKey(latestAuthenticationState.User);
+            var latestUserId = latestAuthenticationState.User.GetStableUserId();
             if (!string.Equals(userId, latestUserId, StringComparison.Ordinal))
             {
                 ResetForIdentity(latestAuthenticationState.User);
@@ -85,7 +85,7 @@ public sealed class UserBookcaseState(
 
     public void ResetForIdentity(ClaimsPrincipal user)
     {
-        var userId = GetUserKey(user);
+        var userId = user.GetStableUserId();
         if (string.Equals(userId, _currentUserId, StringComparison.Ordinal))
         {
             return;
@@ -97,61 +97,6 @@ public sealed class UserBookcaseState(
         Error = null;
         IsLoading = false;
         NotifyChanged();
-    }
-
-    public void ApplySavedBook(BookListItemResponse savedBook)
-    {
-        Interlocked.Increment(ref _version);
-        Books = Books
-            .Where(book => book.Id != savedBook.Id)
-            .Append(savedBook)
-            .OrderBy(book => book.Id)
-            .ToList();
-        IsLoading = false;
-        Error = null;
-        NotifyChanged();
-    }
-
-    public async Task<bool> DeleteAsync(int id, CancellationToken cancellationToken = default)
-    {
-        var version = Interlocked.Increment(ref _version);
-        var userId = _currentUserId;
-        try
-        {
-            var success = await _books.DeleteAsync(new DeleteBookRequest { Id = id }, cancellationToken);
-            if (!success)
-            {
-                return false;
-            }
-
-            var authenticationState = await _authenticationStateProvider.GetAuthenticationStateAsync();
-            if (version == Volatile.Read(ref _version) &&
-                string.Equals(userId, GetUserKey(authenticationState.User), StringComparison.Ordinal))
-            {
-                Books = Books.Where(book => book.Id != id).ToList();
-                IsLoading = false;
-                Error = null;
-                NotifyChanged();
-            }
-
-            return true;
-        }
-        catch (OperationCanceledException) when (cancellationToken.IsCancellationRequested)
-        {
-            return false;
-        }
-        catch (Exception ex)
-        {
-            if (version == Volatile.Read(ref _version))
-            {
-                _logger.LogWarning(ex, "User book delete failed for book {BookId}", id);
-                Error = "Book could not be deleted.";
-                IsLoading = false;
-                NotifyChanged();
-            }
-
-            return false;
-        }
     }
 
     private void ApplyLoadResult(int version, IReadOnlyList<BookListItemResponse> books)
@@ -180,15 +125,4 @@ public sealed class UserBookcaseState(
 
     private void NotifyChanged() => Changed?.Invoke();
 
-    private static string? GetUserKey(ClaimsPrincipal user)
-    {
-        if (user.Identity?.IsAuthenticated != true)
-        {
-            return null;
-        }
-
-        return user.FindFirst(ClaimTypes.NameIdentifier)?.Value ??
-               user.FindFirst(ClaimTypes.Name)?.Value ??
-               user.Identity.Name;
-    }
 }

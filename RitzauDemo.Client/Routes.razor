@@ -7,14 +7,14 @@
         <AuthorizeRouteView RouteData="routeData" DefaultLayout="typeof(MainLayout)">
             <NotAuthorized Context="routeNotAuthorized">
                 <AuthorizeView>
-                    <Authorized Context="authenticatedUser">
+                    <Authorized>
                         <main class="mx-auto max-w-2xl rounded-xl border border-gray-200 bg-white p-6 shadow-sm" data-testid="access-denied">
                             <h1 class="text-2xl font-bold text-gray-900">Access denied</h1>
                             <p class="mt-2 text-sm text-gray-600">Your account does not have permission to open this page.</p>
                             <a class="mt-4 inline-flex min-h-10 items-center text-sm font-semibold text-blue-700 underline underline-offset-4" href="/books">Back to books</a>
                         </main>
                     </Authorized>
-                    <NotAuthorized Context="anonymousUser">
+                    <NotAuthorized>
                         <RedirectToLogin />
                     </NotAuthorized>
                 </AuthorizeView>

@@ -3,7 +3,6 @@
 @implements IDisposable
 
 @inject IBooksApi Books
-@inject UserBookcaseState UserBooks
 @inject AuthenticationStateProvider AuthenticationStateProvider
 @inject NavigationManager Nav
 @inject ILogger<UserBookDetails> Logger
@@ -73,7 +72,9 @@ else
     protected override void OnInitialized() =>
         AuthenticationStateProvider.AuthenticationStateChanged += HandleAuthenticationStateChanged;
 
-    protected override async Task OnParametersSetAsync()
+    protected override Task OnParametersSetAsync() => LoadBookAsync();
+
+    private async Task LoadBookAsync()
     {
         CancelActiveLoad();
         CancelActiveOperation();
@@ -84,12 +85,13 @@ else
         _loadError = null;
         _operationError = null;
         _confirmDelete = false;
+        _isDeleting = false;
         _isLoading = true;
 
         try
         {
             var authenticationState = await AuthenticationStateProvider.GetAuthenticationStateAsync();
-            var userId = GetUserKey(authenticationState.User);
+            var userId = authenticationState.User.GetStableUserId();
             _loadedUserId = userId;
             _canManage = authenticationState.User.IsInRole(AccountRoleNames.Admin);
             if (string.IsNullOrWhiteSpace(userId))
@@ -100,7 +102,7 @@ else
             var response = await Books.GetByIdAsync(new GetBookRequest { Id = Id }, load.Token);
             var latestAuthenticationState = await AuthenticationStateProvider.GetAuthenticationStateAsync();
             if (version != Volatile.Read(ref _loadVersion) || load.IsCancellationRequested ||
-                !string.Equals(userId, GetUserKey(latestAuthenticationState.User), StringComparison.Ordinal))
+                !string.Equals(userId, latestAuthenticationState.User.GetStableUserId(), StringComparison.Ordinal))
             {
                 return;
             }
@@ -179,13 +181,12 @@ else
             }
 
             var latestAuthenticationState = await AuthenticationStateProvider.GetAuthenticationStateAsync();
-            if (!string.Equals(userId, GetUserKey(latestAuthenticationState.User), StringComparison.Ordinal))
+            if (!string.Equals(userId, latestAuthenticationState.User.GetStableUserId(), StringComparison.Ordinal))
             {
                 _book = null;
                 return;
             }
 
-            await UserBooks.LoadForCurrentUserAsync(operation.Token);
             if (IsCurrentOperation(operation, version))
             {
                 Nav.NavigateTo("/books");
@@ -222,14 +223,14 @@ else
         ReferenceEquals(_activeOperation, operation);
 
     private void HandleAuthenticationStateChanged(Task<AuthenticationState> authenticationStateTask) =>
-        _ = ClearAfterAuthenticationChangeAsync(authenticationStateTask);
+        _ = RefreshAfterAuthenticationChangeAsync(authenticationStateTask);
 
-    private async Task ClearAfterAuthenticationChangeAsync(Task<AuthenticationState> authenticationStateTask)
+    private async Task RefreshAfterAuthenticationChangeAsync(Task<AuthenticationState> authenticationStateTask)
     {
         try
         {
             var authenticationState = await authenticationStateTask;
-            var userId = GetUserKey(authenticationState.User);
+            var userId = authenticationState.User.GetStableUserId();
             var canManage = authenticationState.User.IsInRole(AccountRoleNames.Admin);
             if (_disposed ||
                 (string.Equals(userId, _loadedUserId, StringComparison.Ordinal) && canManage == _canManage))
@@ -237,7 +238,7 @@ else
                 return;
             }
 
-            await InvokeAsync(() =>
+            await InvokeAsync(async () =>
             {
                 if (_disposed)
                 {
@@ -245,20 +246,35 @@ else
                 }
 
                 var identityChanged = !string.Equals(userId, _loadedUserId, StringComparison.Ordinal);
-                _loadedUserId = userId;
-                _canManage = canManage;
-                if (identityChanged || !canManage)
+                var roleChanged = canManage != _canManage;
+                if (!identityChanged && !roleChanged)
                 {
-                    _book = null;
-                    _isLoading = false;
-                    _confirmDelete = false;
-                    _operationError = null;
-                    CancelActiveLoad();
-                    CancelActiveOperation();
-                    Interlocked.Increment(ref _loadVersion);
+                    return;
                 }
 
+                _canManage = canManage;
+                if (!identityChanged)
+                {
+                    if (!canManage)
+                    {
+                        _confirmDelete = false;
+                        _operationError = null;
+                        CancelActiveOperation();
+                        _isDeleting = false;
+                    }
+
+                    StateHasChanged();
+                    return;
+                }
+
+                _loadedUserId = userId;
+                var reload = LoadBookAsync();
                 StateHasChanged();
+                await reload;
+                if (!_disposed)
+                {
+                    StateHasChanged();
+                }
             });
         }
         catch (ObjectDisposedException) when (_disposed)
@@ -268,18 +284,6 @@ else
     }
 
     private static string GetEditHref(int id) => $"/books/{id.ToString(System.Globalization.CultureInfo.InvariantCulture)}/edit";
-
-    private static string? GetUserKey(ClaimsPrincipal user)
-    {
-        if (user.Identity?.IsAuthenticated != true)
-        {
-            return null;
-        }
-
-        return user.FindFirst(ClaimTypes.NameIdentifier)?.Value ??
-               user.FindFirst(ClaimTypes.Name)?.Value ??
-               user.Identity.Name;
-    }
 
     private void CancelActiveLoad()
     {
